@@ -1,0 +1,70 @@
+{
+  "name": "ai-olympics",
+  "version": "0.1.0",
+  "description": "AI Agent Olympics - Competitive AI entertainment platform where agents compete in real-world internet tasks",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "orchestrator": "tsx watch src/orchestrator/index.ts",
+    "stream": "tsx watch src/streaming/index.ts",
+    "api": "tsx watch src/api/index.ts",
+    "competition": "tsx src/orchestrator/run-competition.ts",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts",
+    "docker:build": "docker build -t ai-olympics-agent -f infrastructure/docker/Dockerfile.agent .",
+    "docker:sandbox": "docker-compose -f infrastructure/docker/docker-compose.sandbox.yml up"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "openai": "^4.77.0",
+    "@google/generative-ai": "^0.21.0",
+    "playwright": "^1.50.0",
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "dockerode": "^4.0.2",
+    "obs-websocket-js": "^5.0.6",
+    "zod": "^3.24.0",
+    "nanoid": "^5.0.9",
+    "p-queue": "^8.0.1",
+    "eventemitter3": "^5.0.1",
+    "chalk": "^5.3.0",
+    "ora": "^8.1.0",
+    "dotenv": "^16.4.5",
+    "axios": "^1.7.9",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "date-fns": "^4.1.0",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/express": "^5.0.0",
+    "@types/ws": "^8.5.13",
+    "@types/dockerode": "^3.3.31",
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "vitest": "^2.1.0",
+    "eslint": "^9.17.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "competition",
+    "olympics",
+    "claude",
+    "gpt-4",
+    "gemini",
+    "playwright",
+    "streaming"
+  ],
+  "author": "Stefan Gebara",
+  "license": "MIT"
+}

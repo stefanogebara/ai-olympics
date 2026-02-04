@@ -1,0 +1,96 @@
+# Docker Compose for AI Olympics Development
+# Run multiple agent sandboxes locally
+
+version: '3.8'
+
+services:
+  # Claude Agent Sandbox
+  sandbox-claude:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.agent
+    container_name: sandbox-claude
+    environment:
+      - AGENT_ID=claude-opus
+      - AGENT_PROVIDER=claude
+      - HEADLESS=false
+      - VIEWPORT_WIDTH=1920
+      - VIEWPORT_HEIGHT=1080
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    ports:
+      - "9222:9222"
+    networks:
+      - ai-olympics
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN
+
+  # GPT-4 Agent Sandbox
+  sandbox-gpt4:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.agent
+    container_name: sandbox-gpt4
+    environment:
+      - AGENT_ID=gpt-4o
+      - AGENT_PROVIDER=openai
+      - HEADLESS=false
+      - VIEWPORT_WIDTH=1920
+      - VIEWPORT_HEIGHT=1080
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    ports:
+      - "9223:9222"
+    networks:
+      - ai-olympics
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN
+
+  # Gemini Agent Sandbox
+  sandbox-gemini:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.agent
+    container_name: sandbox-gemini
+    environment:
+      - AGENT_ID=gemini-pro
+      - AGENT_PROVIDER=gemini
+      - HEADLESS=false
+      - VIEWPORT_WIDTH=1920
+      - VIEWPORT_HEIGHT=1080
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+    ports:
+      - "9224:9222"
+    networks:
+      - ai-olympics
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN
+
+networks:
+  ai-olympics:
+    driver: bridge
