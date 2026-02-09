@@ -8,6 +8,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // AI APIs
+  openRouterApiKey: process.env.OPENROUTER_API_KEY || '',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   googleAiApiKey: process.env.GOOGLE_AI_API_KEY || '',
@@ -75,8 +76,13 @@ export const AGENT_PRESETS: Record<string, AgentConfig> = {
   }
 };
 
-// Get API key for a provider
+// Get API key for a provider (OpenRouter takes priority if configured)
 export function getApiKey(provider: AgentProvider): string {
+  // If OpenRouter is configured, it handles all providers
+  if (config.openRouterApiKey) {
+    return config.openRouterApiKey;
+  }
+
   switch (provider) {
     case 'claude':
       return config.anthropicApiKey;
@@ -89,12 +95,24 @@ export function getApiKey(provider: AgentProvider): string {
   }
 }
 
+// Check if OpenRouter is configured
+export function useOpenRouter(): boolean {
+  return !!config.openRouterApiKey;
+}
+
 // Validate required configuration
 export function validateConfig(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
+  // OpenRouter provides access to all models
+  if (config.openRouterApiKey) {
+    console.log('✓ OpenRouter API key configured - all models available');
+    return { valid: true, errors: [] };
+  }
+
+  // Fallback to individual API keys
   if (!config.anthropicApiKey) {
-    errors.push('ANTHROPIC_API_KEY is required');
+    errors.push('ANTHROPIC_API_KEY or OPENROUTER_API_KEY is required');
   }
 
   // OpenAI and Google are optional but warn

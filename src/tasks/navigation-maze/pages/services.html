@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Services - MazeWorld</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    .nav-header {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .logo { font-size: 1.5rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .nav-links { display: flex; gap: 30px; }
+    .nav-links a { color: #a0aec0; text-decoration: none; padding: 8px 16px; border-radius: 8px; transition: all 0.2s; }
+    .nav-links a:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+    .timer { position: fixed; top: 80px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 15px 25px; border-radius: 10px; font-family: monospace; font-size: 1.5rem; color: #00d4ff; z-index: 100; }
+    .click-counter { position: fixed; top: 140px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 10px 20px; border-radius: 10px; font-size: 1rem; color: #7c3aed; }
+    .main-content { padding: 40px; max-width: 1000px; margin: 0 auto; }
+    .page-title { font-size: 2rem; margin-bottom: 30px; color: #00d4ff; }
+    .clue-box { background: rgba(124, 58, 237, 0.2); border: 2px solid #7c3aed; border-radius: 16px; padding: 20px; margin-bottom: 30px; }
+    .clue-box h3 { color: #7c3aed; margin-bottom: 10px; }
+    .clue-box p { color: #e2e8f0; }
+    .services-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; }
+    .service-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 25px; transition: transform 0.2s; }
+    .service-card:hover { transform: translateY(-5px); }
+    .service-card h3 { color: #e2e8f0; margin-bottom: 10px; }
+    .service-card p { color: #718096; font-size: 0.9rem; margin-bottom: 15px; }
+    .service-link { display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #7c3aed, #00d4ff); border-radius: 8px; color: white; text-decoration: none; font-weight: 600; }
+    .highlight { background: rgba(0, 212, 255, 0.2); border-color: #00d4ff !important; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+  <div class="click-counter" id="clickCounter">Clicks: 0</div>
+
+  <nav class="nav-header">
+    <div class="logo">MazeWorld</div>
+    <div class="nav-links">
+      <a href="../index.html" aria-label="Home">Home</a>
+      <a href="products.html" aria-label="Products">Products</a>
+      <a href="services.html" aria-label="Services">Services</a>
+      <a href="about.html" aria-label="About">About</a>
+      <a href="contact.html" aria-label="Contact">Contact</a>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <h1 class="page-title">Our Services</h1>
+
+    <div class="clue-box">
+      <h3>Clue Found!</h3>
+      <p>Great start! Now look for something "special" - our premium packages hold the next secret. The treasure seekers always look for exceptional value.</p>
+    </div>
+
+    <div class="services-grid">
+      <div class="service-card">
+        <h3>Basic Consulting</h3>
+        <p>Entry-level consulting services for small businesses getting started.</p>
+        <a href="consulting-basic.html" class="service-link" aria-label="Learn More about Basic Consulting">Learn More</a>
+      </div>
+
+      <div class="service-card highlight">
+        <h3>Special Packages</h3>
+        <p>Our premium offering with exclusive features and dedicated support. Something special awaits!</p>
+        <a href="special-packages.html" class="service-link" aria-label="View Special Packages">View Packages</a>
+      </div>
+
+      <div class="service-card">
+        <h3>Technical Support</h3>
+        <p>24/7 technical support for all your troubleshooting needs.</p>
+        <a href="support.html" class="service-link" aria-label="Get Support">Get Support</a>
+      </div>
+
+      <div class="service-card">
+        <h3>Training Programs</h3>
+        <p>Comprehensive training programs for teams and individuals.</p>
+        <a href="training.html" class="service-link" aria-label="View Training">View Training</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let startTime = parseInt(sessionStorage.getItem('mazeStartTime') || String(Date.now()), 10);
+    let clickCount = parseInt(sessionStorage.getItem('mazeClickCount') || '0', 10);
+    const timerEl = document.getElementById('timer');
+    const clickCounterEl = document.getElementById('clickCounter');
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      const minutes = Math.floor(elapsed / 60000);
+      const seconds = Math.floor((elapsed % 60000) / 1000);
+      const millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+    clickCounterEl.textContent = 'Clicks: ' + clickCount;
+    document.addEventListener('click', function(e) {
+      const link = e.target.closest('a');
+      if (link && link.href) {
+        clickCount++;
+        sessionStorage.setItem('mazeClickCount', String(clickCount));
+      }
+    });
+  </script>
+</body>
+</html>

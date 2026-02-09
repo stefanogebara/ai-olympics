@@ -6,6 +6,7 @@ export class PrecisionTimer {
   private pausedDuration: number = 0;
   private isRunning: boolean = false;
   private isPaused: boolean = false;
+  private finalElapsed: number = 0;  // Store final time when stopped
 
   start(): void {
     if (this.isRunning) return;
@@ -13,6 +14,7 @@ export class PrecisionTimer {
     this.isRunning = true;
     this.isPaused = false;
     this.pausedDuration = 0;
+    this.finalElapsed = 0;
   }
 
   pause(): void {
@@ -28,16 +30,22 @@ export class PrecisionTimer {
   }
 
   stop(): number {
-    if (!this.isRunning) return 0;
-    this.isRunning = false;
+    if (!this.isRunning) return this.finalElapsed;
+
+    // Calculate final elapsed BEFORE setting isRunning to false
     if (this.isPaused) {
       this.pausedDuration += performance.now() - this.pauseTime;
     }
-    return this.elapsed();
+    const now = this.isPaused ? this.pauseTime : performance.now();
+    this.finalElapsed = now - this.startTime - this.pausedDuration;
+
+    this.isRunning = false;
+    return this.finalElapsed;
   }
 
   elapsed(): number {
-    if (!this.isRunning) return 0;
+    // If stopped, return the final elapsed time
+    if (!this.isRunning) return this.finalElapsed;
     const now = this.isPaused ? this.pauseTime : performance.now();
     return now - this.startTime - this.pausedDuration;
   }
@@ -52,6 +60,7 @@ export class PrecisionTimer {
     this.pausedDuration = 0;
     this.isRunning = false;
     this.isPaused = false;
+    this.finalElapsed = 0;
   }
 }
 

@@ -74,22 +74,46 @@ export class AgentRunner {
 
     log.agent(this.id, 'Initializing browser');
 
-    this.browser = await chromium.launch({
-      headless: this.runnerConfig.headless,
-      args: ['--start-maximized']
-    });
+    try {
+      this.browser = await chromium.launch({
+        headless: this.runnerConfig.headless,
+        args: [
+          '--start-maximized',
+          '--disable-gpu',  // More stable on Windows
+          '--no-sandbox',
+          '--disable-dev-shm-usage'  // Prevent shared memory issues
+        ]
+      });
 
-    const context = await this.browser.newContext({
-      viewport: this.runnerConfig.viewport,
-      recordVideo: this.runnerConfig.recordActions ? {
-        dir: `./recordings/${this.competitionId}/${this.eventId}`,
-        size: this.runnerConfig.viewport
-      } : undefined
-    });
+      // Listen for browser disconnection
+      this.browser.on('disconnected', () => {
+        log.agent(this.id, 'Browser disconnected');
+        this.page = null;
+        this.browser = null;
+      });
 
-    this.page = await context.newPage();
+      const context = await this.browser.newContext({
+        viewport: this.runnerConfig.viewport,
+        recordVideo: this.runnerConfig.recordActions ? {
+          dir: `./recordings/${this.competitionId}/${this.eventId}`,
+          size: this.runnerConfig.viewport
+        } : undefined
+      });
 
-    log.agent(this.id, 'Browser initialized');
+      this.page = await context.newPage();
+
+      // Listen for page crashes
+      this.page.on('crash', () => {
+        log.agent(this.id, 'Page crashed');
+        this.page = null;
+      });
+
+      log.agent(this.id, 'Browser initialized');
+
+    } catch (error) {
+      log.error(`Failed to initialize browser for ${this.id}`, { error });
+      throw error;
+    }
   }
 
   // Run the agent on a task
@@ -130,6 +154,11 @@ export class AgentRunner {
         turnCount++;
         log.agent(this.id, `Turn ${turnCount}`);
 
+        // Check if page is still valid
+        if (!this.isPageValid()) {
+          throw new Error('Browser page was closed unexpectedly');
+        }
+
         // Get current page state
         const pageState = await this.getPageState();
 
@@ -148,9 +177,26 @@ export class AgentRunner {
           this.emitAction('thinking', turnResult.thinking, true);
         }
 
-        // Execute tool calls
+        // Execute tool calls and collect results
+        const toolResults: Array<{ toolCallId: string; toolName: string; result: string; error?: string }> = [];
+
         for (const toolCall of turnResult.toolCalls) {
+          // Check page validity before each tool call
+          if (!this.isPageValid()) {
+            throw new Error('Browser page was closed during tool execution');
+          }
+
           const result = await this.executeToolCall(toolCall);
+
+          // Collect tool result for the adapter
+          if (toolCall.id) {
+            toolResults.push({
+              toolCallId: toolCall.id,
+              toolName: toolCall.name,
+              result: result,
+              error: result.startsWith('Error:') ? result : undefined
+            });
+          }
 
           // Check for task timeout
           if (this.timer.elapsedSeconds() > task.timeLimit) {
@@ -158,6 +204,11 @@ export class AgentRunner {
             error = 'Task time limit exceeded';
             break;
           }
+        }
+
+        // Pass tool results back to the adapter for conversation continuity
+        if (toolResults.length > 0 && 'addToolResults' in this.adapter) {
+          (this.adapter as any).addToolResults(toolResults);
         }
 
         // Check if agent signaled completion
@@ -214,12 +265,23 @@ export class AgentRunner {
     }
   }
 
+  // Check if page is still valid
+  private isPageValid(): boolean {
+    try {
+      return this.page !== null && !this.page.isClosed();
+    } catch {
+      return false;
+    }
+  }
+
   // Get the current page state for the agent
   private async getPageState(): Promise<PageState> {
-    if (!this.page) throw new Error('No page available');
+    if (!this.page || !this.isPageValid()) {
+      throw new Error('Page is closed or unavailable');
+    }
 
     const url = this.page.url();
-    const title = await this.page.title();
+    const title = await this.page.title().catch(() => 'Unknown');
 
     // Get simplified accessibility tree
     const accessibilityTree = await this.getAccessibilityTree();
@@ -235,36 +297,49 @@ export class AgentRunner {
   private async getAccessibilityTree(): Promise<string> {
     if (!this.page) return '';
 
-    // Get interactive elements using accessibility snapshot
-    const snapshot = await this.page.accessibility.snapshot();
-    if (!snapshot) return 'No accessibility information available';
+    try {
+      // Use ariaSnapshot for modern Playwright
+      const snapshot = await this.page.locator('body').ariaSnapshot();
+      return snapshot || 'No accessibility information available';
+    } catch {
+      // Fallback: Extract interactive elements manually
+      const elements = await this.page.evaluate((): string => {
+        const interactiveElements: string[] = [];
 
-    // Format the tree for the agent
-    const formatNode = (node: any, depth: number = 0): string => {
-      const indent = '  '.repeat(depth);
-      let result = '';
+        // Get all form elements and interactive items
+        const selectors = [
+          'input', 'button', 'select', 'textarea', 'a[href]',
+          '[role="button"]', '[role="link"]', '[role="textbox"]',
+          '[role="combobox"]', '[role="checkbox"]', '[role="radio"]'
+        ];
 
-      if (node.role && node.role !== 'none') {
-        const name = node.name ? ` "${node.name}"` : '';
-        const value = node.value ? ` value="${node.value}"` : '';
-        const checked = node.checked !== undefined ? ` checked=${node.checked}` : '';
-        const selected = node.selected !== undefined ? ` selected=${node.selected}` : '';
-        const disabled = node.disabled ? ' disabled' : '';
-        const focused = node.focused ? ' (focused)' : '';
+        const els = document.querySelectorAll(selectors.join(', '));
+        els.forEach((el: Element, index: number) => {
+          const tag = el.tagName.toLowerCase();
+          const type = el.getAttribute('type') || '';
+          const name = el.getAttribute('name') || '';
+          const id = el.getAttribute('id') || '';
+          const label = el.getAttribute('aria-label') ||
+                       el.getAttribute('placeholder') ||
+                       (el as unknown as { innerText?: string }).innerText?.slice(0, 50) || '';
+          const value = (el as unknown as { value?: string }).value || '';
 
-        result += `${indent}[${node.role}]${name}${value}${checked}${selected}${disabled}${focused}\n`;
-      }
+          let desc = `[${index}] <${tag}`;
+          if (type) desc += ` type="${type}"`;
+          if (name) desc += ` name="${name}"`;
+          if (id) desc += ` id="${id}"`;
+          if (label) desc += ` label="${label}"`;
+          if (value) desc += ` value="${value}"`;
+          desc += '>';
 
-      if (node.children) {
-        for (const child of node.children) {
-          result += formatNode(child, depth + 1);
-        }
-      }
+          interactiveElements.push(desc);
+        });
 
-      return result;
-    };
+        return interactiveElements.join('\n');
+      });
 
-    return formatNode(snapshot);
+      return elements || 'No interactive elements found';
+    }
   }
 
   // Execute a tool call
@@ -344,7 +419,7 @@ export class AgentRunner {
               .first()
               .click();
           } else {
-            await this.page.locator('form').first().evaluate((form: HTMLFormElement) => form.submit());
+            await this.page.locator('form').first().evaluate((form) => (form as unknown as { submit: () => void }).submit());
           }
           result = 'Form submitted';
           break;

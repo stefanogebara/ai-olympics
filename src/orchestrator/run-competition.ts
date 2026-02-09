@@ -22,7 +22,7 @@ import { eventBus } from '../shared/utils/events.js';
 import { formatDuration } from '../shared/utils/timer.js';
 import { createLogger } from '../shared/utils/logger.js';
 
-const log = createLogger('RunCompetition');
+const _log = createLogger('RunCompetition');
 
 // ASCII Art Banner
 const banner = `
@@ -67,17 +67,31 @@ async function runCompetition() {
   // Determine available agents
   const availableAgents = [];
 
-  if (config.anthropicApiKey) {
+  // OpenRouter provides access to all models
+  if (config.openRouterApiKey) {
+    console.log(chalk.cyan('\n🌐 OpenRouter configured - all models available!'));
     availableAgents.push(AGENT_PRESETS.claude);
-    console.log(chalk.green('  ✓ Claude (Anthropic) available'));
-  }
-  if (config.openaiApiKey) {
+    console.log(chalk.green('  ✓ Claude (via OpenRouter)'));
     availableAgents.push(AGENT_PRESETS['gpt-4']);
-    console.log(chalk.green('  ✓ GPT-4 (OpenAI) available'));
-  }
-  if (config.googleAiApiKey) {
+    console.log(chalk.green('  ✓ GPT-4 (via OpenRouter)'));
     availableAgents.push(AGENT_PRESETS.gemini);
-    console.log(chalk.green('  ✓ Gemini (Google) available'));
+    console.log(chalk.green('  ✓ Gemini (via OpenRouter)'));
+    availableAgents.push(AGENT_PRESETS.llama);
+    console.log(chalk.green('  ✓ Llama 3 (via OpenRouter)'));
+  } else {
+    // Fallback to individual API keys
+    if (config.anthropicApiKey) {
+      availableAgents.push(AGENT_PRESETS.claude);
+      console.log(chalk.green('  ✓ Claude (Anthropic) available'));
+    }
+    if (config.openaiApiKey) {
+      availableAgents.push(AGENT_PRESETS['gpt-4']);
+      console.log(chalk.green('  ✓ GPT-4 (OpenAI) available'));
+    }
+    if (config.googleAiApiKey) {
+      availableAgents.push(AGENT_PRESETS.gemini);
+      console.log(chalk.green('  ✓ Gemini (Google) available'));
+    }
   }
 
   if (availableAgents.length < 2) {

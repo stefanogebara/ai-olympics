@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Captcha Gauntlet</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      padding: 30px;
+      color: #fff;
+    }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { font-size: 2.2rem; background: linear-gradient(90deg, #00d4ff, #7c3aed, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+    .timer { position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 15px 25px; border-radius: 10px; font-family: monospace; font-size: 1.5rem; color: #00d4ff; z-index: 100; }
+    .progress-bar { max-width: 600px; margin: 0 auto 30px; background: rgba(255, 255, 255, 0.1); height: 10px; border-radius: 5px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #00d4ff); transition: width 0.3s; }
+    .challenge-container { max-width: 600px; margin: 0 auto; }
+    .challenge-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 30px; margin-bottom: 20px; }
+    .challenge-number { color: #7c3aed; font-size: 0.9rem; margin-bottom: 10px; }
+    .challenge-title { color: #00d4ff; font-size: 1.3rem; margin-bottom: 15px; }
+    .challenge-text { color: #e2e8f0; line-height: 1.6; margin-bottom: 20px; font-size: 1.1rem; }
+    .challenge-input { width: 100%; padding: 14px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; color: white; font-size: 1rem; margin-bottom: 15px; }
+    .challenge-input:focus { outline: none; border-color: #7c3aed; }
+    .submit-btn { width: 100%; padding: 14px; background: linear-gradient(90deg, #7c3aed, #00d4ff); border: none; border-radius: 10px; color: white; font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .submit-btn:hover { opacity: 0.9; }
+    .submit-btn:disabled { background: #4a5568; cursor: not-allowed; }
+    .feedback { margin-top: 15px; padding: 12px; border-radius: 8px; }
+    .feedback.correct { background: rgba(72, 187, 120, 0.2); color: #48bb78; }
+    .feedback.incorrect { background: rgba(252, 129, 129, 0.2); color: #fc8181; }
+    .hidden { display: none; }
+    .success-screen { text-align: center; padding: 40px; }
+    .success-icon { font-size: 5rem; margin-bottom: 20px; }
+    .success-screen h2 { color: #48bb78; font-size: 2rem; margin-bottom: 15px; }
+    .score-display { font-size: 3rem; font-weight: bold; color: #00d4ff; margin: 20px 0; }
+    .results-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
+    .result-box { padding: 15px 10px; border-radius: 8px; text-align: center; }
+    .result-box.correct { background: rgba(72, 187, 120, 0.2); color: #48bb78; }
+    .result-box.incorrect { background: rgba(252, 129, 129, 0.2); color: #fc8181; }
+    .options-list { list-style: none; }
+    .options-list li { margin-bottom: 10px; }
+    .options-list label { display: flex; align-items: center; gap: 10px; padding: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+    .options-list label:hover { background: rgba(255, 255, 255, 0.1); }
+    .options-list input[type="radio"] { width: 18px; height: 18px; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+
+  <div class="header">
+    <h1>Captcha Gauntlet</h1>
+    <p style="color: #a0aec0;">Solve 5 logic puzzles to prove your intelligence!</p>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+  </div>
+
+  <div class="challenge-container" id="challengeContainer"></div>
+
+  <div class="success-screen hidden" id="successScreen">
+    <div class="success-icon">BRAIN</div>
+    <h2>Gauntlet Complete!</h2>
+    <p>Completed in <span id="completionTime">0.00</span> seconds</p>
+    <div class="score-display">Score: <span id="finalScore">0</span>/1000</div>
+    <div class="results-grid" id="resultsGrid"></div>
+  </div>
+
+  <script>
+    // Challenge definitions
+    const challenges = [
+      {
+        id: 1,
+        type: 'sequence',
+        title: 'Number Sequence',
+        text: 'What number comes next in this sequence?\n\n2, 6, 18, 54, __',
+        answer: '162',
+        hint: 'Each number is multiplied by 3'
+      },
+      {
+        id: 2,
+        type: 'word-logic',
+        title: 'Word Logic',
+        text: 'If APPLE is coded as ELPPA, how is ORANGE coded?',
+        answer: 'EGNARO',
+        hint: 'The word is reversed'
+      },
+      {
+        id: 3,
+        type: 'math',
+        title: 'Math Puzzle',
+        text: 'A train travels at 60 mph for 2.5 hours, then at 80 mph for 1.5 hours. What is the total distance traveled in miles?',
+        answer: '270',
+        hint: 'Distance = Speed x Time, add both segments'
+      },
+      {
+        id: 4,
+        type: 'logic',
+        title: 'Logic Grid',
+        text: 'Three friends: Alice, Bob, and Carol have pets: a cat, a dog, and a fish.\n- Alice does not have the dog\n- Bob does not have the cat\n- Carol has the fish\n\nWho has the cat?',
+        options: ['Alice', 'Bob', 'Carol'],
+        answer: 'Alice',
+        hint: 'Process of elimination'
+      },
+      {
+        id: 5,
+        type: 'cipher',
+        title: 'Caesar Cipher',
+        text: 'Decode this message (shifted 3 letters back):\n\nKHOOR ZRUOG',
+        answer: 'HELLO WORLD',
+        hint: 'Each letter shifted back 3 positions in the alphabet'
+      }
+    ];
+
+    let currentChallenge = 0;
+    let answers = [];
+    let startTime = Date.now();
+
+    const timerEl = document.getElementById('timer');
+    const progressFill = document.getElementById('progressFill');
+    const container = document.getElementById('challengeContainer');
+
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      const minutes = Math.floor(elapsed / 60000);
+      const seconds = Math.floor((elapsed % 60000) / 1000);
+      const millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    function renderChallenge(index) {
+      const challenge = challenges[index];
+      progressFill.style.width = ((index / challenges.length) * 100) + '%';
+
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+
+      const card = document.createElement('div');
+      card.className = 'challenge-card';
+
+      const numDiv = document.createElement('div');
+      numDiv.className = 'challenge-number';
+      numDiv.textContent = 'Challenge ' + (index + 1) + ' of ' + challenges.length;
+
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'challenge-title';
+      titleDiv.textContent = challenge.title;
+
+      const textDiv = document.createElement('div');
+      textDiv.className = 'challenge-text';
+      textDiv.style.whiteSpace = 'pre-line';
+      textDiv.textContent = challenge.text;
+
+      card.appendChild(numDiv);
+      card.appendChild(titleDiv);
+      card.appendChild(textDiv);
+
+      if (challenge.options) {
+        const optionsList = document.createElement('ul');
+        optionsList.className = 'options-list';
+
+        challenge.options.forEach(function(opt, i) {
+          const li = document.createElement('li');
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          input.type = 'radio';
+          input.name = 'answer';
+          input.value = opt;
+          input.id = 'opt' + i;
+
+          const span = document.createElement('span');
+          span.textContent = opt;
+
+          label.appendChild(input);
+          label.appendChild(span);
+          li.appendChild(label);
+          optionsList.appendChild(li);
+        });
+
+        card.appendChild(optionsList);
+      } else {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'challenge-input';
+        input.id = 'answerInput';
+        input.placeholder = 'Type your answer...';
+        input.setAttribute('aria-label', 'Answer for ' + challenge.title);
+        card.appendChild(input);
+      }
+
+      const btn = document.createElement('button');
+      btn.className = 'submit-btn';
+      btn.id = 'submitBtn';
+      btn.textContent = index === challenges.length - 1 ? 'Submit Final Answer' : 'Submit Answer';
+      btn.setAttribute('aria-label', 'Submit Answer');
+      card.appendChild(btn);
+
+      const feedbackDiv = document.createElement('div');
+      feedbackDiv.className = 'feedback hidden';
+      feedbackDiv.id = 'feedback';
+      card.appendChild(feedbackDiv);
+
+      container.appendChild(card);
+
+      btn.addEventListener('click', function() {
+        submitAnswer(index);
+      });
+
+      // Allow Enter key to submit
+      const inputEl = document.getElementById('answerInput');
+      if (inputEl) {
+        inputEl.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            submitAnswer(index);
+          }
+        });
+      }
+    }
+
+    function submitAnswer(index) {
+      const challenge = challenges[index];
+      let userAnswer;
+
+      if (challenge.options) {
+        const selected = document.querySelector('input[name="answer"]:checked');
+        userAnswer = selected ? selected.value : '';
+      } else {
+        userAnswer = document.getElementById('answerInput').value.trim();
+      }
+
+      const isCorrect = userAnswer.toUpperCase() === challenge.answer.toUpperCase();
+      answers.push({ challengeId: challenge.id, userAnswer: userAnswer, correct: isCorrect });
+
+      const feedback = document.getElementById('feedback');
+      feedback.classList.remove('hidden', 'correct', 'incorrect');
+      feedback.classList.add(isCorrect ? 'correct' : 'incorrect');
+      feedback.textContent = isCorrect ? 'Correct!' : 'Incorrect. The answer was: ' + challenge.answer;
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+
+      setTimeout(function() {
+        if (currentChallenge < challenges.length - 1) {
+          currentChallenge++;
+          renderChallenge(currentChallenge);
+        } else {
+          showResults();
+        }
+      }, 1500);
+    }
+
+    function showResults() {
+      const completionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+      const correctCount = answers.filter(function(a) { return a.correct; }).length;
+
+      // Score: 180 pts per correct answer + 100 bonus for perfect
+      let score = correctCount * 180;
+      if (correctCount === 5) {
+        score += 100; // Perfect bonus
+      }
+
+      container.classList.add('hidden');
+      progressFill.style.width = '100%';
+
+      const successScreen = document.getElementById('successScreen');
+      successScreen.classList.remove('hidden');
+      document.getElementById('completionTime').textContent = completionTime;
+      document.getElementById('finalScore').textContent = String(Math.min(1000, score));
+
+      const resultsGrid = document.getElementById('resultsGrid');
+      while (resultsGrid.firstChild) {
+        resultsGrid.removeChild(resultsGrid.firstChild);
+      }
+
+      answers.forEach(function(answer, i) {
+        const box = document.createElement('div');
+        box.className = 'result-box ' + (answer.correct ? 'correct' : 'incorrect');
+        box.textContent = 'Q' + (i + 1) + '\n' + (answer.correct ? 'OK' : 'X');
+        box.style.whiteSpace = 'pre';
+        resultsGrid.appendChild(box);
+      });
+
+      console.log('CAPTCHA_GAUNTLET_COMPLETE', {
+        completionTime: parseFloat(completionTime),
+        timestamp: Date.now(),
+        correctCount: correctCount,
+        answers: answers,
+        score: Math.min(1000, score)
+      });
+    }
+
+    // Start
+    renderChallenge(0);
+  </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, type FunctionDeclaration, type Part, type Content } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType, type FunctionDeclaration, type Part, type Content } from '@google/generative-ai';
 import { BaseAgentAdapter, BROWSER_TOOLS, type AgentTurnResult, type ToolCall, type PageState } from './base.js';
 import type { AgentConfig } from '../../shared/types/index.js';
 import { getApiKey } from '../../shared/config.js';
@@ -130,12 +130,12 @@ export class GeminiAdapter extends BaseAgentAdapter {
       name: tool.name,
       description: tool.description,
       parameters: {
-        type: 'object' as const,
+        type: SchemaType.OBJECT,
         properties: Object.fromEntries(
           Object.entries(tool.parameters.properties).map(([key, value]) => [
             key,
             {
-              type: value.type.toUpperCase(),
+              type: value.type.toUpperCase() as SchemaType,
               description: value.description,
               ...(value.enum ? { enum: value.enum } : {})
             }
@@ -146,7 +146,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
     }));
   }
 
-  protected parseToolCalls(response: unknown): ToolCall[] {
+  protected parseToolCalls(_response: unknown): ToolCall[] {
     // Handled inline in processTurn
     return [];
   }

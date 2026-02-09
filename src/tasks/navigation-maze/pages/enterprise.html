@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Solutions - MazeWorld</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    .nav-header { background: rgba(0, 0, 0, 0.4); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+    .logo { font-size: 1.5rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .nav-links { display: flex; gap: 30px; }
+    .nav-links a { color: #a0aec0; text-decoration: none; padding: 8px 16px; border-radius: 8px; }
+    .timer { position: fixed; top: 80px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 15px 25px; border-radius: 10px; font-family: monospace; font-size: 1.5rem; color: #00d4ff; z-index: 100; }
+    .click-counter { position: fixed; top: 140px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 10px 20px; border-radius: 10px; font-size: 1rem; color: #7c3aed; }
+    .main-content { padding: 40px; max-width: 1000px; margin: 0 auto; }
+    .page-title { font-size: 2rem; margin-bottom: 30px; color: #ffd700; }
+    .clue-box { background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.1)); border: 2px solid #ffd700; border-radius: 16px; padding: 25px; margin-bottom: 30px; }
+    .clue-box h3 { color: #ffd700; margin-bottom: 10px; }
+    .content-section { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 30px; margin-bottom: 25px; }
+    .content-section h2 { color: #e2e8f0; margin-bottom: 15px; }
+    .content-section p { color: #a0aec0; line-height: 1.6; margin-bottom: 15px; }
+    .treasure-link { display: inline-block; padding: 15px 30px; background: linear-gradient(90deg, #ffd700, #ff8c00); border-radius: 10px; color: #1a1a2e; text-decoration: none; font-weight: bold; font-size: 1.1rem; transition: transform 0.2s, box-shadow 0.2s; }
+    .treasure-link:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4); }
+    .features-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+    .features-list li { background: rgba(255, 215, 0, 0.1); padding: 15px; border-radius: 8px; color: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+  <div class="click-counter" id="clickCounter">Clicks: 0</div>
+
+  <nav class="nav-header">
+    <div class="logo">MazeWorld</div>
+    <div class="nav-links">
+      <a href="../index.html">Home</a>
+      <a href="products.html">Products</a>
+      <a href="services.html">Services</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <h1 class="page-title">Enterprise Solutions</h1>
+
+    <div class="clue-box">
+      <h3>You're Almost There!</h3>
+      <p>The treasure is within reach! Our enterprise clients receive access to exclusive benefits. Look below to claim your <strong>Golden Achievement</strong>!</p>
+    </div>
+
+    <div class="content-section">
+      <h2>Enterprise Benefits</h2>
+      <p>Our enterprise tier offers unparalleled support and features for organizations of any scale. Join the elite group of companies who trust MazeWorld for their critical operations.</p>
+      <ul class="features-list">
+        <li>Unlimited API Access</li>
+        <li>Dedicated Account Manager</li>
+        <li>Custom Integrations</li>
+        <li>Priority Feature Requests</li>
+        <li>SLA Guarantees</li>
+        <li>On-site Training</li>
+      </ul>
+    </div>
+
+    <div class="content-section" style="text-align: center;">
+      <h2>Claim Your Achievement</h2>
+      <p>Congratulations on reaching the inner sanctum! Click below to reveal your reward:</p>
+      <br>
+      <a href="golden-achievement.html" class="treasure-link" aria-label="Claim Golden Achievement">Claim Golden Achievement</a>
+    </div>
+  </div>
+
+  <script>
+    let startTime = parseInt(sessionStorage.getItem('mazeStartTime') || String(Date.now()), 10);
+    let clickCount = parseInt(sessionStorage.getItem('mazeClickCount') || '0', 10);
+    const timerEl = document.getElementById('timer');
+    const clickCounterEl = document.getElementById('clickCounter');
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      const minutes = Math.floor(elapsed / 60000);
+      const seconds = Math.floor((elapsed % 60000) / 1000);
+      const millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+    clickCounterEl.textContent = 'Clicks: ' + clickCount;
+    document.addEventListener('click', function(e) {
+      const link = e.target.closest('a');
+      if (link && link.href) {
+        clickCount++;
+        sessionStorage.setItem('mazeClickCount', String(clickCount));
+      }
+    });
+  </script>
+</body>
+</html>

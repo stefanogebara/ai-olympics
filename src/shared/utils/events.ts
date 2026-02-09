@@ -47,8 +47,9 @@ class CompetitionEventBus extends EventEmitter<EventMap> {
     if (filter?.eventId) {
       events = events.filter(e => e.eventId === filter.eventId);
     }
-    if (filter?.since) {
-      events = events.filter(e => e.timestamp >= filter.since);
+    if (filter?.since !== undefined) {
+      const since = filter.since;
+      events = events.filter(e => e.timestamp >= since);
     }
 
     return events;

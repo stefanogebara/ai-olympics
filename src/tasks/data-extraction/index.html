@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Data Extraction Challenge</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      padding: 30px;
+      color: #fff;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2.2rem;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #a0aec0;
+    }
+
+    .timer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 1.5rem;
+      color: #00d4ff;
+      z-index: 100;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 30px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .data-section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 25px;
+    }
+
+    .data-section h2 {
+      color: #00d4ff;
+      margin-bottom: 20px;
+      font-size: 1.3rem;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .data-table th {
+      background: rgba(124, 58, 237, 0.3);
+      padding: 12px 15px;
+      text-align: left;
+      font-weight: 600;
+      color: #e2e8f0;
+      border-bottom: 2px solid #7c3aed;
+    }
+
+    .data-table td {
+      padding: 10px 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #cbd5e0;
+    }
+
+    .data-table tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .data-table .number {
+      text-align: right;
+      font-family: monospace;
+    }
+
+    .data-table .revenue {
+      color: #48bb78;
+      font-weight: 600;
+    }
+
+    .data-table .target-met {
+      color: #48bb78;
+    }
+
+    .data-table .target-missed {
+      color: #fc8181;
+    }
+
+    .answer-section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 25px;
+      height: fit-content;
+    }
+
+    .answer-section h2 {
+      color: #00d4ff;
+      margin-bottom: 20px;
+      font-size: 1.3rem;
+    }
+
+    .instructions {
+      background: rgba(124, 58, 237, 0.2);
+      border: 1px solid #7c3aed;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 25px;
+      font-size: 0.9rem;
+    }
+
+    .instructions h3 {
+      color: #7c3aed;
+      margin-bottom: 8px;
+      font-size: 1rem;
+    }
+
+    .instructions ul {
+      margin-left: 18px;
+      color: #a0aec0;
+    }
+
+    .instructions li {
+      margin-bottom: 4px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #a0aec0;
+      font-size: 0.9rem;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: white;
+      font-size: 1rem;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #7c3aed;
+    }
+
+    .form-group .hint {
+      font-size: 0.75rem;
+      color: #718096;
+      margin-top: 4px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(90deg, #7c3aed, #00d4ff);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 30px;
+    }
+
+    .success-message.show {
+      display: block;
+    }
+
+    .success-icon {
+      font-size: 4rem;
+      margin-bottom: 15px;
+    }
+
+    .success-message h2 {
+      color: #48bb78;
+      margin-bottom: 10px;
+    }
+
+    .results-breakdown {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .result-item.correct {
+      color: #48bb78;
+    }
+
+    .result-item.incorrect {
+      color: #fc8181;
+    }
+
+    .score-display {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #00d4ff;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+
+  <div class="header">
+    <h1>Data Extraction Challenge</h1>
+    <p>Analyze the sales data and submit your answers</p>
+  </div>
+
+  <div class="main-content">
+    <div class="data-section">
+      <h2>Q3 Regional Sales Report</h2>
+      <table class="data-table" id="salesTable">
+        <thead>
+          <tr>
+            <th>Sales Rep</th>
+            <th>Region</th>
+            <th class="number">Deals Closed</th>
+            <th class="number">Revenue</th>
+            <th class="number">Target</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="answer-section">
+      <h2>Submit Your Analysis</h2>
+      <div class="instructions">
+        <h3>Calculate and Submit:</h3>
+        <ul>
+          <li>Total revenue across all sales reps</li>
+          <li>Name of top performer (highest revenue)</li>
+          <li>Average deal size (total revenue / total deals)</li>
+          <li>Number of regions that exceeded target</li>
+        </ul>
+      </div>
+
+      <form id="answerForm">
+        <div class="form-group">
+          <label for="totalRevenue">Total Revenue ($)</label>
+          <input type="number" id="totalRevenue" name="totalRevenue" placeholder="e.g., 1234567" required aria-label="Total Revenue">
+          <div class="hint">Sum of all revenue values (no commas or $)</div>
+        </div>
+
+        <div class="form-group">
+          <label for="topPerformer">Top Performer Name</label>
+          <input type="text" id="topPerformer" name="topPerformer" placeholder="e.g., John Smith" required aria-label="Top Performer Name">
+          <div class="hint">Sales rep with highest revenue</div>
+        </div>
+
+        <div class="form-group">
+          <label for="avgDealSize">Average Deal Size ($)</label>
+          <input type="number" id="avgDealSize" name="avgDealSize" placeholder="e.g., 12345" required aria-label="Average Deal Size">
+          <div class="hint">Total revenue / total deals (round to nearest whole number)</div>
+        </div>
+
+        <div class="form-group">
+          <label for="regionsExceeded">Regions Exceeding Target</label>
+          <input type="number" id="regionsExceeded" name="regionsExceeded" placeholder="e.g., 5" required aria-label="Regions Exceeding Target">
+          <div class="hint">Count of sales reps who exceeded their target</div>
+        </div>
+
+        <button type="submit" class="submit-btn" aria-label="Submit Answers">Submit Answers</button>
+      </form>
+
+      <div class="success-message" id="successMessage">
+        <div class="success-icon"></div>
+        <h2>Analysis Complete!</h2>
+        <p>Completed in <span id="completionTime">0.00</span> seconds</p>
+        <div class="score-display">Score: <span id="finalScore">0</span>/1000</div>
+        <div class="results-breakdown" id="resultsBreakdown"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sales data - 20 rows with calculated values
+    const salesData = [
+      { name: 'Alice Johnson', region: 'Northeast', deals: 45, revenue: 892500, target: 800000 },
+      { name: 'Bob Martinez', region: 'Southeast', deals: 38, revenue: 756000, target: 700000 },
+      { name: 'Carol Williams', region: 'Midwest', deals: 52, revenue: 1040000, target: 900000 },
+      { name: 'David Chen', region: 'West', deals: 41, revenue: 820000, target: 850000 },
+      { name: 'Emma Thompson', region: 'Northeast', deals: 36, revenue: 684000, target: 700000 },
+      { name: 'Frank Garcia', region: 'Southeast', deals: 48, revenue: 960000, target: 900000 },
+      { name: 'Grace Kim', region: 'Midwest', deals: 33, revenue: 627000, target: 650000 },
+      { name: 'Henry Wilson', region: 'West', deals: 55, revenue: 1155000, target: 1000000 },
+      { name: 'Isabel Rodriguez', region: 'Northeast', deals: 29, revenue: 551000, target: 600000 },
+      { name: 'James Brown', region: 'Southeast', deals: 44, revenue: 880000, target: 850000 },
+      { name: 'Karen Davis', region: 'Midwest', deals: 39, revenue: 741000, target: 750000 },
+      { name: 'Liam Anderson', region: 'West', deals: 47, revenue: 987000, target: 950000 },
+      { name: 'Maria Santos', region: 'Northeast', deals: 31, revenue: 589000, target: 600000 },
+      { name: 'Nathan Lee', region: 'Southeast', deals: 42, revenue: 798000, target: 800000 },
+      { name: 'Olivia Taylor', region: 'Midwest', deals: 37, revenue: 703000, target: 700000 },
+      { name: 'Patrick Murphy', region: 'West', deals: 50, revenue: 1050000, target: 1000000 },
+      { name: 'Quinn Foster', region: 'Northeast', deals: 28, revenue: 532000, target: 550000 },
+      { name: 'Rachel White', region: 'Southeast', deals: 46, revenue: 920000, target: 900000 },
+      { name: 'Steven Clark', region: 'Midwest', deals: 35, revenue: 665000, target: 700000 },
+      { name: 'Tina Jackson', region: 'West', deals: 43, revenue: 903000, target: 900000 }
+    ];
+
+    // Calculate correct answers
+    const totalRevenue = salesData.reduce(function(sum, row) { return sum + row.revenue; }, 0);
+    const totalDeals = salesData.reduce(function(sum, row) { return sum + row.deals; }, 0);
+    const topPerformer = salesData.reduce(function(top, row) { return row.revenue > top.revenue ? row : top; }).name;
+    const avgDealSize = Math.round(totalRevenue / totalDeals);
+    const regionsExceeded = salesData.filter(function(row) { return row.revenue > row.target; }).length;
+
+    const correctAnswers = {
+      totalRevenue: totalRevenue,
+      topPerformer: topPerformer,
+      avgDealSize: avgDealSize,
+      regionsExceeded: regionsExceeded
+    };
+
+    let startTime = Date.now();
+
+    // Timer
+    const timerEl = document.getElementById('timer');
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      const minutes = Math.floor(elapsed / 60000);
+      const seconds = Math.floor((elapsed % 60000) / 1000);
+      const millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    // Render table using DOM methods
+    const tableBody = document.getElementById('tableBody');
+    salesData.forEach(function(row) {
+      const tr = document.createElement('tr');
+
+      const nameTd = document.createElement('td');
+      nameTd.textContent = row.name;
+
+      const regionTd = document.createElement('td');
+      regionTd.textContent = row.region;
+
+      const dealsTd = document.createElement('td');
+      dealsTd.className = 'number';
+      dealsTd.textContent = String(row.deals);
+
+      const revenueTd = document.createElement('td');
+      revenueTd.className = 'number revenue';
+      revenueTd.textContent = '$' + row.revenue.toLocaleString();
+
+      const targetTd = document.createElement('td');
+      targetTd.className = 'number';
+      targetTd.textContent = '$' + row.target.toLocaleString();
+
+      const statusTd = document.createElement('td');
+      const exceeded = row.revenue > row.target;
+      statusTd.className = exceeded ? 'target-met' : 'target-missed';
+      statusTd.textContent = exceeded ? 'Exceeded' : 'Below';
+
+      tr.appendChild(nameTd);
+      tr.appendChild(regionTd);
+      tr.appendChild(dealsTd);
+      tr.appendChild(revenueTd);
+      tr.appendChild(targetTd);
+      tr.appendChild(statusTd);
+      tableBody.appendChild(tr);
+    });
+
+    // Form submission
+    document.getElementById('answerForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const completionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+      const answers = {
+        totalRevenue: parseInt(document.getElementById('totalRevenue').value, 10),
+        topPerformer: document.getElementById('topPerformer').value.trim(),
+        avgDealSize: parseInt(document.getElementById('avgDealSize').value, 10),
+        regionsExceeded: parseInt(document.getElementById('regionsExceeded').value, 10)
+      };
+
+      // Calculate accuracy score
+      const tolerancePercent = 0.02; // 2% tolerance for numerical answers
+      const results = [];
+      let correctCount = 0;
+
+      // Check total revenue (2% tolerance)
+      const revenueDiff = Math.abs(answers.totalRevenue - correctAnswers.totalRevenue) / correctAnswers.totalRevenue;
+      const revenueCorrect = revenueDiff <= tolerancePercent;
+      results.push({ label: 'Total Revenue', correct: revenueCorrect, submitted: '$' + answers.totalRevenue.toLocaleString(), expected: '$' + correctAnswers.totalRevenue.toLocaleString() });
+      if (revenueCorrect) correctCount++;
+
+      // Check top performer (exact match, case-insensitive)
+      const performerCorrect = answers.topPerformer.toLowerCase() === correctAnswers.topPerformer.toLowerCase();
+      results.push({ label: 'Top Performer', correct: performerCorrect, submitted: answers.topPerformer, expected: correctAnswers.topPerformer });
+      if (performerCorrect) correctCount++;
+
+      // Check avg deal size (2% tolerance)
+      const avgDiff = Math.abs(answers.avgDealSize - correctAnswers.avgDealSize) / correctAnswers.avgDealSize;
+      const avgCorrect = avgDiff <= tolerancePercent;
+      results.push({ label: 'Avg Deal Size', correct: avgCorrect, submitted: '$' + answers.avgDealSize.toLocaleString(), expected: '$' + correctAnswers.avgDealSize.toLocaleString() });
+      if (avgCorrect) correctCount++;
+
+      // Check regions exceeded (exact match)
+      const regionsCorrect = answers.regionsExceeded === correctAnswers.regionsExceeded;
+      results.push({ label: 'Regions Exceeded', correct: regionsCorrect, submitted: String(answers.regionsExceeded), expected: String(correctAnswers.regionsExceeded) });
+      if (regionsCorrect) correctCount++;
+
+      // Calculate score: 70% accuracy, 30% time bonus
+      const accuracyScore = (correctCount / 4) * 700;
+      const maxTime = 150000;
+      const timeBonus = Math.max(0, (1 - (parseFloat(completionTime) * 1000 / maxTime))) * 300;
+      const finalScore = Math.round(accuracyScore + timeBonus);
+
+      // Show results
+      document.getElementById('answerForm').style.display = 'none';
+      const successMsg = document.getElementById('successMessage');
+      successMsg.classList.add('show');
+      document.getElementById('completionTime').textContent = completionTime;
+      document.getElementById('finalScore').textContent = String(Math.min(1000, finalScore));
+
+      // Show breakdown
+      const breakdown = document.getElementById('resultsBreakdown');
+      while (breakdown.firstChild) {
+        breakdown.removeChild(breakdown.firstChild);
+      }
+
+      results.forEach(function(r) {
+        const div = document.createElement('div');
+        div.className = 'result-item ' + (r.correct ? 'correct' : 'incorrect');
+
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = r.label + ': ' + r.submitted;
+
+        const statusSpan = document.createElement('span');
+        statusSpan.textContent = r.correct ? 'Correct' : 'Expected: ' + r.expected;
+
+        div.appendChild(labelSpan);
+        div.appendChild(statusSpan);
+        breakdown.appendChild(div);
+      });
+
+      // Log for verification
+      console.log('DATA_EXTRACTION_COMPLETE', {
+        completionTime: parseFloat(completionTime),
+        timestamp: Date.now(),
+        answers: answers,
+        correctAnswers: correctAnswers,
+        correctCount: correctCount,
+        score: Math.min(1000, finalScore)
+      });
+    });
+  </script>
+</body>
+</html>

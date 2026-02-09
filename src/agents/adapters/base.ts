@@ -1,4 +1,4 @@
-import type { AgentConfig, AgentAction } from '../../shared/types/index.js';
+import type { AgentConfig } from '../../shared/types/index.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const log = createLogger('BaseAdapter');
@@ -126,6 +126,7 @@ export interface AgentTurnResult {
 }
 
 export interface ToolCall {
+  id?: string;  // Tool call ID from the API (needed for tool results)
   name: string;
   arguments: Record<string, unknown>;
 }

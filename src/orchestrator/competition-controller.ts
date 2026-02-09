@@ -1,7 +1,6 @@
 import { nanoid } from 'nanoid';
 import type {
   Competition,
-  CompetitionStatus,
   CompetitionEvent,
   AgentConfig,
   TaskDefinition,
@@ -86,7 +85,9 @@ export class CompetitionController {
     this.competition.status = 'warmup';
     this.emit('competition:start', { competition: this.competition });
 
-    for (const agentConfig of this.competition.agents) {
+    for (let i = 0; i < this.competition.agents.length; i++) {
+      const agentConfig = this.competition.agents[i];
+
       try {
         // Use local sandbox for development
         const sandbox = await sandboxManager.createLocalSandbox(agentConfig);
@@ -105,6 +106,11 @@ export class CompetitionController {
         });
 
         log.info(`Agent initialized: ${agentConfig.name}`, { agentId: agentConfig.id });
+
+        // Add delay between browser launches to avoid resource contention
+        if (i < this.competition.agents.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
 
       } catch (error) {
         log.error(`Failed to initialize agent: ${agentConfig.name}`, { error });
@@ -222,22 +228,29 @@ export class CompetitionController {
   }): number {
     if (!result.success) return 0;
 
+    const maxTime = task.timeLimit * 1000;
+    const timeTaken = result.completionTime || maxTime;
+
     switch (task.scoringMethod) {
       case 'time':
-        // Faster = higher score
-        const maxTime = task.timeLimit * 1000;
-        const timeTaken = result.completionTime || maxTime;
-        return Math.round((1 - timeTaken / maxTime) * task.maxScore);
+        // Faster = higher score (minimum 100 points for completion, up to maxScore)
+        // Score = basePoints + timeBonus
+        // Completing within time limit guarantees at least 100 points
+        const basePoints = 100;
+        const bonusPool = task.maxScore - basePoints;
+        const timeRatio = Math.max(0, 1 - timeTaken / maxTime);
+        return Math.round(basePoints + bonusPool * timeRatio);
 
       case 'accuracy':
         // Binary: full points or nothing
         return result.success ? task.maxScore : 0;
 
       case 'composite':
-        // 70% completion, 30% time bonus
-        const baseScore = task.maxScore * 0.7;
-        const timeBonus = (1 - (result.completionTime || 0) / (task.timeLimit * 1000)) * task.maxScore * 0.3;
-        return Math.round(baseScore + Math.max(0, timeBonus));
+        // 60% for completion, 40% time bonus
+        const completionScore = task.maxScore * 0.6;
+        const timeBonusPool = task.maxScore * 0.4;
+        const timeBonusRatio = Math.max(0, 1 - timeTaken / maxTime);
+        return Math.round(completionScore + timeBonusPool * timeBonusRatio);
 
       default:
         return result.success ? task.maxScore : 0;

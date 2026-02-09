@@ -105,7 +105,7 @@ export class AICommentator {
       !a.success && Date.now() - a.timestamp < 3000
     );
 
-    const recentCompletions = this.context.agents.filter(a =>
+    const _recentCompletions = this.context.agents.filter(a =>
       a.status === 'completed'
     );
 

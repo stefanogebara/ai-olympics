@@ -1,4 +1,4 @@
-import type { TaskResult, AgentAction } from '../../shared/types/index.js';
+import type { AgentAction } from '../../shared/types/index.js';
 
 interface FormBlitzVerification {
   valid: boolean;

@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { BaseAgentAdapter, BROWSER_TOOLS, type AgentTurnResult, type ToolCall, type PageState } from './base.js';
 import type { AgentConfig } from '../../shared/types/index.js';
-import { config, getApiKey } from '../../shared/config.js';
+import { getApiKey } from '../../shared/config.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const log = createLogger('ClaudeAdapter');
@@ -120,7 +120,7 @@ export class ClaudeAdapter extends BaseAgentAdapter {
     }));
   }
 
-  protected parseToolCalls(response: unknown): ToolCall[] {
+  protected parseToolCalls(_response: unknown): ToolCall[] {
     // This is handled inline in processTurn for Claude
     return [];
   }

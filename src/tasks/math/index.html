@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Math Challenge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      padding: 30px;
+      color: #fff;
+    }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { font-size: 2.2rem; background: linear-gradient(90deg, #00d4ff, #7c3aed, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+    .timer { position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 15px 25px; border-radius: 10px; font-family: monospace; font-size: 1.5rem; color: #00d4ff; z-index: 100; }
+    .timer.warning { color: #ff6b6b; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .progress-bar { max-width: 600px; margin: 0 auto 30px; background: rgba(255, 255, 255, 0.1); height: 10px; border-radius: 5px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #00d4ff); transition: width 0.3s; }
+    .stats-bar { display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; }
+    .stat { text-align: center; }
+    .stat-value { font-size: 1.5rem; font-weight: bold; color: #00d4ff; }
+    .stat-label { font-size: 0.8rem; color: #a0aec0; }
+    .problem-container { max-width: 600px; margin: 0 auto; }
+    .problem-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 30px; margin-bottom: 20px; }
+    .problem-number { color: #7c3aed; font-size: 0.9rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .difficulty-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+    .difficulty-easy { background: rgba(72, 187, 120, 0.2); color: #48bb78; }
+    .difficulty-medium { background: rgba(237, 137, 54, 0.2); color: #ed8936; }
+    .difficulty-hard { background: rgba(252, 129, 129, 0.2); color: #fc8181; }
+    .problem-text { color: #e2e8f0; line-height: 1.6; font-size: 1.8rem; text-align: center; margin: 30px 0; font-family: 'Georgia', serif; }
+    .input-group { display: flex; gap: 10px; }
+    .answer-input { flex: 1; padding: 14px; background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 10px; color: white; font-size: 1.2rem; text-align: center; }
+    .answer-input:focus { outline: none; border-color: #7c3aed; }
+    .submit-btn { padding: 14px 30px; background: linear-gradient(90deg, #7c3aed, #00d4ff); border: none; border-radius: 10px; color: white; font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .submit-btn:hover { opacity: 0.9; }
+    .submit-btn:disabled { background: #4a5568; cursor: not-allowed; }
+    .feedback { margin-top: 15px; padding: 12px; border-radius: 8px; text-align: center; font-weight: 500; }
+    .feedback.correct { background: rgba(72, 187, 120, 0.2); color: #48bb78; }
+    .feedback.incorrect { background: rgba(252, 129, 129, 0.2); color: #fc8181; }
+    .hidden { display: none; }
+    .loading { text-align: center; padding: 50px; }
+    .loading-spinner { width: 50px; height: 50px; border: 4px solid rgba(255, 255, 255, 0.1); border-top-color: #7c3aed; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .success-screen { text-align: center; padding: 40px; max-width: 600px; margin: 0 auto; }
+    .success-icon { font-size: 4rem; margin-bottom: 20px; }
+    .success-screen h2 { color: #48bb78; font-size: 2rem; margin-bottom: 15px; }
+    .score-display { font-size: 3rem; font-weight: bold; color: #00d4ff; margin: 20px 0; }
+    .results-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 25px 0; }
+    .result-item { background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 10px; }
+    .result-item-value { font-size: 1.5rem; font-weight: bold; color: #00d4ff; }
+    .result-item-label { font-size: 0.85rem; color: #a0aec0; }
+    .results-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
+    .result-box { padding: 15px 10px; border-radius: 8px; text-align: center; }
+    .result-box.correct { background: rgba(72, 187, 120, 0.2); color: #48bb78; }
+    .result-box.incorrect { background: rgba(252, 129, 129, 0.2); color: #fc8181; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">60</div>
+
+  <div class="header">
+    <h1>Math Challenge</h1>
+    <p style="color: #a0aec0;">Solve 10 math problems - no calculators allowed!</p>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-value" id="scoreDisplay">0</div>
+      <div class="stat-label">Score</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="correctDisplay">0</div>
+      <div class="stat-label">Correct</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="problemNum">1/10</div>
+      <div class="stat-label">Problem</div>
+    </div>
+  </div>
+
+  <div class="loading" id="loadingScreen">
+    <div class="loading-spinner"></div>
+    <p>Generating math problems...</p>
+  </div>
+
+  <div class="problem-container hidden" id="problemContainer"></div>
+
+  <div class="success-screen hidden" id="successScreen">
+    <div class="success-icon">CALCULATOR</div>
+    <h2>Challenge Complete!</h2>
+    <div class="score-display">Score: <span id="finalScore">0</span>/1000</div>
+    <div class="results-summary">
+      <div class="result-item">
+        <div class="result-item-value" id="finalCorrect">0</div>
+        <div class="result-item-label">Correct Answers</div>
+      </div>
+      <div class="result-item">
+        <div class="result-item-value" id="finalTime">0s</div>
+        <div class="result-item-label">Total Time</div>
+      </div>
+      <div class="result-item">
+        <div class="result-item-value" id="timeBonus">0</div>
+        <div class="result-item-label">Time Bonus</div>
+      </div>
+      <div class="result-item">
+        <div class="result-item-value" id="accuracy">0%</div>
+        <div class="result-item-label">Accuracy</div>
+      </div>
+    </div>
+    <div class="results-grid" id="resultsGrid"></div>
+  </div>
+
+  <script>
+    // State
+    let problems = [];
+    let currentProblem = 0;
+    let answers = [];
+    let score = 0;
+    let correctCount = 0;
+    let startTime = Date.now();
+    let problemStartTime = Date.now();
+    let problemTimer = null;
+    let problemTimeLeft = 60;
+
+    // DOM Elements
+    const timerEl = document.getElementById('timer');
+    const progressFill = document.getElementById('progressFill');
+    const loadingScreen = document.getElementById('loadingScreen');
+    const problemContainer = document.getElementById('problemContainer');
+    const successScreen = document.getElementById('successScreen');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const correctDisplay = document.getElementById('correctDisplay');
+    const problemNum = document.getElementById('problemNum');
+
+    // Generate math problems with increasing difficulty
+    function generateProblems() {
+      const generated = [];
+
+      // Easy (1-3): Simple arithmetic
+      generated.push({ expression: '47 + 38', answer: 85, difficulty: 'easy' });
+      generated.push({ expression: '156 - 89', answer: 67, difficulty: 'easy' });
+      generated.push({ expression: '12 x 7', answer: 84, difficulty: 'easy' });
+
+      // Medium (4-6): Multi-step or larger numbers
+      generated.push({ expression: '(15 + 8) x 4', answer: 92, difficulty: 'medium' });
+      generated.push({ expression: '144 / 12', answer: 12, difficulty: 'medium' });
+      generated.push({ expression: '23 x 11', answer: 253, difficulty: 'medium' });
+
+      // Hard (7-9): Complex calculations
+      generated.push({ expression: '17 squared', answer: 289, difficulty: 'hard' });
+      generated.push({ expression: '(48 / 6) + (9 x 7)', answer: 71, difficulty: 'hard' });
+      generated.push({ expression: '125 + 376 - 189', answer: 312, difficulty: 'hard' });
+
+      // Very Hard (10): Challenge problem
+      generated.push({ expression: '15% of 480', answer: 72, difficulty: 'hard' });
+
+      return generated;
+    }
+
+    // Alternative problem sets
+    const problemSets = [
+      [
+        { expression: '56 + 29', answer: 85, difficulty: 'easy' },
+        { expression: '183 - 97', answer: 86, difficulty: 'easy' },
+        { expression: '8 x 9', answer: 72, difficulty: 'easy' },
+        { expression: '(12 + 18) x 3', answer: 90, difficulty: 'medium' },
+        { expression: '196 / 14', answer: 14, difficulty: 'medium' },
+        { expression: '34 x 12', answer: 408, difficulty: 'medium' },
+        { expression: '13 squared', answer: 169, difficulty: 'hard' },
+        { expression: '(72 / 8) + (6 x 11)', answer: 75, difficulty: 'hard' },
+        { expression: '457 + 288 - 195', answer: 550, difficulty: 'hard' },
+        { expression: '25% of 360', answer: 90, difficulty: 'hard' }
+      ],
+      [
+        { expression: '67 + 48', answer: 115, difficulty: 'easy' },
+        { expression: '234 - 156', answer: 78, difficulty: 'easy' },
+        { expression: '11 x 6', answer: 66, difficulty: 'easy' },
+        { expression: '(20 - 8) x 7', answer: 84, difficulty: 'medium' },
+        { expression: '225 / 15', answer: 15, difficulty: 'medium' },
+        { expression: '45 x 11', answer: 495, difficulty: 'medium' },
+        { expression: '16 squared', answer: 256, difficulty: 'hard' },
+        { expression: '(81 / 9) + (8 x 8)', answer: 73, difficulty: 'hard' },
+        { expression: '623 - 287 + 164', answer: 500, difficulty: 'hard' },
+        { expression: '20% of 450', answer: 90, difficulty: 'hard' }
+      ]
+    ];
+
+    // Load problems
+    async function loadProblems() {
+      try {
+        const response = await fetch('/api/games/math/puzzle');
+        if (!response.ok) throw new Error('API error');
+        const data = await response.json();
+        problems = data.problems || data;
+        if (!problems.length) throw new Error('No problems');
+      } catch (error) {
+        console.log('Using generated problems:', error.message);
+        // Randomly select a problem set
+        const setIndex = Math.floor(Math.random() * problemSets.length);
+        problems = problemSets[setIndex] || generateProblems();
+      }
+
+      loadingScreen.classList.add('hidden');
+      problemContainer.classList.remove('hidden');
+      renderProblem(0);
+      startProblemTimer();
+    }
+
+    function startProblemTimer() {
+      problemTimeLeft = 60;
+      problemStartTime = Date.now();
+      updateTimerDisplay();
+
+      if (problemTimer) clearInterval(problemTimer);
+      problemTimer = setInterval(function() {
+        problemTimeLeft--;
+        updateTimerDisplay();
+
+        if (problemTimeLeft <= 0) {
+          clearInterval(problemTimer);
+          handleTimeout();
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      timerEl.textContent = problemTimeLeft;
+      if (problemTimeLeft <= 15) {
+        timerEl.classList.add('warning');
+      } else {
+        timerEl.classList.remove('warning');
+      }
+    }
+
+    function handleTimeout() {
+      answers.push({
+        problemIndex: currentProblem,
+        userAnswer: null,
+        correct: false,
+        timeSpent: 60000
+      });
+
+      showFeedback(false, problems[currentProblem].answer);
+
+      setTimeout(function() {
+        nextProblem();
+      }, 1500);
+    }
+
+    function renderProblem(index) {
+      const p = problems[index];
+      progressFill.style.width = ((index / problems.length) * 100) + '%';
+      problemNum.textContent = (index + 1) + '/' + problems.length;
+
+      // Clear container safely
+      while (problemContainer.firstChild) {
+        problemContainer.removeChild(problemContainer.firstChild);
+      }
+
+      const card = document.createElement('div');
+      card.className = 'problem-card';
+
+      // Problem header
+      const numDiv = document.createElement('div');
+      numDiv.className = 'problem-number';
+
+      const problemLabel = document.createElement('span');
+      problemLabel.textContent = 'Problem ' + (index + 1) + ' of ' + problems.length;
+
+      const diffBadge = document.createElement('span');
+      diffBadge.className = 'difficulty-badge difficulty-' + p.difficulty;
+      diffBadge.textContent = p.difficulty.charAt(0).toUpperCase() + p.difficulty.slice(1);
+
+      numDiv.appendChild(problemLabel);
+      numDiv.appendChild(diffBadge);
+
+      // Problem expression
+      const textDiv = document.createElement('div');
+      textDiv.className = 'problem-text';
+      textDiv.textContent = p.expression + ' = ?';
+
+      // Input group
+      const inputGroup = document.createElement('div');
+      inputGroup.className = 'input-group';
+
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'answer-input';
+      input.id = 'answerInput';
+      input.placeholder = 'Your answer';
+      input.setAttribute('aria-label', 'Enter your numerical answer');
+
+      const submitBtn = document.createElement('button');
+      submitBtn.className = 'submit-btn';
+      submitBtn.id = 'submitBtn';
+      submitBtn.textContent = 'Submit';
+
+      inputGroup.appendChild(input);
+      inputGroup.appendChild(submitBtn);
+
+      // Feedback area
+      const feedbackDiv = document.createElement('div');
+      feedbackDiv.className = 'feedback hidden';
+      feedbackDiv.id = 'feedback';
+
+      card.appendChild(numDiv);
+      card.appendChild(textDiv);
+      card.appendChild(inputGroup);
+      card.appendChild(feedbackDiv);
+      problemContainer.appendChild(card);
+
+      // Event listeners
+      submitBtn.onclick = submitAnswer;
+      input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') submitAnswer();
+      });
+
+      input.focus();
+    }
+
+    function submitAnswer() {
+      const input = document.getElementById('answerInput');
+      const userAnswer = parseFloat(input.value);
+
+      if (isNaN(userAnswer)) {
+        input.style.borderColor = '#fc8181';
+        return;
+      }
+
+      clearInterval(problemTimer);
+
+      const timeSpent = Date.now() - problemStartTime;
+      const p = problems[currentProblem];
+      const isCorrect = Math.abs(userAnswer - p.answer) < 0.01;
+
+      // Calculate points
+      let points = 0;
+      if (isCorrect) {
+        points = 100; // Base points per correct answer
+        // Time bonus multiplier
+        const timeMultiplier = Math.max(1, 2 - (timeSpent / 60000));
+        points = Math.floor(points * timeMultiplier);
+        score += points;
+        correctCount++;
+      }
+
+      answers.push({
+        problemIndex: currentProblem,
+        userAnswer: userAnswer,
+        correct: isCorrect,
+        timeSpent: timeSpent,
+        points: points
+      });
+
+      // Update displays
+      scoreDisplay.textContent = score;
+      correctDisplay.textContent = correctCount;
+
+      // Show feedback
+      showFeedback(isCorrect, p.answer);
+
+      // Disable input and button
+      input.disabled = true;
+      document.getElementById('submitBtn').disabled = true;
+
+      setTimeout(function() {
+        nextProblem();
+      }, 1500);
+    }
+
+    function showFeedback(isCorrect, correctAnswer) {
+      const feedback = document.getElementById('feedback');
+      feedback.classList.remove('hidden', 'correct', 'incorrect');
+      feedback.classList.add(isCorrect ? 'correct' : 'incorrect');
+      feedback.textContent = isCorrect ? 'Correct!' : 'Incorrect. The answer was: ' + correctAnswer;
+    }
+
+    function nextProblem() {
+      if (currentProblem < problems.length - 1) {
+        currentProblem++;
+        renderProblem(currentProblem);
+        startProblemTimer();
+      } else {
+        showResults();
+      }
+    }
+
+    function showResults() {
+      clearInterval(problemTimer);
+      const totalTime = (Date.now() - startTime) / 1000;
+
+      // Time bonus (cap score at 1000)
+      const finalScore = Math.min(1000, score);
+
+      problemContainer.classList.add('hidden');
+      progressFill.style.width = '100%';
+      successScreen.classList.remove('hidden');
+
+      document.getElementById('finalScore').textContent = finalScore;
+      document.getElementById('finalCorrect').textContent = correctCount + '/' + problems.length;
+      document.getElementById('finalTime').textContent = totalTime.toFixed(1) + 's';
+      document.getElementById('timeBonus').textContent = '+' + Math.max(0, finalScore - (correctCount * 100));
+      document.getElementById('accuracy').textContent = Math.round((correctCount / problems.length) * 100) + '%';
+
+      const resultsGrid = document.getElementById('resultsGrid');
+      while (resultsGrid.firstChild) {
+        resultsGrid.removeChild(resultsGrid.firstChild);
+      }
+
+      answers.forEach(function(answer, i) {
+        const box = document.createElement('div');
+        box.className = 'result-box ' + (answer.correct ? 'correct' : 'incorrect');
+
+        const pLabel = document.createElement('div');
+        pLabel.textContent = 'P' + (i + 1);
+
+        const result = document.createElement('div');
+        result.textContent = answer.correct ? 'OK' : 'X';
+
+        box.appendChild(pLabel);
+        box.appendChild(result);
+        resultsGrid.appendChild(box);
+      });
+
+      console.log('MATH_COMPLETE', {
+        completionTime: totalTime,
+        timestamp: Date.now(),
+        correctCount: correctCount,
+        totalProblems: problems.length,
+        answers: answers,
+        score: finalScore
+      });
+    }
+
+    // Start
+    loadProblems();
+  </script>
+</body>
+</html>

@@ -110,6 +110,7 @@ export class OpenAIAdapter extends BaseAgentAdapter {
 
   protected parseToolCalls(toolCalls: OpenAI.ChatCompletionMessageToolCall[]): ToolCall[] {
     return toolCalls.map(tc => ({
+      id: tc.id,  // Capture the tool call ID for results
       name: tc.function.name,
       arguments: JSON.parse(tc.function.arguments || '{}')
     }));

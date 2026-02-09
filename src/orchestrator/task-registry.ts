@@ -1,4 +1,8 @@
 import type { TaskDefinition, TaskCategory } from '../shared/types/index.js';
+import { config } from '../shared/config.js';
+
+// Base URL for task pages
+const getTaskUrl = (path: string) => `http://localhost:${config.port}${path}`;
 
 // Registry of available competition tasks
 const taskRegistry: Map<string, TaskDefinition> = new Map();
@@ -31,6 +35,9 @@ export function getTask(id: string): TaskDefinition | undefined {
   return taskRegistry.get(id);
 }
 
+// Alias for getTask
+export const getTaskById = getTask;
+
 // Get all tasks
 export function getAllTasks(): TaskDefinition[] {
   return Array.from(taskRegistry.values());
@@ -55,12 +62,12 @@ registerTask({
   timeLimit: 120,  // 2 minutes
   maxAgents: 4,
   config: {
-    formUrl: 'http://localhost:3002/tasks/form-blitz',
+    formUrl: getTaskUrl('/tasks/form-blitz'),
     requiredFields: ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'country', 'password']
   },
   scoringMethod: 'time',
   maxScore: 1000,
-  startUrl: 'http://localhost:3002/tasks/form-blitz',
+  startUrl: getTaskUrl('/tasks/form-blitz'),
   systemPrompt: BASE_SYSTEM_PROMPT,
   taskPrompt: `Complete the registration form on this page.
 
@@ -126,7 +133,7 @@ registerTask({
   },
   scoringMethod: 'composite',
   maxScore: 1000,
-  startUrl: 'http://localhost:3002/tasks/data-detective',
+  startUrl: getTaskUrl('/tasks/data-detective'),
   systemPrompt: BASE_SYSTEM_PROMPT,
   taskPrompt: `You are analyzing a product listing page.
 
@@ -161,7 +168,7 @@ registerTask({
   },
   scoringMethod: 'time',
   maxScore: 1500,
-  startUrl: 'http://localhost:3002/tasks/login-gauntlet',
+  startUrl: getTaskUrl('/tasks/login-gauntlet'),
   systemPrompt: BASE_SYSTEM_PROMPT,
   taskPrompt: `Complete the login gauntlet!
 
@@ -188,12 +195,12 @@ registerTask({
   timeLimit: 180,
   maxAgents: 4,
   config: {
-    productUrl: 'http://localhost:3002/tasks/checkout/product',
+    productUrl: getTaskUrl('/tasks/checkout/product'),
     paymentMethod: 'test_card'
   },
   scoringMethod: 'time',
   maxScore: 1500,
-  startUrl: 'http://localhost:3002/tasks/checkout',
+  startUrl: getTaskUrl('/tasks/checkout'),
   systemPrompt: BASE_SYSTEM_PROMPT,
   taskPrompt: `Complete the checkout process!
 
@@ -213,6 +220,332 @@ Steps:
 5. Complete the purchase
 
 When you see the order confirmation, call 'done' with success=true.`
+});
+
+// ============================================================================
+// NEW COMPETITION TASKS
+// ============================================================================
+
+// Shopping Cart Challenge - Speed event
+registerTask({
+  id: 'shopping-cart',
+  name: 'Shopping Cart Challenge',
+  description: 'Add specific items to cart, apply discount, and complete checkout',
+  category: 'speed',
+  difficulty: 'medium',
+  timeLimit: 180,
+  maxAgents: 4,
+  config: {
+    targetItems: ['headphones', 'watch', 'charger'],
+    discountCode: 'OLYMPICS25'
+  },
+  scoringMethod: 'time',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/shopping-cart'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the shopping cart challenge!
+
+Your mission:
+1. Add these 3 specific items to your cart:
+   - Wireless Headphones
+   - Smart Watch
+   - Portable Charger
+2. Apply the discount code: OLYMPICS25
+3. Click "Proceed to Checkout"
+4. Fill in the checkout form with shipping and payment information:
+   - Name: Test User
+   - Email: test@olympics.ai
+   - Address: 123 Olympics Way
+   - City: San Francisco
+   - ZIP: 94102
+   - Card Number: 4242 4242 4242 4242
+   - Expiry: 12/28
+   - CVC: 123
+5. Click "Complete Purchase"
+
+When you see the order confirmation, call the 'done' tool with success=true.`
+});
+
+// Data Extraction Race - Intelligence event
+registerTask({
+  id: 'data-extraction',
+  name: 'Data Extraction Race',
+  description: 'Analyze a sales dashboard and submit calculated answers',
+  category: 'intelligence',
+  difficulty: 'medium',
+  timeLimit: 150,
+  maxAgents: 4,
+  config: {
+    dataType: 'sales_report'
+  },
+  scoringMethod: 'composite',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/data-extraction'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Analyze the sales data table and submit your answers!
+
+You will see a table of sales data with columns for Sales Rep, Region, Deals Closed, Revenue, Target, and Status.
+
+Calculate and submit:
+1. Total Revenue - Sum of all revenue values (no dollar sign or commas)
+2. Top Performer Name - Name of the sales rep with highest revenue
+3. Average Deal Size - Total revenue divided by total deals (rounded to nearest whole number)
+4. Regions Exceeding Target - Count of sales reps who exceeded their target
+
+Fill in all answer fields and click "Submit Answers".
+When you see the results, call the 'done' tool with success=true.`
+});
+
+// Navigation Maze - Speed + Intelligence event
+registerTask({
+  id: 'navigation-maze',
+  name: 'Navigation Maze',
+  description: 'Follow clues to find a hidden page through website navigation',
+  category: 'intelligence',
+  difficulty: 'medium',
+  timeLimit: 180,
+  maxAgents: 4,
+  config: {
+    optimalClicks: 4,
+    targetPage: 'golden-achievement'
+  },
+  scoringMethod: 'composite',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/navigation-maze'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Navigate through the website maze to find the hidden treasure!
+
+Read the clues on each page carefully. They will guide you to the "Golden Achievement" page.
+
+Hints:
+- The first clue mentions "innovation meets service" and something "special"
+- Follow the path through premium/enterprise offerings
+- The optimal path requires only 4 clicks
+
+Efficiency matters! Your score depends on:
+- Reaching the goal (40%)
+- Path efficiency - fewer clicks is better (30%)
+- Speed - faster is better (30%)
+
+When you reach the Golden Achievement page, call the 'done' tool with success=true.`
+});
+
+// Captcha Gauntlet - Intelligence event
+registerTask({
+  id: 'captcha-gauntlet',
+  name: 'Captcha Gauntlet',
+  description: 'Solve 5 logic puzzles to prove intelligence',
+  category: 'intelligence',
+  difficulty: 'hard',
+  timeLimit: 180,
+  maxAgents: 4,
+  config: {
+    challengeCount: 5,
+    challengeTypes: ['sequence', 'word-logic', 'math', 'logic-grid', 'cipher']
+  },
+  scoringMethod: 'accuracy',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/captcha-gauntlet'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the Captcha Gauntlet - 5 logic puzzles!
+
+You will face 5 different challenges:
+1. Number Sequence - Find the pattern and next number
+2. Word Logic - Decode the word transformation
+3. Math Puzzle - Calculate the correct answer
+4. Logic Grid - Deduce the answer from given clues
+5. Caesar Cipher - Decode the shifted message
+
+For each challenge:
+- Read the question carefully
+- Type your answer in the input field (or select from options)
+- Click Submit Answer
+
+Scoring: 180 points per correct answer + 100 bonus for perfect score
+Maximum: 1000 points
+
+When you complete all 5 challenges, call the 'done' tool with success=true.`
+});
+
+// Prediction Market Challenge - Intelligence event
+const PREDICTION_MARKET_TIPS = `
+
+PREDICTION MARKET TIPS:
+- Analyze market questions carefully before betting
+- Consider the current probability and whether you think it's accurate
+- Diversify your bets across multiple markets
+- Don't bet more than M$1000 per trade
+- Higher confidence = larger bet sizes
+- Look for markets where you have domain knowledge`;
+
+const PREDICTION_MARKET_INSTRUCTIONS = `Compete in the Prediction Market Challenge!
+
+You have M$10,000 virtual Mana to invest in real prediction markets from Manifold Markets.
+
+YOUR GOAL:
+Maximize your portfolio value through strategic betting.
+
+HOW TO PLAY:
+1. Browse the available markets on the page
+2. Analyze each market's question and current probability
+3. Click YES or NO to bet on outcomes you have conviction about
+4. Enter your bet amount (max M$1000 per bet)
+5. Confirm your bet
+
+SCORING (Total: 1000 points):
+- Profit/Loss (60%): +50% profit = 600pts, 0% = 300pts, -50% = 0pts
+- Calibration (25%): Better probability estimates = more points
+- Activity (15%): 15pts per bet, max 150pts (10 bets)
+
+STRATEGY TIPS:
+- Look for markets where you have knowledge or insight
+- Consider the probability - is it too high or too low?
+- Spread your bets across different markets
+- Don't put all your money on one bet
+
+When you're done trading, click "Complete Challenge" to finish.
+Call the 'done' tool with success=true when the challenge is complete.`;
+
+registerTask({
+  id: 'prediction-market',
+  name: 'Prediction Market Challenge',
+  description: 'Analyze real markets and place strategic bets to maximize portfolio value',
+  category: 'intelligence',
+  difficulty: 'hard',
+  timeLimit: 300, // 5 minutes
+  maxAgents: 4,
+  config: {
+    startingBalance: 10000,
+    maxBetSize: 1000,
+    allowedMarketTypes: ['BINARY', 'MULTIPLE_CHOICE']
+  },
+  scoringMethod: 'composite',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/prediction-market'),
+  systemPrompt: BASE_SYSTEM_PROMPT + PREDICTION_MARKET_TIPS,
+  taskPrompt: PREDICTION_MARKET_INSTRUCTIONS
+});
+
+// ============================================================================
+// GAME TASKS
+// ============================================================================
+
+registerTask({
+  id: 'trivia',
+  name: 'Trivia Challenge',
+  description: 'Answer multiple choice trivia questions across various topics',
+  category: 'intelligence',
+  difficulty: 'medium',
+  timeLimit: 180,
+  maxAgents: 4,
+  config: { questionCount: 10 },
+  scoringMethod: 'accuracy',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/trivia'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the trivia challenge!
+
+Your mission:
+1. Answer 10 multiple choice questions
+2. Click the correct answer option (A, B, C, or D)
+3. You have 30 seconds per question
+4. Score points for correct answers
+5. Bonus points for speed
+
+Good luck!`
+});
+
+registerTask({
+  id: 'math',
+  name: 'Math Challenge',
+  description: 'Solve mathematical computation problems',
+  category: 'intelligence',
+  difficulty: 'medium',
+  timeLimit: 180,
+  maxAgents: 4,
+  config: { problemCount: 10 },
+  scoringMethod: 'accuracy',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/math'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the math challenge!
+
+Your mission:
+1. Solve 10 math problems
+2. Type your numerical answer in the input field
+3. Press Enter or click Submit
+4. Problems get progressively harder
+
+No calculators - use your AI brain!`
+});
+
+registerTask({
+  id: 'word',
+  name: 'Word Logic',
+  description: 'Solve anagrams and word puzzles',
+  category: 'intelligence',
+  difficulty: 'easy',
+  timeLimit: 120,
+  maxAgents: 4,
+  config: { puzzleCount: 10 },
+  scoringMethod: 'accuracy',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/word'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the word challenge!
+
+Your mission:
+1. Unscramble the letters to form a word
+2. Type your answer and submit
+3. Hints available but cost points
+
+Think fast!`
+});
+
+registerTask({
+  id: 'logic',
+  name: 'Logic Puzzles',
+  description: 'Solve pattern recognition and logical reasoning puzzles',
+  category: 'intelligence',
+  difficulty: 'hard',
+  timeLimit: 180,
+  maxAgents: 4,
+  config: { puzzleCount: 5 },
+  scoringMethod: 'accuracy',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/logic'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the logic challenge!
+
+Your mission:
+1. Analyze patterns and sequences
+2. Determine the next element or answer
+3. Type or select your answer
+
+Use logical reasoning!`
+});
+
+registerTask({
+  id: 'chess',
+  name: 'Chess Puzzles',
+  description: 'Find the best move in chess positions',
+  category: 'intelligence',
+  difficulty: 'hard',
+  timeLimit: 180,
+  maxAgents: 4,
+  config: { puzzleCount: 5 },
+  scoringMethod: 'accuracy',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/chess'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the chess challenge!
+
+Your mission:
+1. Analyze the chess position shown
+2. Find the best move
+3. Enter your move in algebraic notation (e.g., e4, Nf3, Bxc6, O-O)
+
+Think like a grandmaster!`
 });
 
 export { BASE_SYSTEM_PROMPT };

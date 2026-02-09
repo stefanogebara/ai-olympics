@@ -3,6 +3,9 @@ import { BaseAgentAdapter } from './base.js';
 import { ClaudeAdapter } from './claude.js';
 import { OpenAIAdapter } from './openai.js';
 import { GeminiAdapter } from './gemini.js';
+import { OpenRouterAdapter } from './openrouter.js';
+import { WebhookAgentAdapter, type WebhookAgentConfig } from './webhook.js';
+import { useOpenRouter } from '../../shared/config.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const log = createLogger('AgentFactory');
@@ -12,11 +15,38 @@ export type { AgentTurnResult, ToolCall, PageState, BrowserTool } from './base.j
 export { ClaudeAdapter } from './claude.js';
 export { OpenAIAdapter } from './openai.js';
 export { GeminiAdapter } from './gemini.js';
+export { OpenRouterAdapter } from './openrouter.js';
+export { WebhookAgentAdapter, verifyWebhookSignature } from './webhook.js';
+export type { WebhookAgentConfig, WebhookRequest, WebhookResponse } from './webhook.js';
+
+// Extended config type that supports webhook agents
+export interface ExtendedAgentConfig extends AgentConfig {
+  agentType?: 'webhook' | 'api_key';
+  webhookUrl?: string;
+  webhookSecret?: string;
+}
 
 // Factory function to create agent adapters
-export function createAgentAdapter(config: AgentConfig): BaseAgentAdapter {
-  log.info(`Creating adapter for ${config.provider}`, { agentId: config.id, model: config.model });
+export function createAgentAdapter(config: ExtendedAgentConfig): BaseAgentAdapter {
+  log.info(`Creating adapter for ${config.agentType || config.provider}`, { agentId: config.id, model: config.model });
 
+  // Handle webhook agents
+  if (config.agentType === 'webhook' && config.webhookUrl && config.webhookSecret) {
+    log.info(`Creating webhook adapter`, { agentId: config.id, webhookUrl: config.webhookUrl });
+    return new WebhookAgentAdapter({
+      ...config,
+      webhookUrl: config.webhookUrl,
+      webhookSecret: config.webhookSecret,
+    } as WebhookAgentConfig);
+  }
+
+  // If OpenRouter is configured, use it for ALL providers
+  if (useOpenRouter()) {
+    log.info(`Using OpenRouter for ${config.provider}`, { model: config.model });
+    return new OpenRouterAdapter(config);
+  }
+
+  // Fallback to direct API adapters
   switch (config.provider) {
     case 'claude':
       return new ClaudeAdapter(config);
@@ -39,6 +69,11 @@ export function createAgentAdapter(config: AgentConfig): BaseAgentAdapter {
 
 // Check if a provider is available (has API key configured)
 export function isProviderAvailable(provider: AgentProvider): boolean {
+  // OpenRouter provides access to all providers
+  if (process.env.OPENROUTER_API_KEY) {
+    return true;
+  }
+
   switch (provider) {
     case 'claude':
       return !!process.env.ANTHROPIC_API_KEY;

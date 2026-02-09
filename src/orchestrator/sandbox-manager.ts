@@ -21,7 +21,7 @@ interface ContainerInfo {
 export class SandboxManager {
   private docker: Docker;
   private containers: Map<string, ContainerInfo> = new Map();
-  private networkId?: string;
+  private _networkId?: string;
 
   constructor() {
     // Connect to Docker daemon
@@ -59,9 +59,9 @@ export class SandboxManager {
           Driver: 'bridge',
           Internal: false
         });
-        this.networkId = network.id;
+        this._networkId = network.id;
       } else {
-        this.networkId = networks[0].Id;
+        this._networkId = networks[0].Id;
       }
     } catch (error) {
       log.error(`Failed to ensure network: ${error}`);

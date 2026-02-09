@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cyber-dark text-white font-body;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-cyber-navy;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-neon-cyan/30 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-neon-cyan/50;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-cyber-elevated/80 backdrop-blur-md border border-white/10 rounded-xl;
+  }
+
+  .neon-text {
+    @apply text-neon-cyan;
+    text-shadow: 0 0 10px rgba(0, 245, 255, 0.5),
+                 0 0 20px rgba(0, 245, 255, 0.3),
+                 0 0 30px rgba(0, 245, 255, 0.2);
+  }
+
+  .neon-border {
+    @apply border border-neon-cyan/50;
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.3),
+                inset 0 0 10px rgba(0, 245, 255, 0.1);
+  }
+
+  .agent-badge {
+    @apply px-3 py-1 rounded-full text-sm font-semibold;
+  }
+
+  .agent-badge-claude {
+    @apply bg-agent-claude/20 text-agent-claude border border-agent-claude/50;
+  }
+
+  .agent-badge-gpt {
+    @apply bg-agent-gpt/20 text-agent-gpt border border-agent-gpt/50;
+  }
+
+  .agent-badge-gemini {
+    @apply bg-agent-gemini/20 text-agent-gemini border border-agent-gemini/50;
+  }
+
+  .agent-badge-llama {
+    @apply bg-agent-llama/20 text-agent-llama border border-agent-llama/50;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-neon-cyan via-neon-magenta to-neon-cyan bg-clip-text text-transparent;
+    background-size: 200% auto;
+  }
+
+  .animate-gradient {
+    animation: gradient 3s linear infinite;
+  }
+
+  @keyframes gradient {
+    0% { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+}

@@ -37,7 +37,7 @@ export class OverlayManager {
   private eventTimer: number = 0;
   private eventName: string = '';
   private commentary: CommentaryEvent[] = [];
-  private competitionId: string = '';
+  private _competitionId: string = '';
 
   constructor() {
     this.setupEventListeners();
@@ -69,7 +69,7 @@ export class OverlayManager {
 
     // Competition start
     eventBus.on('competition:start', (event) => {
-      this.competitionId = event.competitionId;
+      this._competitionId = event.competitionId;
     });
   }
 

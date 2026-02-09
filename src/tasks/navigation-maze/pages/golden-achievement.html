@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Golden Achievement - MazeWorld</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+    }
+    .timer { position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 15px 25px; border-radius: 10px; font-family: monospace; font-size: 1.5rem; color: #00d4ff; }
+    .click-counter { position: fixed; top: 80px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 10px 20px; border-radius: 10px; font-size: 1rem; color: #7c3aed; }
+    .trophy { font-size: 8rem; margin-bottom: 20px; animation: bounce 1s ease infinite; }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+    h1 { font-size: 3rem; background: linear-gradient(90deg, #ffd700, #ff8c00, #ffd700); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; }
+    .success-card { background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.1)); border: 3px solid #ffd700; border-radius: 20px; padding: 40px; max-width: 600px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
+    .stat-box { background: rgba(0, 0, 0, 0.3); padding: 20px; border-radius: 12px; }
+    .stat-value { font-size: 2rem; font-weight: bold; color: #00d4ff; }
+    .stat-label { color: #a0aec0; margin-top: 5px; }
+    .score-display { font-size: 3rem; font-weight: bold; color: #ffd700; margin: 20px 0; }
+    .message { color: #e2e8f0; font-size: 1.2rem; line-height: 1.6; margin-bottom: 20px; }
+    .achievement-id { background: rgba(0, 0, 0, 0.4); padding: 15px 25px; border-radius: 8px; font-family: monospace; font-size: 1.1rem; margin-top: 20px; color: #00d4ff; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+  <div class="click-counter" id="clickCounter">Clicks: 0</div>
+
+  <div class="trophy">TROPHY</div>
+
+  <h1>GOLDEN ACHIEVEMENT UNLOCKED!</h1>
+
+  <div class="success-card">
+    <p class="message">Congratulations! You have successfully navigated the maze and found the hidden treasure! Your pathfinding skills are exceptional!</p>
+
+    <div class="score-display">Score: <span id="finalScore">0</span>/1000</div>
+
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-value" id="finalTime">00:00.00</div>
+        <div class="stat-label">Completion Time</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="finalClicks">0</div>
+        <div class="stat-label">Total Clicks</div>
+      </div>
+    </div>
+
+    <div class="achievement-id">
+      Achievement ID: <span id="achievementId"></span>
+    </div>
+  </div>
+
+  <script>
+    const startTime = parseInt(sessionStorage.getItem('mazeStartTime') || String(Date.now()), 10);
+    const clickCount = parseInt(sessionStorage.getItem('mazeClickCount') || '0', 10) + 1; // Add this click
+
+    const completionTime = Date.now() - startTime;
+    const optimalClicks = 4;
+    const maxTime = 180000;
+
+    // Calculate score
+    // Path efficiency: 30% - Optimal is 4 clicks
+    const pathScore = Math.max(0, (1 - Math.abs(clickCount - optimalClicks) / optimalClicks)) * 300;
+
+    // Time: 30%
+    const timeScore = Math.max(0, (1 - completionTime / maxTime)) * 300;
+
+    // Completion: 40% - Full points for reaching the goal
+    const completionScore = 400;
+
+    const totalScore = Math.round(pathScore + timeScore + completionScore);
+
+    // Display
+    const minutes = Math.floor(completionTime / 60000);
+    const seconds = Math.floor((completionTime % 60000) / 1000);
+    const millis = Math.floor((completionTime % 1000) / 10);
+    const timeString = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+
+    document.getElementById('timer').textContent = timeString;
+    document.getElementById('finalTime').textContent = timeString;
+    document.getElementById('clickCounter').textContent = 'Clicks: ' + clickCount;
+    document.getElementById('finalClicks').textContent = String(clickCount);
+    document.getElementById('finalScore').textContent = String(Math.min(1000, totalScore));
+    document.getElementById('achievementId').textContent = 'GOLD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+    // Log for verification
+    console.log('NAVIGATION_MAZE_COMPLETE', {
+      completionTime: completionTime,
+      clicks: clickCount,
+      optimalClicks: optimalClicks,
+      pathScore: pathScore,
+      timeScore: timeScore,
+      completionScore: completionScore,
+      totalScore: Math.min(1000, totalScore),
+      timestamp: Date.now()
+    });
+
+    // Clear session storage
+    sessionStorage.removeItem('mazeStartTime');
+    sessionStorage.removeItem('mazeClickCount');
+    sessionStorage.removeItem('mazePath');
+  </script>
+</body>
+</html>
