@@ -1,0 +1,54 @@
+version: 2
+
+updates:
+  # Root package.json (backend + shared dependencies)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - automated
+    commit-message:
+      prefix: "deps:"
+    groups:
+      # Group minor/patch updates together to reduce PR noise
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Frontend package.json
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - automated
+      - frontend
+    commit-message:
+      prefix: "deps(frontend):"
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - automated
+      - ci
+    commit-message:
+      prefix: "ci:"
