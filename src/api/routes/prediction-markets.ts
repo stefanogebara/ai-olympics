@@ -7,18 +7,13 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { serviceClient as supabase } from '../../shared/utils/supabase.js';
 import { marketService, type UnifiedMarket, type MarketCategory, type CategoryInfo } from '../../services/market-service.js';
 import { virtualPortfolioManager } from '../../services/virtual-portfolio.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const router = Router();
 const log = createLogger('PredictionMarketsAPI');
-
-// Initialize Supabase for auth
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Auth middleware for admin endpoints
 async function requireAuth(req: Request, res: Response, next: Function) {

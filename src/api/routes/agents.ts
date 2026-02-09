@@ -12,6 +12,24 @@ const router = Router();
 // ============================================================================
 // SECURITY: SSRF protection for webhook URLs
 // ============================================================================
+function isPrivateIpv4(ip: string): boolean {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || !parts.every(p => !isNaN(p))) return false;
+  // 0.0.0.0
+  if (parts.every(p => p === 0)) return true;
+  // 127.0.0.0/8 (full loopback range)
+  if (parts[0] === 127) return true;
+  // 10.0.0.0/8
+  if (parts[0] === 10) return true;
+  // 172.16.0.0/12
+  if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+  // 192.168.0.0/16
+  if (parts[0] === 192 && parts[1] === 168) return true;
+  // 169.254.0.0/16 (link-local / cloud metadata)
+  if (parts[0] === 169 && parts[1] === 254) return true;
+  return false;
+}
+
 function isPrivateUrl(urlStr: string): boolean {
   try {
     const parsed = new URL(urlStr);
@@ -24,23 +42,22 @@ function isPrivateUrl(urlStr: string): boolean {
     const hostname = parsed.hostname.toLowerCase();
 
     // Block localhost variants
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]') {
+    if (hostname === 'localhost') {
       return true;
     }
 
-    // Block private IP ranges
-    const parts = hostname.split('.').map(Number);
-    if (parts.length === 4 && parts.every(p => !isNaN(p))) {
-      // 10.0.0.0/8
-      if (parts[0] === 10) return true;
-      // 172.16.0.0/12
-      if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
-      // 192.168.0.0/16
-      if (parts[0] === 192 && parts[1] === 168) return true;
-      // 169.254.0.0/16 (link-local / cloud metadata)
-      if (parts[0] === 169 && parts[1] === 254) return true;
-      // 0.0.0.0
-      if (parts.every(p => p === 0)) return true;
+    // Block private IPv4 ranges
+    if (isPrivateIpv4(hostname)) return true;
+
+    // IPv4-mapped IPv6 (e.g., ::ffff:127.0.0.1, ::ffff:10.0.0.1)
+    if (hostname.startsWith('[') || hostname.includes(':')) {
+      const cleaned = hostname.replace(/^\[|\]$/g, '');
+      const mapped = cleaned.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+      if (mapped) {
+        return isPrivateIpv4(mapped[1]);
+      }
+      // Block loopback variants
+      if (cleaned === '::1' || cleaned === '0:0:0:0:0:0:0:1') return true;
     }
 
     // Block cloud metadata endpoints
@@ -365,13 +382,17 @@ router.post('/test-webhook', requireAuth, async (req: Request, res: Response) =>
 
     const responseData = await response.json();
 
+    const sanitizedResponse = {
+      hasActions: Array.isArray(responseData?.actions) ? responseData.actions.length : 0,
+      hasDone: responseData?.done === true
+    };
     res.json({
       success: true,
       message: 'Webhook responded successfully',
-      response: responseData
+      response: sanitizedResponse
     });
   } catch (error) {
-    res.json({
+    res.status(500).json({
       success: false,
       message: error instanceof Error ? error.message : 'Failed to reach webhook'
     });

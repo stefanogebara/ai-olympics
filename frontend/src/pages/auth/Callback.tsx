@@ -13,7 +13,7 @@ export function AuthCallback() {
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('Auth callback error:', error);
+          if (import.meta.env.DEV) console.error('Auth callback error:', error);
           navigate('/auth/login');
           return;
         }
@@ -45,7 +45,7 @@ export function AuthCallback() {
           navigate('/auth/login');
         }
       } catch (error) {
-        console.error('Error in auth callback:', error);
+        if (import.meta.env.DEV) console.error('Error in auth callback:', error);
         navigate('/auth/login');
       }
     };

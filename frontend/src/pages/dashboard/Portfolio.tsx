@@ -50,7 +50,7 @@ interface PortfolioStats {
   brierScore?: number;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+import { API_BASE } from '../../lib/api';
 
 export function PortfolioDashboard() {
   const { user, session } = useAuthStore();
@@ -121,10 +121,12 @@ export function PortfolioDashboard() {
         setRecentBets(betsData.bets || betsData || []);
       }
     } catch (error) {
-      console.error('Error loading portfolio:', error);
+      if (import.meta.env.DEV) console.error('Error loading portfolio:', error);
       // Use mock data
-      setPositions(generateMockPositions());
-      setRecentBets(generateMockBets());
+      if (import.meta.env.DEV) {
+        setPositions(generateMockPositions());
+        setRecentBets(generateMockBets());
+      }
     } finally {
       setLoading(false);
     }

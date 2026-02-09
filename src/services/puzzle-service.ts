@@ -4,15 +4,10 @@
  * Handles game sessions and scoring
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { serviceClient as supabase } from '../shared/utils/supabase.js';
 import { createLogger } from '../shared/utils/logger.js';
 
 const log = createLogger('PuzzleService');
-
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -320,7 +315,7 @@ export class PuzzleService {
   private initialized = false;
 
   constructor() {
-    this.initialized = supabaseUrl !== '' && supabaseServiceKey !== '';
+    this.initialized = !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY);
     if (!this.initialized) {
       log.warn('Supabase not configured, puzzle service will use in-memory fallback');
     }

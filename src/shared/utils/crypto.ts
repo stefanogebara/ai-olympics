@@ -6,13 +6,15 @@
 import crypto from 'crypto';
 
 // Derive a 256-bit key from the configured secret or service key
-const keySource = process.env.API_KEY_ENCRYPTION_KEY
-  || process.env.SUPABASE_SERVICE_KEY
-  || 'fallback-dev-key';
+const keySource = process.env.API_KEY_ENCRYPTION_KEY || process.env.SUPABASE_SERVICE_KEY;
 
-const ENCRYPTION_KEY: Buffer = typeof keySource === 'string' && keySource.length === 32
-  ? Buffer.from(keySource)
-  : crypto.createHash('sha256').update(keySource).digest();
+if (!keySource) {
+  throw new Error(
+    'Missing encryption key. Set API_KEY_ENCRYPTION_KEY or SUPABASE_SERVICE_KEY environment variable.'
+  );
+}
+
+const ENCRYPTION_KEY: Buffer = crypto.createHash('sha256').update(keySource).digest();
 
 /**
  * Encrypt plaintext with AES-256-GCM

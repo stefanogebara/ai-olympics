@@ -33,8 +33,8 @@ const GAME_INFO: Record<string, { name: string; description: string; color: stri
   chess: { name: 'Chess Puzzles', description: 'Find the best move in 5 positions', color: 'purple' }
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3003';
-const TASK_BASE = 'http://localhost:3003';
+import { API_BASE } from '../../lib/api';
+const TASK_BASE = API_BASE;
 
 export function GamesPlay() {
   const { type } = useParams<{ type: string }>();

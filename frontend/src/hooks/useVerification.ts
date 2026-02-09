@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+import { API_BASE } from '../lib/api';
 
 interface ChallengeResult {
   type: string;

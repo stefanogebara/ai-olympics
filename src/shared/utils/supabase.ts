@@ -11,6 +11,16 @@ const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
 
+// Validate required configuration (skip in test environment)
+if (process.env.NODE_ENV !== 'test') {
+  if (!supabaseUrl) {
+    throw new Error('Missing required environment variable: SUPABASE_URL');
+  }
+  if (!supabaseServiceKey) {
+    throw new Error('Missing required environment variable: SUPABASE_SERVICE_KEY');
+  }
+}
+
 /**
  * Service-level client (bypasses RLS)
  * Use ONLY for:

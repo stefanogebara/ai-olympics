@@ -5,17 +5,12 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { serviceClient as supabase } from '../../shared/utils/supabase.js';
 import { userPortfolioService } from '../../services/user-portfolio-service.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const router = Router();
 const log = createLogger('UserPredictionsAPI');
-
-// Initialize Supabase for auth verification
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================================================
 // AUTH MIDDLEWARE

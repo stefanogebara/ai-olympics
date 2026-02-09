@@ -4,7 +4,7 @@ import type { AgentConfig, AgentProvider } from './types/index.js';
 // Environment configuration with defaults
 export const config = {
   // Server
-  port: parseInt(process.env.PORT || '3002', 10),
+  port: parseInt(process.env.PORT || '3003', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // AI APIs

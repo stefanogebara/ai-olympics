@@ -69,7 +69,7 @@ interface ManifoldMarket {
   uniqueBettorCount?: number;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+import { API_BASE } from '../../lib/api';
 
 export function PredictionBrowse() {
   const [markets, setMarkets] = useState<UnifiedMarket[]>([]);
@@ -96,7 +96,7 @@ export function PredictionBrowse() {
         setCategories(data.categories || []);
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
+      if (import.meta.env.DEV) console.error('Error loading categories:', error);
     }
   };
 
@@ -110,7 +110,7 @@ export function PredictionBrowse() {
       const data = await response.json();
       setMarkets(data.markets || data);
     } catch (error) {
-      console.error('Error loading markets:', error);
+      if (import.meta.env.DEV) console.error('Error loading markets:', error);
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export function PredictionBrowse() {
       const data = await response.json();
       setMarkets(data);
     } catch (error) {
-      console.error('Error searching markets:', error);
+      if (import.meta.env.DEV) console.error('Error searching markets:', error);
     } finally {
       setLoading(false);
     }

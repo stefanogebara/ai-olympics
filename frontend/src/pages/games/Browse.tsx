@@ -86,7 +86,7 @@ const DIFFICULTY_CONFIG = {
   hard: { label: 'Hard', color: 'text-red-400', bg: 'bg-red-400/20' }
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+import { API_BASE } from '../../lib/api';
 
 export function GamesBrowse() {
   const [topScores, setTopScores] = useState<Record<string, number>>({});
@@ -112,7 +112,7 @@ export function GamesBrowse() {
         setTopScores(scores);
       }
     } catch (error) {
-      console.error('Error loading top scores:', error);
+      if (import.meta.env.DEV) console.error('Error loading top scores:', error);
     }
   };
 

@@ -36,9 +36,9 @@ const __dirname = path.dirname(__filename);
 const log = createLogger('APIServer');
 
 // Allowed origins for CORS
+const isDevelopment = config.nodeEnv === 'development';
 const ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:3003',
+  ...(isDevelopment ? ['http://localhost:5173', `http://localhost:${config.port}`] : []),
   process.env.CLIENT_URL,
 ].filter(Boolean) as string[];
 
@@ -350,8 +350,8 @@ export function createAPIServer() {
         if (user) {
           (socket as any).userId = user.id;
         }
-      } catch {
-        // Continue without auth - public data is still allowed
+      } catch (error) {
+        log.debug('WebSocket auth failed', { error: error instanceof Error ? error.message : String(error) });
       }
     }
     next(); // Allow connection but track auth status

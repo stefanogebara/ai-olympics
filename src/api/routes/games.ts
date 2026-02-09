@@ -4,17 +4,12 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { serviceClient as supabase } from '../../shared/utils/supabase.js';
 import { puzzleService, type GameType, type Difficulty } from '../../services/puzzle-service.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const router = Router();
 const log = createLogger('GamesAPI');
-
-// Initialize Supabase for auth verification
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Valid game types and difficulties
 const VALID_GAME_TYPES: GameType[] = ['trivia', 'math', 'chess', 'word', 'logic'];

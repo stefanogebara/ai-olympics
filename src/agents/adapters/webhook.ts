@@ -272,3 +272,19 @@ export function verifyWebhookSignature(
     Buffer.from(expectedSignature)
   );
 }
+
+const REPLAY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+export function verifyWebhookRequest(
+  payload: unknown,
+  signature: string,
+  timestamp: string,
+  secret: string,
+  windowMs: number = REPLAY_WINDOW_MS
+): boolean {
+  const ts = parseInt(timestamp, 10);
+  if (isNaN(ts) || Math.abs(Date.now() - ts) > windowMs) {
+    return false;
+  }
+  return verifyWebhookSignature(payload, signature, secret);
+}

@@ -1,15 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { serviceClient as supabase } from '../../shared/utils/supabase.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const log = createLogger('CompetitionsAPI');
 
 const router = Router();
-
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Middleware to verify JWT token from Supabase
 async function requireAuth(req: Request, res: Response, next: Function) {

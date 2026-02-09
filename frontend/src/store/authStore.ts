@@ -171,13 +171,13 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) {
             // Profile doesn't exist, might need to create it
-            console.error('Error loading profile:', error);
+            if (import.meta.env.DEV) console.error('Error loading profile:', error);
             return;
           }
 
           set({ profile: data });
         } catch (error) {
-          console.error('Error loading profile:', error);
+          if (import.meta.env.DEV) console.error('Error loading profile:', error);
         }
       },
 
@@ -226,7 +226,7 @@ export const useAuthStore = create<AuthState>()(
             }
           });
         } catch (error) {
-          console.error('Error initializing auth:', error);
+          if (import.meta.env.DEV) console.error('Error initializing auth:', error);
         } finally {
           set({ isLoading: false });
         }

@@ -39,7 +39,7 @@ const GAME_TABS: { id: GameTab; name: string; icon: React.ReactNode }[] = [
   { id: 'chess', name: 'Chess', icon: <Crown size={16} /> }
 ];
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+import { API_BASE } from '../../lib/api';
 
 export function GamesLeaderboard() {
   const { user } = useAuthStore();
@@ -77,11 +77,15 @@ export function GamesLeaderboard() {
         }
       } else {
         // Use mock data for demo
-        setEntries(generateMockData());
+        if (import.meta.env.DEV) {
+          setEntries(generateMockData());
+        }
       }
     } catch (error) {
-      console.error('Error loading leaderboard:', error);
-      setEntries(generateMockData());
+      if (import.meta.env.DEV) console.error('Error loading leaderboard:', error);
+      if (import.meta.env.DEV) {
+        setEntries(generateMockData());
+      }
     } finally {
       setLoading(false);
     }

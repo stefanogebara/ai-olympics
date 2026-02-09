@@ -49,7 +49,7 @@ const PROVIDER_COLORS = {
   gemini: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' }
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+import { API_BASE } from '../../lib/api';
 
 function BetModal({ matchup, agentId, onClose, onSubmit }: BetModalProps) {
   const [amount, setAmount] = useState(100);
@@ -148,11 +148,15 @@ export function MetaMarkets() {
         setMatchups(data.matchups || data);
       } else {
         // Use mock data
-        setMatchups(generateMockMatchups());
+        if (import.meta.env.DEV) {
+          setMatchups(generateMockMatchups());
+        }
       }
     } catch (error) {
-      console.error('Error loading matchups:', error);
-      setMatchups(generateMockMatchups());
+      if (import.meta.env.DEV) console.error('Error loading matchups:', error);
+      if (import.meta.env.DEV) {
+        setMatchups(generateMockMatchups());
+      }
     } finally {
       setLoading(false);
     }
@@ -224,7 +228,7 @@ export function MetaMarkets() {
         loadMatchups();
       }
     } catch (error) {
-      console.error('Error placing bet:', error);
+      if (import.meta.env.DEV) console.error('Error placing bet:', error);
     }
 
     setSelectedBet(null);
