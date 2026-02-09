@@ -1,45 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { createLogger } from '../../shared/utils/logger.js';
+import { encrypt as encryptApiKey, decrypt as decryptApiKey } from '../../shared/utils/crypto.js';
+import { serviceClient as supabase, createUserClient, extractToken } from '../../shared/utils/supabase.js';
 import { verifyWebhookSignature } from '../../agents/adapters/webhook.js';
 
 const log = createLogger('AgentsAPI');
 
 const router = Router();
-
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// ============================================================================
-// SECURITY: AES-256-GCM encryption for API keys
-// ============================================================================
-const ENCRYPTION_KEY = process.env.API_KEY_ENCRYPTION_KEY
-  || crypto.createHash('sha256').update(supabaseServiceKey || 'fallback-dev-key').digest();
-
-function encryptApiKey(plaintext: string): string {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
-  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  // Format: iv:authTag:ciphertext (all hex)
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}`;
-}
-
-function decryptApiKey(encryptedStr: string): string {
-  const parts = encryptedStr.split(':');
-  if (parts.length !== 3) {
-    throw new Error('Invalid encrypted key format');
-  }
-  const iv = Buffer.from(parts[0], 'hex');
-  const authTag = Buffer.from(parts[1], 'hex');
-  const encrypted = Buffer.from(parts[2], 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
-  decipher.setAuthTag(authTag);
-  return decipher.update(encrypted) + decipher.final('utf8');
-}
 
 // ============================================================================
 // SECURITY: SSRF protection for webhook URLs
@@ -88,13 +56,12 @@ function isPrivateUrl(urlStr: string): boolean {
 const ALLOWED_SORT_COLUMNS = ['elo_rating', 'name', 'created_at', 'total_wins', 'total_competitions'];
 
 // Middleware to verify JWT token from Supabase
+// Attaches user object and user-scoped Supabase client (respects RLS)
 async function requireAuth(req: Request, res: Response, next: Function) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
+  const token = extractToken(req.headers.authorization);
+  if (!token) {
     return res.status(401).json({ error: 'Missing authorization token' });
   }
-
-  const token = authHeader.slice(7);
 
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
@@ -102,6 +69,7 @@ async function requireAuth(req: Request, res: Response, next: Function) {
       return res.status(401).json({ error: 'Invalid token' });
     }
     (req as any).user = user;
+    (req as any).userClient = createUserClient(token);
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid token' });
@@ -181,10 +149,11 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Create agent (requires auth)
+// Create agent (requires auth, uses user-scoped client for RLS)
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const {
       name,
       slug,
@@ -212,7 +181,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     // Encrypt API key with AES-256-GCM
     const api_key_encrypted = api_key ? encryptApiKey(api_key) : null;
 
-    const { data, error } = await supabase
+    // Use user-scoped client so RLS enforces ownership
+    const { data, error } = await userDb
       .from('aio_agents')
       .insert({
         owner_id: user.id,
@@ -247,14 +217,15 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Update agent (requires auth)
+// Update agent (requires auth, uses user-scoped client for RLS)
 router.put('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const { id } = req.params;
 
-    // Verify ownership
-    const { data: existing } = await supabase
+    // RLS will enforce ownership, but verify explicitly for clear error messages
+    const { data: existing } = await userDb
       .from('aio_agents')
       .select('owner_id')
       .eq('id', id)
@@ -282,7 +253,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
       updates.api_key_encrypted = encryptApiKey(req.body.api_key);
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await userDb
       .from('aio_agents')
       .update(updates)
       .eq('id', id)
@@ -299,14 +270,15 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Delete agent (requires auth)
+// Delete agent (requires auth, uses user-scoped client for RLS)
 router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const { id } = req.params;
 
-    // Verify ownership
-    const { data: existing } = await supabase
+    // RLS will enforce ownership via user-scoped client
+    const { data: existing } = await userDb
       .from('aio_agents')
       .select('owner_id')
       .eq('id', id)
@@ -316,7 +288,7 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    const { error } = await supabase
+    const { error } = await userDb
       .from('aio_agents')
       .delete()
       .eq('id', id);

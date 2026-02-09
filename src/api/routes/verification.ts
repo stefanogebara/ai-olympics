@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { createLogger } from '../../shared/utils/logger.js';
+import { encrypt, decrypt } from '../../shared/utils/crypto.js';
+import { serviceClient as supabase, extractToken } from '../../shared/utils/supabase.js';
 import {
   generateVerificationSession,
   type ChallengeAnswers,
@@ -21,36 +22,39 @@ import {
 const log = createLogger('VerificationAPI');
 const router = Router();
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// In-memory store for expected answers (keyed by sessionId)
-// These never go to the client - only the challenge payloads do
-const sessionAnswerStore = new Map<string, {
+// Helper: serialize expected answers for encryption (Map → JSON-safe)
+function serializeExpectedAnswers(answers: {
   speed_arithmetic: Map<string, number>;
   speed_json_parse: Map<string, unknown>;
   structured_output: Record<string, unknown>;
-  createdAt: number;
-}>();
+}): string {
+  return JSON.stringify({
+    speed_arithmetic: Object.fromEntries(answers.speed_arithmetic),
+    speed_json_parse: Object.fromEntries(answers.speed_json_parse),
+    structured_output: answers.structured_output,
+  });
+}
 
-// Clean up expired sessions from memory every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, data] of sessionAnswerStore) {
-    if (now - data.createdAt > 10 * 60 * 1000) {
-      sessionAnswerStore.delete(id);
-    }
-  }
-}, 10 * 60 * 1000);
+// Helper: deserialize expected answers from DB
+function deserializeExpectedAnswers(json: string): {
+  speed_arithmetic: Map<string, number>;
+  speed_json_parse: Map<string, unknown>;
+  structured_output: Record<string, unknown>;
+} {
+  const parsed = JSON.parse(json);
+  return {
+    speed_arithmetic: new Map(Object.entries(parsed.speed_arithmetic)),
+    speed_json_parse: new Map(Object.entries(parsed.speed_json_parse)),
+    structured_output: parsed.structured_output,
+  };
+}
 
 // Auth middleware
 async function requireAuth(req: Request, res: Response, next: Function) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
+  const token = extractToken(req.headers.authorization);
+  if (!token) {
     return res.status(401).json({ error: 'Missing authorization token' });
   }
-  const token = authHeader.slice(7);
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) {
@@ -152,13 +156,14 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
 
     await supabase.from('aio_verification_challenges').insert(challengeInserts);
 
-    // Store expected answers in memory (server-side only)
-    sessionAnswerStore.set(session.id, {
-      speed_arithmetic: generated.expectedAnswers.speed_arithmetic,
-      speed_json_parse: generated.expectedAnswers.speed_json_parse,
-      structured_output: generated.expectedAnswers.structured_output,
-      createdAt: Date.now(),
-    });
+    // Store expected answers encrypted in DB (not in-memory, survives restarts/scaling)
+    const serialized = serializeExpectedAnswers(generated.expectedAnswers);
+    const encryptedAnswers = encrypt(serialized);
+
+    await supabase
+      .from('aio_verification_sessions')
+      .update({ expected_answers_encrypted: encryptedAnswers })
+      .eq('id', session.id);
 
     log.info('Verification session started', { sessionId: session.id, agentId: agent_id });
 
@@ -183,10 +188,10 @@ router.post('/:sessionId/respond', requireAuth, async (req: Request, res: Respon
     const sessionId = req.params.sessionId as string;
     const answers: ChallengeAnswers = req.body;
 
-    // Get session
+    // Get session (include encrypted answers for scoring)
     const { data: session } = await supabase
       .from('aio_verification_sessions')
-      .select('*, agent:aio_agents(id, owner_id)')
+      .select('*, agent:aio_agents(id, owner_id), expected_answers_encrypted')
       .eq('id', sessionId)
       .single();
 
@@ -211,10 +216,18 @@ router.post('/:sessionId/respond', requireAuth, async (req: Request, res: Respon
       return res.status(410).json({ error: 'Verification session has expired' });
     }
 
-    // Get expected answers from memory
-    const expectedAnswers = sessionAnswerStore.get(sessionId);
-    if (!expectedAnswers) {
-      return res.status(410).json({ error: 'Session answers expired from server memory. Please start a new session.' });
+    // Get expected answers from encrypted DB column
+    if (!session.expected_answers_encrypted) {
+      return res.status(410).json({ error: 'Session answers not found. Please start a new session.' });
+    }
+
+    let expectedAnswers;
+    try {
+      const decrypted = decrypt(session.expected_answers_encrypted);
+      expectedAnswers = deserializeExpectedAnswers(decrypted);
+    } catch (err) {
+      log.error('Failed to decrypt session answers', { sessionId });
+      return res.status(500).json({ error: 'Failed to decrypt session data' });
     }
 
     // Get challenge records for timing info
@@ -420,8 +433,11 @@ router.post('/:sessionId/respond', requireAuth, async (req: Request, res: Respon
         });
     }
 
-    // Clean up memory
-    sessionAnswerStore.delete(sessionId);
+    // Clear encrypted answers from DB after scoring (no longer needed)
+    await supabase
+      .from('aio_verification_sessions')
+      .update({ expected_answers_encrypted: null })
+      .eq('id', sessionId);
 
     log.info('Verification completed', {
       sessionId,

@@ -1,4 +1,7 @@
 import Docker from 'dockerode';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import type { SandboxConfig, SandboxState, AgentConfig } from '../shared/types/index.js';
 import { config } from '../shared/config.js';
 import { createLogger } from '../shared/utils/logger.js';
@@ -21,6 +24,7 @@ interface ContainerInfo {
 export class SandboxManager {
   private docker: Docker;
   private containers: Map<string, ContainerInfo> = new Map();
+  private secretDirs: Set<string> = new Set();
   private _networkId?: string;
 
   constructor() {
@@ -80,6 +84,46 @@ export class SandboxManager {
     }
   }
 
+  // Write API keys to temp files for Docker secret mounts (not env vars)
+  // Returns bind mount paths; files are cleaned up when container stops
+  private getSecretBinds(agentConfig: AgentConfig): string[] {
+    const secretDir = path.join(os.tmpdir(), `aio-secrets-${agentConfig.id}-${nanoid(6)}`);
+    fs.mkdirSync(secretDir, { recursive: true, mode: 0o700 });
+
+    const secrets: Record<string, string> = {
+      'anthropic_api_key': config.anthropicApiKey || '',
+      'openai_api_key': config.openaiApiKey || '',
+      'google_ai_api_key': config.googleAiApiKey || '',
+    };
+
+    const binds: string[] = [];
+    for (const [name, value] of Object.entries(secrets)) {
+      if (value) {
+        const filePath = path.join(secretDir, name);
+        fs.writeFileSync(filePath, value, { mode: 0o400 });
+        binds.push(`${filePath}:/run/secrets/${name}:ro`);
+      }
+    }
+
+    // Track for cleanup
+    this.secretDirs.add(secretDir);
+    return binds;
+  }
+
+  // Clean up secret files for a sandbox
+  private cleanupSecrets(agentId: string): void {
+    for (const dir of this.secretDirs) {
+      if (dir.includes(agentId)) {
+        try {
+          fs.rmSync(dir, { recursive: true, force: true });
+          this.secretDirs.delete(dir);
+        } catch {
+          // Best-effort cleanup
+        }
+      }
+    }
+  }
+
   // Create a sandbox for an agent
   async createSandbox(agentConfig: AgentConfig, sandboxConfig: Partial<SandboxConfig> = {}): Promise<SandboxState> {
     const sandboxId = `sandbox-${nanoid(8)}`;
@@ -117,20 +161,22 @@ export class SandboxManager {
           `HEADLESS=${fullConfig.headless}`,
           `VIEWPORT_WIDTH=${fullConfig.viewport.width}`,
           `VIEWPORT_HEIGHT=${fullConfig.viewport.height}`,
-          // Pass API keys securely
-          `ANTHROPIC_API_KEY=${config.anthropicApiKey}`,
-          `OPENAI_API_KEY=${config.openaiApiKey}`,
-          `GOOGLE_AI_API_KEY=${config.googleAiApiKey}`
+          // Chrome runs with --no-sandbox inside Docker (Docker is the sandbox)
+          'CHROME_FLAGS=--no-sandbox --disable-setuid-sandbox',
         ],
         HostConfig: {
           Memory: fullConfig.memoryLimit * 1024 * 1024,  // Convert MB to bytes
           NanoCpus: fullConfig.cpuLimit * 1e9,  // Convert cores to nanoseconds
           NetworkMode: NETWORK_NAME,
           AutoRemove: true,
-          // Security options for sandboxing
+          ReadonlyRootfs: true,
+          Tmpfs: { '/tmp': 'rw,noexec,nosuid,size=256m' },
+          // Security: drop ALL capabilities, no SYS_ADMIN needed
+          // Chrome uses --no-sandbox since Docker provides isolation
           SecurityOpt: ['no-new-privileges'],
           CapDrop: ['ALL'],
-          CapAdd: ['SYS_ADMIN']  // Needed for Chrome/Chromium
+          // Mount API keys as Docker secrets (read-only files, not env vars)
+          Binds: this.getSecretBinds(agentConfig),
         },
         ExposedPorts: {
           '9222/tcp': {}  // Chrome DevTools Protocol
@@ -222,6 +268,9 @@ export class SandboxManager {
 
     info.state.status = 'stopped';
     this.containers.delete(sandboxId);
+
+    // Clean up secret files
+    this.cleanupSecrets(info.agentId);
 
     log.info(`Sandbox stopped: ${sandboxId}`);
   }
