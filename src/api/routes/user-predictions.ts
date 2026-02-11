@@ -87,6 +87,30 @@ router.get('/stats', authMiddleware, async (req: AuthenticatedRequest, res: Resp
 });
 
 // ============================================================================
+// LIMITS ENDPOINT
+// ============================================================================
+
+/**
+ * GET /api/user/limits
+ * Get the authenticated user's betting limits and usage
+ */
+router.get('/limits', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const limits = await userPortfolioService.getLimits(userId);
+
+    if (!limits) {
+      return res.status(500).json({ error: 'Failed to get limits' });
+    }
+
+    res.json(limits);
+  } catch (error) {
+    log.error('Error fetching limits', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch limits' });
+  }
+});
+
+// ============================================================================
 // BET ENDPOINTS
 // ============================================================================
 

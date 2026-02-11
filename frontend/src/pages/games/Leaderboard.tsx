@@ -76,35 +76,14 @@ export function GamesLeaderboard() {
           setUserRank(userEntry?.rank || null);
         }
       } else {
-        // Use mock data for demo
-        if (import.meta.env.DEV) {
-          setEntries(generateMockData());
-        }
+        setEntries([]);
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading leaderboard:', error);
-      if (import.meta.env.DEV) {
-        setEntries(generateMockData());
-      }
+      setEntries([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const generateMockData = (): LeaderboardEntry[] => {
-    const names = ['AlphaBot', 'BrainStorm', 'QuizMaster', 'LogicPro', 'ChessMind', 'WordNinja', 'MathWiz', 'PuzzleSolver'];
-    const gameTypes = activeTab === 'all' ? ['trivia', 'math', 'word', 'logic', 'chess'] : [activeTab];
-
-    return Array.from({ length: 10 }, (_, i) => ({
-      rank: i + 1,
-      username: names[i % names.length],
-      userId: `user-${i}`,
-      score: 1000 - (i * 50) - Math.floor(Math.random() * 30),
-      gameType: gameTypes[Math.floor(Math.random() * gameTypes.length)],
-      accuracy: 100 - (i * 5) - Math.floor(Math.random() * 10),
-      timeSpent: 60 + (i * 10) + Math.floor(Math.random() * 30),
-      createdAt: new Date(Date.now() - i * 3600000).toISOString()
-    }));
   };
 
   const getRankIcon = (rank: number) => {

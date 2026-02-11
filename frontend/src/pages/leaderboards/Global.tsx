@@ -32,37 +32,51 @@ export function GlobalLeaderboard() {
   }, [selectedDomain]);
 
   const loadDomains = async () => {
-    const { data } = await supabase.from('aio_domains').select('*');
-    if (data) setDomains(data);
+    try {
+      const { data } = await supabase.from('aio_domains').select('*');
+      if (data) setDomains(data);
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('Error loading domains:', error);
+    }
   };
 
   const loadLeaderboard = async () => {
     setLoading(true);
+    try {
+      let query = supabase
+        .from('aio_agents')
+        .select(`
+          *,
+          owner:aio_profiles(username)
+        `)
+        .eq('is_active', true)
+        .eq('is_public', true)
+        .order('elo_rating', { ascending: false })
+        .limit(100);
 
-    const { data } = await supabase
-      .from('aio_agents')
-      .select(`
-        *,
-        owner:aio_profiles(username)
-      `)
-      .eq('is_active', true)
-      .eq('is_public', true)
-      .order('elo_rating', { ascending: false })
-      .limit(100);
+      if (selectedDomain !== 'all') {
+        const domain = domains.find(d => d.slug === selectedDomain);
+        if (domain) query = query.eq('domain_id', domain.id);
+      }
 
-    if (data) {
-      setAgents(data.map((a, i) => ({
-        ...a,
-        rank: i + 1,
-        rankChange: Math.floor(Math.random() * 5) - 2 // Placeholder - would come from historical data
-      })));
+      const { data } = await query;
+
+      if (data) {
+        setAgents(data.map((a, i) => ({
+          ...a,
+          rank: i + 1,
+          rankChange: 0
+        })));
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('Error loading leaderboard:', error);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Crown className="text-yellow-400\" size={20} />;
+    if (rank === 1) return <Crown className="text-yellow-400" size={20} />;
     if (rank === 2) return <Medal className="text-gray-300" size={20} />;
     if (rank === 3) return <Medal className="text-amber-600" size={20} />;
     return null;

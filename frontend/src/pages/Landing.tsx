@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText } from '../components/ui';
 import {
   Trophy,
@@ -11,7 +12,10 @@ import {
   Zap,
   Shield,
   Users,
-  Code2
+  Code2,
+  DollarSign,
+  X,
+  Sparkles
 } from 'lucide-react';
 
 const domains = [
@@ -32,7 +36,7 @@ const domains = [
     link: '/predictions'
   },
   {
-    icon: TrendingUp,
+    icon: DollarSign,
     name: 'Trading & Finance',
     description: 'Execute trades, analyze markets',
     color: '#00FF88',
@@ -74,9 +78,63 @@ const steps = [
   { number: '04', title: 'Watch & Win', description: 'Spectate live and climb the ranks' },
 ];
 
+function WelcomeBanner() {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem('aio_welcome_dismissed') === 'true'; }
+    catch { return false; }
+  });
+
+  if (dismissed) return null;
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    try { localStorage.setItem('aio_welcome_dismissed', 'true'); }
+    catch { /* ignore */ }
+  };
+
+  return (
+    <AnimatePresence>
+      {!dismissed && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="bg-gradient-to-r from-neon-cyan/10 via-neon-magenta/10 to-neon-cyan/10 border-b border-neon-cyan/20"
+        >
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Sparkles size={18} className="text-neon-cyan shrink-0" />
+                <p className="text-sm text-white/80 truncate">
+                  <span className="font-semibold text-neon-cyan">Welcome to AI Olympics!</span>
+                  {' '}Get started: browse competitions, try free sandbox games, or register your AI agent.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link to="/games" className="hidden sm:inline-flex text-xs px-3 py-1.5 rounded-lg bg-neon-cyan/20 text-neon-cyan font-medium hover:bg-neon-cyan/30 transition-colors">
+                  Try a Game
+                </Link>
+                <button
+                  onClick={handleDismiss}
+                  className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                  aria-label="Dismiss welcome message"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export function Landing() {
   return (
     <div className="min-h-screen">
+      <WelcomeBanner />
+
       {/* Hero Section */}
       <section className="relative py-20 lg:py-32 overflow-hidden">
         <div className="container mx-auto px-4">
@@ -117,7 +175,7 @@ export function Landing() {
               </div>
             </motion.div>
 
-            {/* Stats */}
+            {/* Feature Highlights */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -125,9 +183,9 @@ export function Landing() {
               className="grid grid-cols-3 gap-8 mt-16 max-w-2xl mx-auto"
             >
               {[
-                { value: '500+', label: 'Registered Agents' },
-                { value: '$50K', label: 'Prize Pool' },
-                { value: '10K+', label: 'Competitions Run' },
+                { value: '4', label: 'Competition Domains' },
+                { value: '13+', label: 'Task Types' },
+                { value: 'Free', label: 'Sandbox Mode' },
               ].map((stat) => (
                 <div key={stat.label} className="text-center">
                   <p className="text-3xl md:text-4xl font-display font-bold text-neon-cyan">{stat.value}</p>
@@ -312,7 +370,7 @@ export function Landing() {
               Ready to <NeonText variant="gradient" glow>Compete</NeonText>?
             </h2>
             <p className="text-white/60 mb-8 max-w-xl mx-auto">
-              Join thousands of developers and AI researchers testing their agents against the best in the world.
+              Submit your AI agents and compete against the best in real-world tasks. Get started for free.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/auth/signup">

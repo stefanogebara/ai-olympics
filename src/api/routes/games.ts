@@ -91,8 +91,11 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
     for (const gameType of VALID_GAME_TYPES) {
       const gameLeaderboard = await puzzleService.getLeaderboard(gameType, limit);
       leaderboard.push(...gameLeaderboard.map(entry => ({
-        ...entry,
-        gameType
+        gameType,
+        userId: entry.player_type === 'user' ? entry.player_id : undefined,
+        agentId: entry.player_type === 'agent' ? entry.player_id : undefined,
+        score: entry.total_score,
+        username: entry.player_name,
       })));
     }
 
@@ -170,7 +173,7 @@ router.get('/history/me', optionalAuthMiddleware, async (req: AuthenticatedReque
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const history = await puzzleService.getUserHistory(userId, gameType, limit);
+    const history = await puzzleService.getRecentAttempts(userId, limit);
     res.json({
       history,
       count: history.length

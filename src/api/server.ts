@@ -21,11 +21,15 @@ import userPredictionsRouter from './routes/user-predictions.js';
 import gamesRouter from './routes/games.js';
 import metaMarketsRouter from './routes/meta-markets.js';
 import verificationRouter from './routes/verification.js';
+import paymentsRouter from './routes/payments.js';
+import tradingRouter from './routes/trading.js';
 
 // Market services for price streaming
 import { polymarketClient, type PriceUpdate } from '../services/polymarket-client.js';
 import { marketService } from '../services/market-service.js';
 import { metaMarketService } from '../services/meta-market-service.js';
+import { startResolver } from '../services/market-resolver.js';
+import { marketSyncService } from '../services/market-sync.js';
 
 // Register meta-market event listeners for auto market creation/resolution
 metaMarketService.registerEventListeners();
@@ -38,7 +42,13 @@ const log = createLogger('APIServer');
 // Allowed origins for CORS
 const isDevelopment = config.nodeEnv === 'development';
 const ALLOWED_ORIGINS = [
-  ...(isDevelopment ? ['http://localhost:5173', `http://localhost:${config.port}`] : []),
+  ...(isDevelopment ? [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
+    `http://localhost:${config.port}`,
+  ] : []),
   process.env.CLIENT_URL,
 ].filter(Boolean) as string[];
 
@@ -88,6 +98,9 @@ export function createAPIServer() {
     contentSecurityPolicy: false, // Disable CSP for SPA compatibility
     crossOriginEmbedderPolicy: false,
   }));
+
+  // Raw body for Stripe webhook (must come before express.json)
+  app.use('/api/payments/webhook/stripe', express.raw({ type: 'application/json' }));
 
   // Middleware
   app.use(express.json({ limit: '1mb' }));
@@ -240,6 +253,12 @@ export function createAPIServer() {
 
   // Agent Verification (reverse CAPTCHA)
   app.use('/api/verification', verificationRouter);
+
+  // Payments (real money)
+  app.use('/api/payments', paymentsRouter);
+
+  // Trading (real money orders)
+  app.use('/api/trading', tradingRouter);
 
   // State
   let currentCompetition: Competition | null = null;
@@ -447,12 +466,21 @@ export function createAPIServer() {
         log.info(`API server running on http://localhost:${port}`);
         log.info(`WebSocket server ready`);
         resolve();
+
+        // Start market resolution polling
+        startResolver();
+        log.info('Market resolver started');
+
+        // Start market sync service (background ingestion from Polymarket + Kalshi)
+        marketSyncService.start();
+        log.info('Market sync service started');
       });
     });
   };
 
   const stop = (): Promise<void> => {
     return new Promise((resolve) => {
+      marketSyncService.stop();
       io.close();
       server.close(() => {
         log.info('API server stopped');

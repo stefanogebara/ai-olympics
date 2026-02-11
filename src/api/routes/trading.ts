@@ -1,0 +1,193 @@
+/**
+ * Trading API Routes
+ * Endpoints for real-money order management, positions, and trade history
+ */
+
+import { Router, Request, Response } from 'express';
+import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { orderManager } from '../../services/order-manager.js';
+import { createLogger } from '../../shared/utils/logger.js';
+
+const router = Router();
+const log = createLogger('TradingAPI');
+
+// ============================================================================
+// AUTH MIDDLEWARE
+// ============================================================================
+
+interface AuthenticatedRequest extends Request {
+  userId?: string;
+}
+
+async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization required' });
+    }
+
+    const token = authHeader.substring(7);
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    req.userId = user.id;
+    next();
+  } catch (error) {
+    log.error('Auth middleware error', { error: String(error) });
+    res.status(401).json({ error: 'Authentication failed' });
+  }
+}
+
+// ============================================================================
+// ORDER ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /api/trading/orders
+ * Place an order
+ */
+router.post('/orders', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const { marketId, marketSource, outcome, amountCents } = req.body;
+
+    if (!marketId || !marketSource || !outcome || !amountCents) {
+      return res.status(400).json({ error: 'Missing required fields: marketId, marketSource, outcome, amountCents' });
+    }
+
+    const order = await orderManager.placeOrder(userId, marketId, marketSource, outcome, amountCents);
+
+    res.json({ order });
+  } catch (error) {
+    log.error('Error placing order', { error: String(error) });
+    res.status(500).json({ error: 'Failed to place order' });
+  }
+});
+
+/**
+ * GET /api/trading/orders
+ * Get open orders
+ */
+router.get('/orders', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const orders = await orderManager.getOpenOrders(userId);
+
+    res.json({ orders });
+  } catch (error) {
+    log.error('Error fetching orders', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+/**
+ * GET /api/trading/orders/:id
+ * Get a specific order
+ */
+router.get('/orders/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const orderId = req.params.id;
+
+    const { data: order, error } = await supabase
+      .from('aio_real_bets')
+      .select('*')
+      .eq('id', orderId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    res.json({ order });
+  } catch (error) {
+    log.error('Error fetching order', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch order' });
+  }
+});
+
+/**
+ * DELETE /api/trading/orders/:id
+ * Cancel an order
+ */
+router.delete('/orders/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const orderId = String(req.params.id);
+
+    await orderManager.cancelOrder(userId, orderId);
+
+    res.json({ success: true });
+  } catch (error) {
+    log.error('Error cancelling order', { error: String(error) });
+    res.status(500).json({ error: 'Failed to cancel order' });
+  }
+});
+
+// ============================================================================
+// POSITION ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/trading/positions
+ * Get user's positions
+ */
+router.get('/positions', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const positions = await orderManager.getUserPositions(userId);
+
+    res.json({ positions });
+  } catch (error) {
+    log.error('Error fetching positions', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch positions' });
+  }
+});
+
+// ============================================================================
+// TRADE HISTORY
+// ============================================================================
+
+/**
+ * GET /api/trading/history
+ * Get trade history with pagination
+ */
+router.get('/history', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const pageStr = Array.isArray(req.query.page) ? req.query.page[0] : req.query.page;
+    const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+
+    const page = parseInt(pageStr as string) || 1;
+    const limit = Math.min(parseInt(limitStr as string) || 50, 100);
+    const offset = (page - 1) * limit;
+
+    const { data: trades, error } = await supabase
+      .from('aio_real_bets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit);
+
+    if (error) {
+      log.error('Error querying trade history', { error: String(error) });
+      return res.status(500).json({ error: 'Failed to fetch trade history' });
+    }
+
+    res.json({
+      trades: trades || [],
+      page,
+      limit,
+      hasMore: (trades || []).length === limit + 1
+    });
+  } catch (error) {
+    log.error('Error fetching trade history', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch trade history' });
+  }
+});
+
+export default router;

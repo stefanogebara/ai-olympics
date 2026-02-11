@@ -48,45 +48,52 @@ export function CompetitionBrowser() {
   }, [selectedDomain, selectedStatus, selectedMode]);
 
   const loadDomains = async () => {
-    const { data } = await supabase.from('aio_domains').select('*');
-    if (data) setDomains(data);
+    try {
+      const { data } = await supabase.from('aio_domains').select('*');
+      if (data) setDomains(data);
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('Error loading domains:', error);
+    }
   };
 
   const loadCompetitions = async () => {
     setLoading(true);
+    try {
+      let query = supabase
+        .from('aio_competitions')
+        .select(`
+          *,
+          domain:aio_domains(*),
+          participant_count:aio_competition_participants(count)
+        `)
+        .order('created_at', { ascending: false });
 
-    let query = supabase
-      .from('aio_competitions')
-      .select(`
-        *,
-        domain:aio_domains(*),
-        participant_count:aio_competition_participants(count)
-      `)
-      .order('created_at', { ascending: false });
+      if (selectedDomain !== 'all') {
+        const domain = domains.find(d => d.slug === selectedDomain);
+        if (domain) query = query.eq('domain_id', domain.id);
+      }
 
-    if (selectedDomain !== 'all') {
-      const domain = domains.find(d => d.slug === selectedDomain);
-      if (domain) query = query.eq('domain_id', domain.id);
+      if (selectedStatus !== 'all') {
+        query = query.eq('status', selectedStatus);
+      }
+
+      if (selectedMode !== 'all') {
+        query = query.eq('stake_mode', selectedMode);
+      }
+
+      const { data } = await query;
+
+      if (data) {
+        setCompetitions(data.map(c => ({
+          ...c,
+          participant_count: Array.isArray(c.participant_count) ? c.participant_count[0]?.count || 0 : 0
+        })));
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('Error loading competitions:', error);
+    } finally {
+      setLoading(false);
     }
-
-    if (selectedStatus !== 'all') {
-      query = query.eq('status', selectedStatus);
-    }
-
-    if (selectedMode !== 'all') {
-      query = query.eq('stake_mode', selectedMode);
-    }
-
-    const { data } = await query;
-
-    if (data) {
-      setCompetitions(data.map(c => ({
-        ...c,
-        participant_count: Array.isArray(c.participant_count) ? c.participant_count[0]?.count || 0 : 0
-      })));
-    }
-
-    setLoading(false);
   };
 
   const updateFilter = (key: string, value: string) => {
@@ -236,9 +243,10 @@ export function CompetitionBrowser() {
 
                       {competition.status === 'lobby' && (
                         <div className="mt-4 pt-4 border-t border-white/10">
-                          <NeonButton size="sm" className="w-full" icon={<Play size={14} />}>
+                          <div className="w-full py-2 px-4 text-center text-sm font-medium rounded-lg bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan flex items-center justify-center gap-2">
+                            <Play size={14} />
                             Join Now
-                          </NeonButton>
+                          </div>
                         </div>
                       )}
                     </GlassCard>

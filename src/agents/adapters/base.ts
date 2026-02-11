@@ -104,6 +104,19 @@ export const BROWSER_TOOLS: BrowserTool[] = [
     }
   },
   {
+    name: 'api_call',
+    description: 'Make an HTTP API call to interact with backend services (e.g., browse markets, place bets, check portfolio). Returns the JSON response body.',
+    parameters: {
+      type: 'object',
+      properties: {
+        method: { type: 'string', enum: ['GET', 'POST'], description: 'HTTP method (GET or POST)' },
+        url: { type: 'string', description: 'The full URL to call (e.g., http://localhost:3003/api/predictions/events)' },
+        body: { type: 'string', description: 'JSON request body for POST requests (must be valid JSON string)' }
+      },
+      required: ['method', 'url']
+    }
+  },
+  {
     name: 'done',
     description: 'Signal that the task is complete',
     parameters: {

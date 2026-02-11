@@ -55,14 +55,14 @@ import { API_BASE } from '../../lib/api';
 export function PortfolioDashboard() {
   const { user, session } = useAuthStore();
   const [stats, setStats] = useState<PortfolioStats>({
-    totalValue: 10000,
-    cashBalance: 8500,
-    positionsValue: 1500,
-    totalPnl: 250,
-    totalPnlPercent: 2.5,
-    winRate: 62,
-    totalBets: 15,
-    brierScore: 0.18
+    totalValue: 0,
+    cashBalance: 0,
+    positionsValue: 0,
+    totalPnl: 0,
+    totalPnlPercent: 0,
+    winRate: 0,
+    totalBets: 0,
+    brierScore: 0
   });
   const [positions, setPositions] = useState<Position[]>([]);
   const [recentBets, setRecentBets] = useState<Bet[]>([]);
@@ -83,87 +83,83 @@ export function PortfolioDashboard() {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      // Load portfolio data
-      const [portfolioRes, statsRes, betsRes] = await Promise.all([
+      // Load portfolio, stats, bets, and positions in parallel
+      const [portfolioRes, statsRes, betsRes, positionsRes] = await Promise.all([
         fetch(`${API_BASE}/api/user/portfolio`, { headers }),
         fetch(`${API_BASE}/api/user/stats`, { headers }),
-        fetch(`${API_BASE}/api/user/bets?limit=10`, { headers })
+        fetch(`${API_BASE}/api/user/bets?limit=10`, { headers }),
+        fetch(`${API_BASE}/api/user/positions`, { headers }),
       ]);
 
       if (portfolioRes.ok) {
         const portfolio = await portfolioRes.json();
-        if (portfolio.positions) {
-          setPositions(portfolio.positions);
-        }
-        if (portfolio.balance !== undefined) {
-          setStats(prev => ({
-            ...prev,
-            cashBalance: portfolio.balance,
-            positionsValue: portfolio.positionsValue || prev.positionsValue,
-            totalValue: (portfolio.balance || 0) + (portfolio.positionsValue || 0)
-          }));
-        }
+        // Backend returns snake_case fields from Supabase
+        setStats(prev => ({
+          ...prev,
+          cashBalance: portfolio.virtual_balance ?? portfolio.balance ?? prev.cashBalance,
+          totalValue: portfolio.virtual_balance ?? prev.totalValue,
+          totalPnl: portfolio.total_profit ?? prev.totalPnl,
+          totalPnlPercent: portfolio.starting_balance > 0
+            ? ((portfolio.total_profit ?? 0) / portfolio.starting_balance) * 100
+            : 0,
+        }));
       }
 
       if (statsRes.ok) {
-        const statsData = await statsRes.json();
+        const s = await statsRes.json();
+        // Service returns camelCase (already transformed)
         setStats(prev => ({
           ...prev,
-          ...statsData,
-          totalPnl: statsData.totalPnl || prev.totalPnl,
-          winRate: statsData.winRate || prev.winRate,
-          brierScore: statsData.brierScore || prev.brierScore
+          totalPnl: s.totalProfit ?? prev.totalPnl,
+          totalPnlPercent: s.profitPercent ?? prev.totalPnlPercent,
+          totalBets: s.totalBets ?? prev.totalBets,
+          winRate: s.winRate ?? prev.winRate,
+          brierScore: s.brierScore ?? prev.brierScore,
+          totalValue: prev.cashBalance,
         }));
+      }
+
+      if (positionsRes.ok) {
+        const posData = await positionsRes.json();
+        const rawPositions = posData.positions || [];
+        // Map snake_case fields to component interface
+        setPositions(rawPositions.map((p: any) => ({
+          id: p.id,
+          marketId: p.market_id,
+          marketQuestion: p.market_question,
+          outcome: p.outcome,
+          shares: p.shares,
+          avgPrice: p.average_cost,
+          currentPrice: p.current_value ? p.current_value / p.shares : p.average_cost,
+          value: p.current_value || p.total_cost,
+          pnl: p.unrealized_pnl || 0,
+          pnlPercent: p.total_cost > 0 ? ((p.unrealized_pnl || 0) / p.total_cost) * 100 : 0,
+        })));
       }
 
       if (betsRes.ok) {
         const betsData = await betsRes.json();
-        setRecentBets(betsData.bets || betsData || []);
+        const rawBets = betsData.bets || [];
+        // Map snake_case fields to component interface
+        setRecentBets(rawBets.map((b: any) => ({
+          id: b.id,
+          marketQuestion: b.market_question,
+          outcome: b.outcome,
+          amount: b.amount,
+          odds: b.probability_at_bet,
+          status: b.resolved ? (b.resolution === 'win' ? 'won' : 'lost') : 'pending',
+          createdAt: b.created_at,
+          payout: b.payout,
+        })));
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading portfolio:', error);
-      // Use mock data
-      if (import.meta.env.DEV) {
-        setPositions(generateMockPositions());
-        setRecentBets(generateMockBets());
-      }
+      setPositions([]);
+      setRecentBets([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const generateMockPositions = (): Position[] => [
-    {
-      id: '1',
-      marketId: 'btc-100k',
-      marketQuestion: 'Will Bitcoin reach $100k by end of 2026?',
-      outcome: 'YES',
-      shares: 150,
-      avgPrice: 0.45,
-      currentPrice: 0.52,
-      value: 78,
-      pnl: 10.5,
-      pnlPercent: 15.6
-    },
-    {
-      id: '2',
-      marketId: 'gpt5-release',
-      marketQuestion: 'Will GPT-5 be released before July 2026?',
-      outcome: 'NO',
-      shares: 200,
-      avgPrice: 0.35,
-      currentPrice: 0.28,
-      value: 56,
-      pnl: 14,
-      pnlPercent: 20
-    }
-  ];
-
-  const generateMockBets = (): Bet[] => [
-    { id: '1', marketQuestion: 'Will Tesla stock exceed $400 in Q1?', outcome: 'YES', amount: 100, odds: 0.65, status: 'won', createdAt: new Date(Date.now() - 86400000).toISOString(), payout: 154 },
-    { id: '2', marketQuestion: 'Will it rain in NYC tomorrow?', outcome: 'NO', amount: 50, odds: 0.4, status: 'lost', createdAt: new Date(Date.now() - 172800000).toISOString() },
-    { id: '3', marketQuestion: 'Will Apple announce new product this week?', outcome: 'YES', amount: 75, odds: 0.55, status: 'pending', createdAt: new Date(Date.now() - 3600000).toISOString() }
-  ];
 
   const formatCurrency = (value: number): string => {
     return `M$${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;

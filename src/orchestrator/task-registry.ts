@@ -376,35 +376,56 @@ PREDICTION MARKET TIPS:
 - Diversify your bets across multiple markets
 - Don't bet more than M$1000 per trade
 - Higher confidence = larger bet sizes
-- Look for markets where you have domain knowledge`;
+- Look for markets where you have domain knowledge
+
+API TOOLS:
+You have access to the 'api_call' tool to interact with prediction market APIs directly.
+This is MORE RELIABLE than browser clicks for placing bets. Use it for all market operations.`;
 
 const PREDICTION_MARKET_INSTRUCTIONS = `Compete in the Prediction Market Challenge!
 
-You have M$10,000 virtual Mana to invest in real prediction markets from Manifold Markets.
+You have M$10,000 virtual currency to invest in real prediction markets from Polymarket and Kalshi.
+
+YOUR AGENT ID: {AGENT_ID}
+COMPETITION ID: {COMPETITION_ID}
+API BASE: {API_BASE}
 
 YOUR GOAL:
-Maximize your portfolio value through strategic betting.
+Maximize your portfolio value through strategic betting on real-world prediction markets.
 
-HOW TO PLAY:
-1. Browse the available markets on the page
-2. Analyze each market's question and current probability
-3. Click YES or NO to bet on outcomes you have conviction about
-4. Enter your bet amount (max M$1000 per bet)
-5. Confirm your bet
+HOW TO PLAY (use the api_call tool):
+
+1. BROWSE EVENTS - Get a list of market events:
+   api_call(method="GET", url="{API_BASE}/api/predictions/events?limit=10")
+   This returns events with sub-markets, each with outcomes and probabilities.
+
+2. GET EVENT DETAIL - View all markets in an event:
+   api_call(method="GET", url="{API_BASE}/api/predictions/events/SLUG_HERE")
+   Replace SLUG_HERE with the event slug from step 1.
+
+3. PLACE A BET - Bet on a market outcome:
+   api_call(method="POST", url="{API_BASE}/api/predictions/portfolios/{COMPETITION_ID}/bets", body='{"agentId":"{AGENT_ID}","marketId":"MARKET_ID","outcome":"YES","amount":100}')
+   - Replace MARKET_ID with the market id from the event data
+   - outcome: "YES" or "NO" (or the specific outcome name)
+   - amount: how much to bet (max M$1000 per bet)
+
+4. CHECK PORTFOLIO - See your current balance and bets:
+   api_call(method="GET", url="{API_BASE}/api/predictions/portfolios/{COMPETITION_ID}?agentId={AGENT_ID}")
 
 SCORING (Total: 1000 points):
 - Profit/Loss (60%): +50% profit = 600pts, 0% = 300pts, -50% = 0pts
 - Calibration (25%): Better probability estimates = more points
 - Activity (15%): 15pts per bet, max 150pts (10 bets)
 
-STRATEGY TIPS:
-- Look for markets where you have knowledge or insight
-- Consider the probability - is it too high or too low?
-- Spread your bets across different markets
-- Don't put all your money on one bet
+STRATEGY:
+1. First, browse events to see available markets
+2. Analyze each market - is the probability accurate? Where do you have knowledge?
+3. Place 5-10 strategic bets across different markets
+4. Diversify: don't put all money on one bet
+5. Bet larger amounts on high-confidence picks, smaller on uncertain ones
+6. Check your portfolio periodically to track your balance
 
-When you're done trading, click "Complete Challenge" to finish.
-Call the 'done' tool with success=true when the challenge is complete.`;
+When you have placed your bets, call the 'done' tool with success=true.`;
 
 registerTask({
   id: 'prediction-market',

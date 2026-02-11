@@ -34,21 +34,47 @@ async function requireAuth(req: Request, res: Response, next: Function) {
   }
 }
 
-// Cache for markets (2 minute TTL for more real-time data)
-interface MarketCache {
-  markets: UnifiedMarket[];
-  category: MarketCategory;
-  timestamp: number;
-}
-const marketCaches: Map<MarketCategory, MarketCache> = new Map();
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+// Auth middleware that accepts either Supabase user auth OR agent competition headers
+async function requireAuthOrAgent(req: Request, res: Response, next: Function) {
+  // Check for agent auth headers first (X-Agent-Id + X-Competition-Id)
+  const agentId = req.headers['x-agent-id'] as string;
+  const competitionId = req.headers['x-competition-id'] as string;
+  if (agentId && competitionId) {
+    (req as any).agentAuth = { agentId, competitionId };
+    return next();
+  }
 
-// Category cache
-let categoryCache: { categories: CategoryInfo[]; timestamp: number } | null = null;
-const CATEGORY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  // Fall back to Supabase Bearer token auth
+  return requireAuth(req, res, next);
+}
 
 // Valid categories
 const VALID_CATEGORIES: MarketCategory[] = ['all', 'politics', 'sports', 'crypto', 'ai-tech', 'entertainment', 'finance'];
+
+// Valid sort options
+const VALID_SORTS = ['volume', 'newest', 'closing_soon'] as const;
+type SortOption = typeof VALID_SORTS[number];
+
+/**
+ * Convert a Supabase DB row to a UnifiedMarket object
+ */
+function mapDbToUnified(row: any): UnifiedMarket {
+  return {
+    id: row.id,
+    source: row.source,
+    question: row.question,
+    description: row.description || undefined,
+    category: row.category || 'other',
+    outcomes: row.outcomes || [],
+    volume24h: parseFloat(row.volume_24h) || 0,
+    totalVolume: parseFloat(row.total_volume) || 0,
+    liquidity: parseFloat(row.liquidity) || 0,
+    closeTime: row.close_time ? Number(row.close_time) : 0,
+    status: row.status || 'open',
+    url: row.url || '',
+    image: row.image || undefined,
+  };
+}
 
 // ============================================================================
 // META-MARKETS ENDPOINTS (AI Competition Betting)
@@ -150,107 +176,354 @@ router.get('/meta-markets', async (req: Request, res: Response) => {
 
 /**
  * GET /api/predictions/markets
- * List markets from Polymarket + Kalshi with optional category filter
+ * List markets from Supabase (synced from Polymarket + Kalshi)
  *
  * Query params:
  *   - category: 'all' | 'politics' | 'sports' | 'crypto' | 'ai-tech' | 'entertainment' | 'finance' (default: 'all')
- *   - limit: number (default: 50, max: 100)
+ *   - limit: number (default: 50, max: 200)
+ *   - offset: number (default: 0) - for pagination
+ *   - sort: 'volume' | 'newest' | 'closing_soon' (default: 'volume')
+ *   - source: 'polymarket' | 'kalshi' (optional, filter by exchange)
  */
 router.get('/markets', async (req: Request, res: Response) => {
   try {
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
-    const limit = Math.min(parseInt(limitStr as string) || 50, 100);
+    const limit = Math.min(parseInt(limitStr as string) || 50, 200);
+    const offsetStr = Array.isArray(req.query.offset) ? req.query.offset[0] : req.query.offset;
+    const offset = parseInt(offsetStr as string) || 0;
 
-    // Get category from query param
     const categoryStr = (Array.isArray(req.query.category) ? req.query.category[0] : req.query.category) as string | undefined;
     const category: MarketCategory = (categoryStr && VALID_CATEGORIES.includes(categoryStr as MarketCategory))
       ? categoryStr as MarketCategory
       : 'all';
 
-    // Check cache for this category
-    const cached = marketCaches.get(category);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      log.debug(`Returning cached ${category} markets`);
-      return res.json({
-        markets: cached.markets.slice(0, limit),
-        category,
-        source: 'cache',
-        timestamp: cached.timestamp
-      });
+    const sortStr = (Array.isArray(req.query.sort) ? req.query.sort[0] : req.query.sort) as string | undefined;
+    const sort: SortOption = (sortStr && VALID_SORTS.includes(sortStr as SortOption))
+      ? sortStr as SortOption
+      : 'volume';
+
+    const sourceFilter = (Array.isArray(req.query.source) ? req.query.source[0] : req.query.source) as string | undefined;
+
+    // Build Supabase query
+    let query = supabase
+      .from('aio_markets')
+      .select('*', { count: 'exact' })
+      .eq('status', 'open');
+
+    if (category !== 'all') {
+      query = query.eq('category', category);
     }
 
-    // Fetch from market service with category filter
-    const markets = await marketService.getMarkets({ category, limit });
+    if (sourceFilter === 'polymarket' || sourceFilter === 'kalshi') {
+      query = query.eq('source', sourceFilter);
+    }
 
-    // Update cache for this category
-    marketCaches.set(category, {
+    // Sort
+    if (sort === 'volume') {
+      query = query.order('total_volume', { ascending: false });
+    } else if (sort === 'newest') {
+      query = query.order('created_at', { ascending: false });
+    } else if (sort === 'closing_soon') {
+      query = query.order('close_time', { ascending: true });
+    }
+
+    // Pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      throw new Error(`Supabase query failed: ${error.message}`);
+    }
+
+    const markets = (data || []).map(mapDbToUnified);
+    const total = count || 0;
+
+    res.json({
       markets,
+      total,
+      offset,
+      limit,
+      hasMore: offset + limit < total,
       category,
+      sort,
+      source: 'db',
       timestamp: Date.now(),
     });
+  } catch (error) {
+    log.error('Error fetching markets from DB, falling back to live API', { error: String(error) });
+
+    // Fallback: try live API via market service
+    try {
+      const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+      const limit = Math.min(parseInt(limitStr as string) || 50, 100);
+      const categoryStr = (Array.isArray(req.query.category) ? req.query.category[0] : req.query.category) as string | undefined;
+      const category: MarketCategory = (categoryStr && VALID_CATEGORIES.includes(categoryStr as MarketCategory))
+        ? categoryStr as MarketCategory
+        : 'all';
+
+      const markets = await marketService.getMarkets({ category, limit });
+
+      res.json({
+        markets,
+        total: markets.length,
+        offset: 0,
+        limit,
+        hasMore: false,
+        category,
+        source: 'live_fallback',
+        timestamp: Date.now(),
+      });
+    } catch (fallbackError) {
+      log.error('Live API fallback also failed, returning mock data', { error: String(fallbackError) });
+      const mockMarkets = marketService.getMockMarkets();
+      res.json({
+        markets: mockMarkets.slice(0, 50),
+        total: mockMarkets.length,
+        offset: 0,
+        limit: 50,
+        hasMore: false,
+        category: 'all',
+        source: 'mock',
+        timestamp: Date.now(),
+      });
+    }
+  }
+});
+
+/**
+ * GET /api/predictions/events
+ * List markets grouped by event (same URL = same event)
+ * Like Polymarket UI: one card per event with multiple outcome rows
+ */
+router.get('/events', async (req: Request, res: Response) => {
+  try {
+    const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+    const limit = Math.min(parseInt(limitStr as string) || 24, 50);
+    const offsetStr = Array.isArray(req.query.offset) ? req.query.offset[0] : req.query.offset;
+    const offset = parseInt(offsetStr as string) || 0;
+    const categoryStr = (Array.isArray(req.query.category) ? req.query.category[0] : req.query.category) as string | undefined;
+    const category = (categoryStr && VALID_CATEGORIES.includes(categoryStr as MarketCategory)) ? categoryStr : 'all';
+    const sortStr = (Array.isArray(req.query.sort) ? req.query.sort[0] : req.query.sort) as string | undefined;
+    const sort = (sortStr && VALID_SORTS.includes(sortStr as SortOption)) ? sortStr : 'volume';
+    const sourceFilter = (Array.isArray(req.query.source) ? req.query.source[0] : req.query.source) as string | undefined;
+
+    // Call the database function
+    const { data, error } = await supabase.rpc('get_market_events', {
+      p_category: category,
+      p_sort: sort,
+      p_limit: limit,
+      p_offset: offset,
+      p_source: sourceFilter || null,
+    });
+
+    if (error) throw new Error(`get_market_events failed: ${error.message}`);
+
+    // Get total count
+    const { data: countData, error: countError } = await supabase.rpc('get_market_events_count', {
+      p_category: category,
+      p_source: sourceFilter || null,
+    });
+    const total = countError ? 0 : (countData || 0);
+
+    // Transform events for the frontend
+    const events = (data || []).map((ev: any) => {
+      // Derive event title from URL slug
+      const slug = ev.event_url
+        ?.replace(/.*\/event\//, '')
+        ?.replace(/.*\/markets\//, '')
+        ?.replace(/-\d+$/, ''); // strip trailing number IDs
+      const eventTitle = slug
+        ? slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+        : '';
+
+      // Sort sub-markets by Yes probability desc (most likely first)
+      const markets = (ev.markets || []).map((m: any) => {
+        const yesOutcome = m.outcomes?.find((o: any) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
+        const firstOutcome = m.outcomes?.[0];
+        const probability = yesOutcome
+          ? yesOutcome.probability
+          : firstOutcome
+            ? firstOutcome.probability
+            : 0.5;
+        return { ...m, probability, yesOutcome, firstOutcome };
+      });
+      markets.sort((a: any, b: any) => b.probability - a.probability);
+
+      return {
+        eventUrl: ev.event_url,
+        eventTitle,
+        source: ev.source,
+        category: ev.category,
+        image: ev.image,
+        totalVolume: parseFloat(ev.total_volume) || 0,
+        volume24h: parseFloat(ev.volume_24h) || 0,
+        liquidity: parseFloat(ev.liquidity) || 0,
+        closeTime: ev.close_time ? Number(ev.close_time) : 0,
+        marketCount: Number(ev.market_count),
+        markets,
+      };
+    });
 
     res.json({
-      markets,
+      events,
+      total,
+      offset,
+      limit,
+      hasMore: offset + limit < total,
       category,
-      source: 'live',
-      timestamp: Date.now()
+      sort,
+      timestamp: Date.now(),
     });
   } catch (error) {
-    log.error('Error fetching markets, returning mock data', { error: String(error) });
-    const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
-    const limit = Math.min(parseInt(limitStr as string) || 50, 100);
-    const categoryStr = (Array.isArray(req.query.category) ? req.query.category[0] : req.query.category) as string | undefined;
-    const category: MarketCategory = categoryStr as MarketCategory || 'all';
+    log.error('Error fetching events', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch events' });
+  }
+});
 
-    // Filter mock markets by category
-    let mockMarkets = marketService.getMockMarkets();
-    if (category !== 'all') {
-      mockMarkets = mockMarkets.filter(m => m.category === category);
+/**
+ * GET /api/predictions/events/:slug
+ * Get a single event by URL slug (e.g., "democratic-presidential-nominee-2028")
+ * Returns all sub-markets grouped under that event
+ */
+router.get('/events/:slug', async (req: Request, res: Response) => {
+  try {
+    const slug = String(req.params.slug);
+
+    // Find markets whose URL contains the slug
+    const { data, error } = await supabase
+      .from('aio_markets')
+      .select('*')
+      .ilike('url', `%${slug}%`)
+      .order('total_volume', { ascending: false });
+
+    if (error) throw new Error(`Supabase query failed: ${error.message}`);
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
     }
 
-    res.json({
-      markets: mockMarkets.slice(0, limit),
-      category,
-      source: 'mock',
-      timestamp: Date.now()
+    // Group by (url, source) - there should be one group for the slug
+    const groups = new Map<string, any[]>();
+    for (const row of data) {
+      const key = `${row.url}|||${row.source}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(row);
+    }
+
+    // Take the largest group (most markets = best match)
+    let bestGroup: any[] = [];
+    let bestUrl = '';
+    let bestSource = '';
+    for (const [key, rows] of groups) {
+      if (rows.length > bestGroup.length) {
+        bestGroup = rows;
+        const [url, source] = key.split('|||');
+        bestUrl = url;
+        bestSource = source;
+      }
+    }
+
+    // Derive event title from slug
+    const eventTitle = slug
+      .split('-')
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+    // Build sub-markets with probabilities
+    const markets = bestGroup.map(row => {
+      const outcomes = row.outcomes || [];
+      const yesOutcome = outcomes.find((o: any) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
+      const firstOutcome = outcomes[0];
+      const probability = yesOutcome
+        ? yesOutcome.probability
+        : firstOutcome
+          ? firstOutcome.probability
+          : 0.5;
+      return {
+        id: row.id,
+        question: row.question,
+        description: row.description || '',
+        outcomes,
+        total_volume: parseFloat(row.total_volume) || 0,
+        volume_24h: parseFloat(row.volume_24h) || 0,
+        liquidity: parseFloat(row.liquidity) || 0,
+        close_time: row.close_time ? Number(row.close_time) : 0,
+        probability,
+      };
     });
+
+    // Sort by probability descending
+    markets.sort((a, b) => b.probability - a.probability);
+
+    // Aggregate event-level stats
+    const totalVolume = markets.reduce((s, m) => s + m.total_volume, 0);
+    const volume24h = markets.reduce((s, m) => s + m.volume_24h, 0);
+    const liquidity = Math.max(...markets.map(m => m.liquidity));
+    const closeTime = Math.min(...markets.filter(m => m.close_time > 0).map(m => m.close_time));
+
+    res.json({
+      eventUrl: bestUrl,
+      eventTitle,
+      slug,
+      source: bestSource,
+      category: bestGroup[0]?.category || 'other',
+      image: bestGroup[0]?.image || null,
+      totalVolume,
+      volume24h,
+      liquidity,
+      closeTime: closeTime === Infinity ? 0 : closeTime,
+      marketCount: markets.length,
+      markets,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    log.error('Error fetching event by slug', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch event' });
   }
 });
 
 /**
  * GET /api/predictions/categories
- * Get available market categories with counts
+ * Get available market categories with counts from Supabase
  */
 router.get('/categories', async (req: Request, res: Response) => {
   try {
-    // Check cache
-    if (categoryCache && Date.now() - categoryCache.timestamp < CATEGORY_CACHE_TTL) {
-      log.debug('Returning cached categories');
-      return res.json({
-        categories: categoryCache.categories,
-        source: 'cache',
-        timestamp: categoryCache.timestamp
-      });
+    // Query category counts from Supabase
+    const { data, error } = await supabase
+      .from('aio_markets')
+      .select('category')
+      .eq('status', 'open');
+
+    if (error) throw error;
+
+    // Count by category
+    const counts = new Map<string, number>();
+    let total = 0;
+    for (const row of data || []) {
+      const cat = row.category || 'other';
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+      total++;
     }
 
-    // Fetch categories from market service
-    const categories = await marketService.getCategories();
-
-    // Update cache
-    categoryCache = {
-      categories,
-      timestamp: Date.now(),
-    };
+    const categories: CategoryInfo[] = [
+      { id: 'all', name: 'All Markets', count: total, icon: '🌐' },
+      { id: 'politics', name: 'Politics', count: counts.get('politics') || 0, icon: '🏛️' },
+      { id: 'sports', name: 'Sports', count: counts.get('sports') || 0, icon: '⚽' },
+      { id: 'crypto', name: 'Crypto', count: counts.get('crypto') || 0, icon: '₿' },
+      { id: 'ai-tech', name: 'AI & Tech', count: counts.get('ai-tech') || 0, icon: '🤖' },
+      { id: 'entertainment', name: 'Entertainment', count: counts.get('entertainment') || 0, icon: '🎬' },
+      { id: 'finance', name: 'Finance', count: counts.get('finance') || 0, icon: '📈' },
+    ];
 
     res.json({
-      categories,
-      source: 'live',
-      timestamp: Date.now()
+      categories: categories.filter(c => c.id === 'all' || c.count > 0),
+      source: 'db',
+      timestamp: Date.now(),
     });
   } catch (error) {
-    log.error('Error fetching categories', { error: String(error) });
+    log.error('Error fetching categories from DB', { error: String(error) });
 
-    // Return default categories on error
+    // Fallback to default
     const defaultCategories: CategoryInfo[] = [
       { id: 'all', name: 'All Markets', count: 0, icon: '🌐' },
       { id: 'politics', name: 'Politics', count: 0, icon: '🏛️' },
@@ -264,20 +537,33 @@ router.get('/categories', async (req: Request, res: Response) => {
     res.json({
       categories: defaultCategories,
       source: 'default',
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 });
 
 /**
  * GET /api/predictions/markets/:id
- * Get a single market by ID (supports Polymarket, Kalshi, and mock IDs)
+ * Get a single market by ID from Supabase (falls back to live API)
  */
 router.get('/markets/:id', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id);
-    const market = await marketService.getMarket(id);
 
+    // Try Supabase first
+    const { data, error } = await supabase
+      .from('aio_markets')
+      .select('*')
+      .eq('id', id)
+      .limit(1)
+      .single();
+
+    if (!error && data) {
+      return res.json(mapDbToUnified(data));
+    }
+
+    // Fallback to live API
+    const market = await marketService.getMarket(id);
     if (!market) {
       return res.status(404).json({ error: 'Market not found' });
     }
@@ -291,7 +577,7 @@ router.get('/markets/:id', async (req: Request, res: Response) => {
 
 /**
  * GET /api/predictions/search
- * Search markets across Polymarket and Kalshi
+ * Full-text search markets in Supabase using PostgreSQL GIN index
  */
 router.get('/search', async (req: Request, res: Response) => {
   try {
@@ -302,16 +588,109 @@ router.get('/search', async (req: Request, res: Response) => {
 
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
     const limit = Math.min(parseInt(limitStr as string) || 20, 100);
-    const markets = await marketService.searchMarkets(query, limit);
+
+    // Use PostgreSQL full-text search
+    const { data, error } = await supabase
+      .from('aio_markets')
+      .select('*')
+      .textSearch('question', query, { type: 'websearch' })
+      .eq('status', 'open')
+      .order('total_volume', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      // If full-text search fails, fall back to ILIKE
+      log.warn('Full-text search failed, falling back to ILIKE', { error: error.message });
+      const { data: ilikeData, error: ilikeError } = await supabase
+        .from('aio_markets')
+        .select('*')
+        .ilike('question', `%${query}%`)
+        .eq('status', 'open')
+        .order('total_volume', { ascending: false })
+        .limit(limit);
+
+      if (ilikeError) throw ilikeError;
+
+      return res.json({
+        markets: (ilikeData || []).map(mapDbToUnified),
+        query,
+        source: 'db_ilike',
+        timestamp: Date.now(),
+      });
+    }
 
     res.json({
-      markets,
+      markets: (data || []).map(mapDbToUnified),
       query,
-      timestamp: Date.now()
+      source: 'db',
+      timestamp: Date.now(),
     });
   } catch (error) {
-    log.error('Error searching markets', { error: String(error) });
-    res.status(500).json({ error: 'Failed to search markets' });
+    log.error('Error searching markets in DB, falling back to live API', { error: String(error) });
+
+    // Fallback to live API search
+    try {
+      const query = (Array.isArray(req.query.q) ? req.query.q[0] : req.query.q) as string;
+      const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+      const limit = Math.min(parseInt(limitStr as string) || 20, 100);
+      const markets = await marketService.searchMarkets(query, limit);
+
+      res.json({
+        markets,
+        query,
+        source: 'live_fallback',
+        timestamp: Date.now(),
+      });
+    } catch (fallbackError) {
+      res.status(500).json({ error: 'Failed to search markets' });
+    }
+  }
+});
+
+/**
+ * GET /api/predictions/stats
+ * Get sync status and total market counts
+ */
+router.get('/stats', async (req: Request, res: Response) => {
+  try {
+    // Get sync status
+    const { data: syncData, error: syncError } = await supabase
+      .from('aio_sync_status')
+      .select('*');
+
+    // Get total counts
+    const { count: totalCount } = await supabase
+      .from('aio_markets')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: openCount } = await supabase
+      .from('aio_markets')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'open');
+
+    const { count: polyCount } = await supabase
+      .from('aio_markets')
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 'polymarket');
+
+    const { count: kalshiCount } = await supabase
+      .from('aio_markets')
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 'kalshi');
+
+    res.json({
+      syncStatus: syncData || [],
+      totals: {
+        all: totalCount || 0,
+        open: openCount || 0,
+        polymarket: polyCount || 0,
+        kalshi: kalshiCount || 0,
+      },
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    log.error('Error fetching stats', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
@@ -355,7 +734,7 @@ router.get('/portfolios/:competitionId', (req: Request, res: Response) => {
  * POST /api/predictions/portfolios/:competitionId/bets
  * Place a virtual bet (requires auth)
  */
-router.post('/portfolios/:competitionId/bets', requireAuth, async (req: Request, res: Response) => {
+router.post('/portfolios/:competitionId/bets', requireAuthOrAgent, async (req: Request, res: Response) => {
   try {
     const competitionId = String(req.params.competitionId);
     const { agentId, marketId, outcome, amount } = req.body;

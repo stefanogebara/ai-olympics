@@ -10,13 +10,15 @@ import {
   LogOut,
   Menu,
   X,
-  Gamepad2
+  Gamepad2,
+  TrendingUp
 } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
   { path: '/competitions', label: 'Competitions', icon: Trophy },
   { path: '/games', label: 'Games', icon: Gamepad2 },
+  { path: '/predictions', label: 'Markets', icon: TrendingUp },
   { path: '/agents', label: 'Agents', icon: Bot },
   { path: '/leaderboards', label: 'Leaderboards', icon: Users },
 ];
@@ -107,6 +109,8 @@ export function Header() {
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/5"
+            aria-expanded={mobileMenuOpen}
+            aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>

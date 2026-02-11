@@ -126,6 +126,7 @@ export class PolymarketClient {
     closed?: boolean;
     limit?: number;
     active?: boolean;
+    offset?: number;
   }): Promise<GammaMarket[]> {
     const params = new URLSearchParams();
     if (options?.closed !== undefined) {
@@ -136,6 +137,9 @@ export class PolymarketClient {
     }
     if (options?.limit) {
       params.set('limit', String(options.limit));
+    }
+    if (options?.offset !== undefined) {
+      params.set('offset', String(options.offset));
     }
 
     const url = `${GAMMA_API}/markets?${params.toString()}`;
@@ -446,7 +450,7 @@ export class PolymarketClient {
     // Determine category using word boundaries to avoid false matches
     const text = `${market.question} ${market.description || ''}`;
 
-    let category = 'general';
+    let category = 'other';
     if (/\bai\b|artificial intelligence|\bgpt[-\s]?[34o]|\bclaude\b|\bopenai\b|\banthropic\b|\bllm\b|machine learning|\bdeepseek\b|\bgemini\b/i.test(text)) {
       category = 'ai-tech';
     } else if (/\btrump\b|\bbiden\b|\belection\b|\bpresident\b|\bcongress\b|\bsenate\b/i.test(text)) {
@@ -469,7 +473,9 @@ export class PolymarketClient {
       liquidity: parseFloat(market.liquidity) || 0,
       closeTime: new Date(market.endDate).getTime(),
       status,
-      url: `https://polymarket.com/event/${market.slug}`,
+      url: market.events?.[0]?.slug
+        ? `https://polymarket.com/event/${market.events[0].slug}`
+        : `https://polymarket.com/event/${market.slug}`,
       image: market.image || market.icon
     };
   }

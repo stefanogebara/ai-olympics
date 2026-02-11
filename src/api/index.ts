@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createAPIServer } from './server.js';
 
 export { createAPIServer, startApiServer } from './server.js';

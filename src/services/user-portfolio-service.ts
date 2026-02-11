@@ -90,6 +90,18 @@ export interface PlaceBetResult {
   newBalance?: number;
 }
 
+export interface UserLimits {
+  balance: number;
+  maxBetPercent: number;
+  maxBet: number;
+  minBet: number;
+  dailyBetsUsed: number;
+  dailyBetsMax: number;
+  openPositions: number;
+  maxPositions: number;
+  closeTimeBufferMs: number;
+}
+
 export interface UserStats {
   totalProfit: number;
   profitPercent: number;
@@ -103,6 +115,16 @@ export interface UserStats {
   followerCount: number;
   followingCount: number;
 }
+
+// ============================================================================
+// BET LIMIT CONSTANTS
+// ============================================================================
+
+const MAX_BET_PERCENT = 10;        // Max 10% of balance per bet
+const MIN_BET = 1;                 // $1 minimum
+const MAX_DAILY_BETS = 10;         // 10 bets per day
+const MAX_OPEN_POSITIONS = 20;     // 20 simultaneous positions
+const CLOSE_TIME_BUFFER_MS = 3600000; // 1 hour buffer before market close
 
 // ============================================================================
 // CPMM MATH (from virtual-portfolio.ts)
@@ -184,6 +206,77 @@ export class UserPortfolioService {
   }
 
   /**
+   * Get daily bet count for a user (bets placed today)
+   */
+  private async getDailyBetCount(userId: string): Promise<number> {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const { count, error } = await supabase
+      .from('aio_user_bets')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', todayStart.toISOString());
+
+    if (error) {
+      log.error('Error getting daily bet count', { error: error.message });
+      return 0;
+    }
+
+    return count || 0;
+  }
+
+  /**
+   * Get open position count for a user
+   */
+  private async getOpenPositionCount(userId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('aio_user_positions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gt('shares', 0);
+
+    if (error) {
+      log.error('Error getting position count', { error: error.message });
+      return 0;
+    }
+
+    return count || 0;
+  }
+
+  /**
+   * Get current bet limits and usage for a user
+   */
+  async getLimits(userId: string): Promise<UserLimits | null> {
+    if (!this.initialized) return null;
+
+    try {
+      const portfolio = await this.getOrCreatePortfolio(userId);
+      if (!portfolio) return null;
+
+      const [dailyBetsUsed, openPositions] = await Promise.all([
+        this.getDailyBetCount(userId),
+        this.getOpenPositionCount(userId),
+      ]);
+
+      return {
+        balance: portfolio.virtual_balance,
+        maxBetPercent: MAX_BET_PERCENT,
+        maxBet: Math.floor(portfolio.virtual_balance * MAX_BET_PERCENT / 100),
+        minBet: MIN_BET,
+        dailyBetsUsed,
+        dailyBetsMax: MAX_DAILY_BETS,
+        openPositions,
+        maxPositions: MAX_OPEN_POSITIONS,
+        closeTimeBufferMs: CLOSE_TIME_BUFFER_MS,
+      };
+    } catch (error) {
+      log.error('Error in getLimits', { error: String(error) });
+      return null;
+    }
+  }
+
+  /**
    * Get user's portfolio
    */
   async getPortfolio(userId: string): Promise<UserPortfolio | null> {
@@ -219,8 +312,7 @@ export class UserPortfolioService {
     userId: string,
     marketId: string,
     outcome: string,
-    amount: number,
-    maxBetSize: number = 1000
+    amount: number
   ): Promise<PlaceBetResult> {
     if (!this.initialized) {
       return { success: false, error: 'Supabase not configured' };
@@ -233,23 +325,50 @@ export class UserPortfolioService {
         return { success: false, error: 'Failed to get portfolio' };
       }
 
-      // Validate amount
-      if (amount <= 0) {
-        return { success: false, error: 'Bet amount must be positive' };
+      // Validate minimum bet
+      if (amount < MIN_BET) {
+        return { success: false, error: `Minimum bet is M$${MIN_BET}` };
       }
 
-      if (amount > maxBetSize) {
-        return { success: false, error: `Bet amount exceeds maximum of M$${maxBetSize}` };
+      // Validate max bet (10% of balance)
+      const maxBet = portfolio.virtual_balance * MAX_BET_PERCENT / 100;
+      if (amount > maxBet) {
+        return { success: false, error: `Max bet is M$${Math.floor(maxBet)} (${MAX_BET_PERCENT}% of balance)` };
       }
 
       if (amount > portfolio.virtual_balance) {
         return { success: false, error: `Insufficient balance. Available: M$${portfolio.virtual_balance.toFixed(2)}` };
       }
 
+      // Check daily bet limit
+      const dailyBets = await this.getDailyBetCount(userId);
+      if (dailyBets >= MAX_DAILY_BETS) {
+        return { success: false, error: `Daily bet limit reached (${MAX_DAILY_BETS} per day)` };
+      }
+
+      // Check max open positions
+      const openPositions = await this.getOpenPositionCount(userId);
+      if (openPositions >= MAX_OPEN_POSITIONS) {
+        return { success: false, error: `Maximum ${MAX_OPEN_POSITIONS} open positions allowed` };
+      }
+
       // Fetch market data
       const market = await marketService.getMarket(marketId);
       if (!market) {
         return { success: false, error: 'Market not found' };
+      }
+
+      // Check close time buffer (cannot bet on markets closing within 1 hour)
+      if (market.closeTime) {
+        const closeTimeMs = typeof market.closeTime === 'number' && market.closeTime < 1e12
+          ? market.closeTime * 1000  // seconds to ms
+          : market.closeTime;        // already ms
+        const timeUntilClose = closeTimeMs - Date.now();
+        // Only reject if timeUntilClose is a valid positive number within the buffer
+        // NaN or negative-far-past values should not block betting
+        if (typeof timeUntilClose === 'number' && !isNaN(timeUntilClose) && timeUntilClose > 0 && timeUntilClose <= CLOSE_TIME_BUFFER_MS) {
+          return { success: false, error: 'Market closes within 1 hour, betting is disabled' };
+        }
       }
 
       // Calculate shares

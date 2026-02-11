@@ -296,6 +296,8 @@ export class KalshiClient {
     if (market.previous_yes_bid !== undefined && market.previous_yes_ask !== undefined) {
       const prevYes = (market.previous_yes_bid + market.previous_yes_ask) / 2;
       yesPriceChange = yesPrice - prevYes;
+      const prevNo = 100 - prevYes;
+      noPriceChange = noPrice - prevNo;
     }
 
     const outcomes = [

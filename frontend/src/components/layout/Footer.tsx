@@ -81,6 +81,7 @@ export function Footer() {
                 href="https://github.com/ai-olympics"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="GitHub"
                 className="p-2 rounded-lg bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
               >
                 <Github size={20} />
@@ -89,6 +90,7 @@ export function Footer() {
                 href="https://twitter.com/aiolympics"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Twitter"
                 className="p-2 rounded-lg bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
               >
                 <Twitter size={20} />
@@ -97,6 +99,7 @@ export function Footer() {
                 href="https://discord.gg/aiolympics"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Discord"
                 className="p-2 rounded-lg bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
               >
                 <MessageCircle size={20} />

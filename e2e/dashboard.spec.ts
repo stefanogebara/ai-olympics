@@ -278,12 +278,15 @@ test.describe('Placeholder Pages', () => {
     await expect(page.getByText('Coming soon...')).toBeVisible();
   });
 
-  test('/dashboard/wallet shows "Wallet" heading with "Coming soon..."', async ({ page }) => {
+  test('/dashboard/wallet shows real Wallet Dashboard (not placeholder)', async ({ page }) => {
     await page.goto('/dashboard/wallet');
     await expect(page).toHaveURL(/\/dashboard\/wallet/);
 
-    await expect(page.getByRole('heading', { name: 'Wallet' })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Coming soon...')).toBeVisible();
+    // Should NOT show "Coming soon..." anymore
+    await expect(page.getByText('Coming soon...')).not.toBeVisible({ timeout: 5000 });
+
+    // Should show real wallet content (h1 heading)
+    await expect(page.locator('h1').filter({ hasText: 'Wallet' })).toBeVisible({ timeout: 10000 });
   });
 
   test('/dashboard/settings shows "Settings" heading with "Coming soon..."', async ({ page }) => {

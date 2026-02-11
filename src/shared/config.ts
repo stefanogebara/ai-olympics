@@ -27,6 +27,19 @@ export const config = {
   // ElevenLabs
   elevenLabsApiKey: process.env.ELEVENLABS_API_KEY || '',
 
+  // Payments - Stripe
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+
+  // Crypto - Polygon
+  polygonRpcUrl: process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
+  platformWalletAddress: process.env.PLATFORM_WALLET_ADDRESS || '',
+  platformWalletPrivateKey: process.env.PLATFORM_WALLET_PRIVATE_KEY || '',
+
+  // Trading feature flags
+  polymarketClobEnabled: process.env.POLYMARKET_CLOB_ENABLED === 'true',
+  kalshiTradingEnabled: process.env.KALSHI_TRADING_ENABLED === 'true',
+
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',
 

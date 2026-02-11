@@ -36,46 +36,49 @@ export function DashboardOverview() {
 
   const loadDashboardData = async () => {
     setLoading(true);
+    try {
+      // Load user's agents
+      const { data: agentsData } = await supabase
+        .from('aio_agents')
+        .select('*')
+        .eq('owner_id', profile!.id)
+        .order('elo_rating', { ascending: false })
+        .limit(5);
 
-    // Load user's agents
-    const { data: agentsData } = await supabase
-      .from('aio_agents')
-      .select('*')
-      .eq('owner_id', profile!.id)
-      .order('elo_rating', { ascending: false })
-      .limit(5);
+      if (agentsData) {
+        setAgents(agentsData);
+        setStats(prev => ({
+          ...prev,
+          totalAgents: agentsData.length,
+          totalWins: agentsData.reduce((sum, a) => sum + a.total_wins, 0),
+          totalCompetitions: agentsData.reduce((sum, a) => sum + a.total_competitions, 0),
+          avgElo: agentsData.length > 0
+            ? Math.round(agentsData.reduce((sum, a) => sum + a.elo_rating, 0) / agentsData.length)
+            : 1500,
+        }));
+      }
 
-    if (agentsData) {
-      setAgents(agentsData);
-      setStats(prev => ({
-        ...prev,
-        totalAgents: agentsData.length,
-        totalWins: agentsData.reduce((sum, a) => sum + a.total_wins, 0),
-        totalCompetitions: agentsData.reduce((sum, a) => sum + a.total_competitions, 0),
-        avgElo: agentsData.length > 0
-          ? Math.round(agentsData.reduce((sum, a) => sum + a.elo_rating, 0) / agentsData.length)
-          : 1500,
-      }));
+      // Load recent competitions
+      const { data: competitionsData } = await supabase
+        .from('aio_competition_participants')
+        .select(`
+          competition:aio_competitions(*)
+        `)
+        .eq('user_id', profile!.id)
+        .order('joined_at', { ascending: false })
+        .limit(5);
+
+      if (competitionsData) {
+        const competitions = competitionsData
+          .map((cp: any) => cp.competition)
+          .filter((c: any): c is Competition => c !== null);
+        setRecentCompetitions(competitions);
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
-
-    // Load recent competitions
-    const { data: competitionsData } = await supabase
-      .from('aio_competition_participants')
-      .select(`
-        competition:aio_competitions(*)
-      `)
-      .eq('user_id', profile!.id)
-      .order('joined_at', { ascending: false })
-      .limit(5);
-
-    if (competitionsData) {
-      const competitions = competitionsData
-        .map((cp: any) => cp.competition)
-        .filter((c: any): c is Competition => c !== null);
-      setRecentCompetitions(competitions);
-    }
-
-    setLoading(false);
   };
 
   if (loading) {

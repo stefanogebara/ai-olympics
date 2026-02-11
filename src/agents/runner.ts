@@ -5,6 +5,7 @@ import { BaseAgentAdapter, createAgentAdapter, type PageState, type ToolCall } f
 import { PrecisionTimer, formatDuration } from '../shared/utils/timer.js';
 import { eventBus, createStreamEvent } from '../shared/utils/events.js';
 import { createLogger } from '../shared/utils/logger.js';
+import { config } from '../shared/config.js';
 
 const log = createLogger('AgentRunner');
 
@@ -130,8 +131,13 @@ export class AgentRunner {
 
     log.agent(this.id, `Starting task: ${task.name}`);
 
-    // Initialize the adapter with task prompts
-    this.adapter.initialize(task.systemPrompt, task.taskPrompt);
+    // Initialize the adapter with task prompts (inject dynamic context)
+    const apiBase = `http://localhost:${config.port}`;
+    const taskPrompt = task.taskPrompt
+      .replace(/\{AGENT_ID\}/g, this.agentConfig.id)
+      .replace(/\{COMPETITION_ID\}/g, this.competitionId)
+      .replace(/\{API_BASE\}/g, apiBase);
+    this.adapter.initialize(task.systemPrompt, taskPrompt);
 
     // Navigate to start URL if provided
     if (task.startUrl) {
@@ -342,12 +348,56 @@ export class AgentRunner {
     }
   }
 
+  // Execute an API call (no browser needed)
+  private async executeApiCall(args: Record<string, unknown>): Promise<string> {
+    const method = (args.method as string) || 'GET';
+    const url = args.url as string;
+    const body = args.body as string | undefined;
+
+    if (!url) return 'Error: url is required';
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Agent-Id': this.agentConfig.id,
+      'X-Competition-Id': this.competitionId,
+    };
+
+    const options: RequestInit = { method, headers };
+    if (body && method === 'POST') {
+      options.body = body;
+    }
+
+    const response = await fetch(url, options);
+    const text = await response.text();
+
+    // Truncate large responses to keep context manageable
+    const maxLen = 4000;
+    const truncated = text.length > maxLen
+      ? text.slice(0, maxLen) + '\n... (truncated)'
+      : text;
+
+    return `HTTP ${response.status}: ${truncated}`;
+  }
+
   // Execute a tool call
   private async executeToolCall(toolCall: ToolCall): Promise<string> {
-    if (!this.page) throw new Error('No page available');
-
     const { name, arguments: args } = toolCall;
     log.agent(this.id, `Executing: ${name}`, args);
+
+    // API calls don't need a browser page
+    if (name === 'api_call') {
+      try {
+        const result = await this.executeApiCall(args);
+        this.recordAction(name, JSON.stringify(args), true);
+        return result;
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        this.recordAction(name, JSON.stringify(args), false, errorMsg);
+        return `Error: ${errorMsg}`;
+      }
+    }
+
+    if (!this.page) throw new Error('No page available');
 
     try {
       let result: string;

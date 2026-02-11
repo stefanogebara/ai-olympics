@@ -9,6 +9,7 @@
 import { createLogger } from '../shared/utils/logger.js';
 import { polymarketClient, type UnifiedMarket, type PriceUpdate } from './polymarket-client.js';
 import { kalshiClient } from './kalshi-client.js';
+import { serviceClient as supabase } from '../shared/utils/supabase.js';
 
 const log = createLogger('MarketService');
 
@@ -467,7 +468,7 @@ export class MarketService {
       const normalizedPoly = polymarkets.map(m => {
         const normalized = polymarketClient.normalizeMarket(m);
         // Assign category if not already set
-        if (!normalized.category || normalized.category === 'other') {
+        if (!normalized.category || normalized.category === 'other' || normalized.category === 'general') {
           normalized.category = this.detectCategory(normalized);
         }
         return normalized;
@@ -484,7 +485,7 @@ export class MarketService {
       const normalizedKalshi = kalshiMarkets
         .map(m => {
           const normalized = kalshiClient.normalizeMarket(m);
-          if (!normalized.category || normalized.category === 'other') {
+          if (!normalized.category || normalized.category === 'other' || normalized.category === 'general') {
             normalized.category = this.detectCategory(normalized);
           }
           return normalized;
@@ -496,19 +497,7 @@ export class MarketService {
       log.error('Failed to fetch Kalshi markets', { error: String(error) });
     }
 
-    // Supplement with mock data if needed
-    if (allMarkets.length < limit) {
-      const mockMarkets = this.getMockMarkets();
-      const realMarketIds = new Set(allMarkets.map(m => m.id));
-
-      for (const mock of mockMarkets) {
-        if (allMarkets.length >= limit * 2) break; // Get more mocks for filtering
-        if (!realMarketIds.has(mock.id)) {
-          allMarkets.push(mock);
-        }
-      }
-      log.info(`Supplemented with mock data, total: ${allMarkets.length} markets`);
-    }
+    log.info(`Total real markets fetched: ${allMarkets.length}`);
 
     // Filter by category if specified
     let filteredMarkets = allMarkets;
@@ -604,15 +593,6 @@ export class MarketService {
       log.error('Kalshi search failed', { error: String(error) });
     }
 
-    // If no results, search mock markets
-    if (results.length === 0) {
-      const lowerTerm = term.toLowerCase();
-      return MOCK_MARKETS.filter(m =>
-        m.question.toLowerCase().includes(lowerTerm) ||
-        m.description?.toLowerCase().includes(lowerTerm)
-      ).slice(0, limit);
-    }
-
     return results.slice(0, limit);
   }
 
@@ -620,11 +600,36 @@ export class MarketService {
    * Get a single market by ID
    */
   async getMarket(id: string): Promise<UnifiedMarket | null> {
-    // Check mock markets first
-    const mockMarket = MOCK_MARKETS.find(m => m.id === id);
-    if (mockMarket) return mockMarket;
+    // Try cached DB first (fastest, works with our internal numeric IDs)
+    try {
+      const { data: row } = await supabase
+        .from('aio_markets')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    // Try Polymarket
+      if (row) {
+        return {
+          id: row.id,
+          source: row.source,
+          question: row.question,
+          description: row.description || undefined,
+          category: row.category || 'other',
+          outcomes: row.outcomes || [],
+          volume24h: parseFloat(row.volume_24h) || 0,
+          totalVolume: parseFloat(row.total_volume) || 0,
+          liquidity: parseFloat(row.liquidity) || 0,
+          closeTime: row.close_time ? Number(row.close_time) : 0,
+          status: row.status || 'open',
+          url: row.url,
+          image: row.image,
+        };
+      }
+    } catch {
+      // Not found in DB cache
+    }
+
+    // Try Polymarket API
     try {
       const market = await polymarketClient.getMarket(id);
       if (market) {
@@ -634,7 +639,7 @@ export class MarketService {
       // Not found in Polymarket
     }
 
-    // Try Kalshi
+    // Try Kalshi API
     try {
       const market = await kalshiClient.getMarket(id);
       return kalshiClient.normalizeMarket(market);
@@ -646,19 +651,14 @@ export class MarketService {
   }
 
   /**
-   * Get mock markets (always available fallback)
+   * Get mock markets (for dev/testing only via /api/predictions/mock-markets or source=mock)
+   * Returns stable data without random price jitter
    */
   getMockMarkets(): UnifiedMarket[] {
-    // Add some randomization to prices to simulate live data
     return MOCK_MARKETS.map(market => ({
       ...market,
-      outcomes: market.outcomes.map(outcome => ({
-        ...outcome,
-        // Add small random variation to make it feel more dynamic
-        price: Math.max(1, Math.min(99, outcome.price + Math.floor(Math.random() * 5 - 2))),
-        probability: outcome.probability + (Math.random() * 0.04 - 0.02)
-      }))
-    }));
+      isMock: true,
+    })) as (UnifiedMarket & { isMock: boolean })[];
   }
 
   /**

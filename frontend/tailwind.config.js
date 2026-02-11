@@ -4,6 +4,16 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  safelist: [
+    // Dynamic neon color classes used in games and components
+    { pattern: /bg-neon-(cyan|magenta|green|blue)\/20/ },
+    { pattern: /text-neon-(cyan|magenta|green|blue)/ },
+    // Additional dynamic color patterns used across the app
+    'bg-neon-cyan/20', 'bg-neon-magenta/20', 'bg-neon-green/20', 'bg-neon-blue/20',
+    'text-neon-cyan', 'text-neon-magenta', 'text-neon-green', 'text-neon-blue',
+    // Game-specific colors (yellow, purple used as neon- variants)
+    'bg-yellow-500/20', 'text-yellow-500', 'bg-purple-500/20', 'text-purple-500',
+  ],
   theme: {
     extend: {
       colors: {

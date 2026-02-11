@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
@@ -54,6 +54,24 @@ import { API_BASE } from '../../lib/api';
 function BetModal({ matchup, agentId, onClose, onSubmit }: BetModalProps) {
   const [amount, setAmount] = useState(100);
   const agent = matchup.agents.find(a => a.id === agentId);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  // Focus trap
+  useEffect(() => {
+    const modal = modalRef.current;
+    if (!modal) return;
+    const focusable = modal.querySelectorAll<HTMLElement>('button, input, [tabindex]:not([tabindex="-1"])');
+    if (focusable.length > 0) focusable[0].focus();
+  }, []);
 
   if (!agent) return null;
 
@@ -61,8 +79,15 @@ function BetModal({ matchup, agentId, onClose, onSubmit }: BetModalProps) {
   const providerStyle = PROVIDER_COLORS[agent.provider];
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Place your bet"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <motion.div
+        ref={modalRef}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md"
@@ -147,64 +172,15 @@ export function MetaMarkets() {
         const data = await response.json();
         setMatchups(data.matchups || data);
       } else {
-        // Use mock data
-        if (import.meta.env.DEV) {
-          setMatchups(generateMockMatchups());
-        }
+        setMatchups([]);
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading matchups:', error);
-      if (import.meta.env.DEV) {
-        setMatchups(generateMockMatchups());
-      }
+      setMatchups([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const generateMockMatchups = (): AgentMatchup[] => [
-    {
-      id: '1',
-      title: 'Trivia Showdown',
-      description: 'Which AI will score highest on the trivia challenge?',
-      taskType: 'trivia',
-      agents: [
-        { id: 'claude-1', name: 'Claude 3.5', provider: 'claude', odds: 0.45, betsCount: 24, totalBets: 2400 },
-        { id: 'gpt4-1', name: 'GPT-4 Turbo', provider: 'gpt4', odds: 0.35, betsCount: 18, totalBets: 1800 },
-        { id: 'gemini-1', name: 'Gemini Pro', provider: 'gemini', odds: 0.20, betsCount: 8, totalBets: 800 }
-      ],
-      status: 'live',
-      totalPool: 5000
-    },
-    {
-      id: '2',
-      title: 'Math Championship',
-      description: 'Speed and accuracy in mathematical computation',
-      taskType: 'math',
-      agents: [
-        { id: 'claude-2', name: 'Claude 3.5', provider: 'claude', odds: 0.40, betsCount: 15, totalBets: 1500 },
-        { id: 'gpt4-2', name: 'GPT-4 Turbo', provider: 'gpt4', odds: 0.40, betsCount: 16, totalBets: 1600 },
-        { id: 'gemini-2', name: 'Gemini Pro', provider: 'gemini', odds: 0.20, betsCount: 9, totalBets: 900 }
-      ],
-      status: 'upcoming',
-      startsAt: new Date(Date.now() + 3600000).toISOString(),
-      totalPool: 4000
-    },
-    {
-      id: '3',
-      title: 'Logic Master',
-      description: 'Pattern recognition and logical reasoning',
-      taskType: 'logic',
-      agents: [
-        { id: 'claude-3', name: 'Claude 3.5', provider: 'claude', odds: 0.55, betsCount: 30, totalBets: 3300 },
-        { id: 'gpt4-3', name: 'GPT-4 Turbo', provider: 'gpt4', odds: 0.30, betsCount: 12, totalBets: 1200 },
-        { id: 'gemini-3', name: 'Gemini Pro', provider: 'gemini', odds: 0.15, betsCount: 5, totalBets: 500 }
-      ],
-      status: 'completed',
-      winner: 'claude-3',
-      totalPool: 5000
-    }
-  ];
 
   const placeBet = async (amount: number) => {
     if (!selectedBet || !isAuthenticated) return;

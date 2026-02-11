@@ -39,13 +39,14 @@ const TASK_BASE = API_BASE;
 export function GamesPlay() {
   const { type } = useParams<{ type: string }>();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, session } = useAuthStore();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'finished'>('ready');
   const [result, setResult] = useState<GameResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   const gameInfo = type ? GAME_INFO[type] : null;
 
@@ -56,9 +57,8 @@ export function GamesPlay() {
   }, [gameInfo, navigate]);
 
   useEffect(() => {
-    // Listen for completion messages from the game iframe
+    // Listen for completion messages from the game iframe via postMessage
     const handleMessage = (event: MessageEvent) => {
-      // Check if the message is from our game
       if (event.data && typeof event.data === 'object') {
         const { type: msgType, data } = event.data;
 
@@ -68,22 +68,10 @@ export function GamesPlay() {
       }
     };
 
-    // Also check console logs (for when games use console.log)
-    const originalLog = console.log;
-    console.log = (...args) => {
-      originalLog.apply(console, args);
-
-      // Check for game completion logs
-      if (args.length >= 2 && typeof args[0] === 'string' && args[0].includes('COMPLETE')) {
-        handleGameComplete(args[1]);
-      }
-    };
-
     window.addEventListener('message', handleMessage);
 
     return () => {
       window.removeEventListener('message', handleMessage);
-      console.log = originalLog;
     };
   }, []);
 
@@ -116,7 +104,7 @@ export function GamesPlay() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Add auth header if available
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({
           score: gameResult.score,
@@ -140,6 +128,18 @@ export function GamesPlay() {
     setGameState('playing');
     setResult(null);
     setError(null);
+    setIframeLoaded(false);
+
+    // Timeout: if iframe doesn't load in 15 seconds, show error
+    setTimeout(() => {
+      setIframeLoaded((loaded) => {
+        if (!loaded) {
+          setError('Game failed to load. The game server may be unavailable. Try opening in a new tab.');
+          setGameState('ready');
+        }
+        return loaded;
+      });
+    }, 15000);
   };
 
   const playAgain = () => {
@@ -229,17 +229,33 @@ export function GamesPlay() {
           className="max-w-4xl mx-auto"
         >
           <GlassCard className="p-4">
-            <div className="aspect-[4/3] w-full bg-cyber-dark rounded-lg overflow-hidden">
+            <div className="aspect-[4/3] w-full bg-cyber-dark rounded-lg overflow-hidden relative">
+              {!iframeLoaded && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-cyber-dark z-10">
+                  <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin mb-4" />
+                  <p className="text-white/60">Loading game...</p>
+                </div>
+              )}
               <iframe
                 ref={iframeRef}
                 src={`${TASK_BASE}/tasks/${type}`}
                 className="w-full h-full border-0"
                 title={gameInfo.name}
                 allow="autoplay"
+                onLoad={() => setIframeLoaded(true)}
+                onError={() => {
+                  setError('Game failed to load. Try opening in a new tab.');
+                  setGameState('ready');
+                }}
               />
             </div>
             <div className="flex justify-between items-center mt-4 text-sm text-white/60">
-              <span>Playing: {gameInfo.name}</span>
+              <button
+                onClick={() => { setGameState('ready'); setIframeLoaded(false); }}
+                className="text-white/60 hover:text-white transition-colors"
+              >
+                Quit Game
+              </button>
               <a
                 href={`${TASK_BASE}/tasks/${type}`}
                 target="_blank"

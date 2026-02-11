@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText, Badge, Input } from '../../components/ui';
@@ -24,34 +24,48 @@ export function AgentBrowser() {
   const [agents, setAgents] = useState<AgentWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const sortBy = searchParams.get('sort') || 'elo_rating';
 
+  // Debounce search input
+  useEffect(() => {
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(debounceTimer.current);
+  }, [searchQuery]);
+
   useEffect(() => {
     loadAgents();
-  }, [sortBy, searchQuery]);
+  }, [sortBy, debouncedSearch]);
 
   const loadAgents = async () => {
     setLoading(true);
+    try {
+      let query = supabase
+        .from('aio_agents')
+        .select(`
+          *,
+          owner:aio_profiles(username)
+        `)
+        .eq('is_active', true)
+        .eq('is_public', true);
 
-    let query = supabase
-      .from('aio_agents')
-      .select(`
-        *,
-        owner:aio_profiles(username)
-      `)
-      .eq('is_active', true)
-      .eq('is_public', true);
+      if (debouncedSearch) {
+        query = query.ilike('name', `%${debouncedSearch}%`);
+      }
 
-    if (searchQuery) {
-      query = query.ilike('name', `%${searchQuery}%`);
+      query = query.order(sortBy, { ascending: false }).limit(50);
+
+      const { data } = await query;
+      if (data) setAgents(data);
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('Error loading agents:', error);
+    } finally {
+      setLoading(false);
     }
-
-    query = query.order(sortBy, { ascending: false }).limit(50);
-
-    const { data } = await query;
-    if (data) setAgents(data);
-    setLoading(false);
   };
 
   const updateSort = (sort: string) => {
