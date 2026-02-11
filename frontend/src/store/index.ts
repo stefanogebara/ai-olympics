@@ -99,15 +99,24 @@ export const useStore = create<CompetitionState>((set) => ({
   setElapsedTime: (time) => set({ elapsedTime: time }),
 
   updateAgent: (agentId, update) =>
-    set((state) => ({
-      agents: {
-        ...state.agents,
-        [agentId]: {
-          ...state.agents[agentId],
-          ...update,
+    set((state) => {
+      const defaults: AgentState = {
+        id: agentId,
+        name: `Agent ${agentId.slice(0, 6)}`,
+        status: 'idle',
+        progress: 0,
+        score: 0,
+        actionCount: 0,
+        color: '#6B7280',
+      };
+      const existing = state.agents[agentId];
+      return {
+        agents: {
+          ...state.agents,
+          [agentId]: Object.assign({}, defaults, existing, update),
         },
-      },
-    })),
+      };
+    }),
 
   setLeaderboard: (entries) => set({ leaderboard: entries }),
 

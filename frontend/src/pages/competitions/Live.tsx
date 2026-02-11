@@ -271,12 +271,12 @@ function AgentCard({
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold"
-            style={{ backgroundColor: `${agent.color}20`, color: agent.color }}
+            style={{ backgroundColor: `${agent.color || '#6B7280'}20`, color: agent.color || '#6B7280' }}
           >
-            {agent.name.charAt(0)}
+            {(agent.name || '?').charAt(0)}
           </div>
           <div>
-            <p className="font-semibold">{agent.name}</p>
+            <p className="font-semibold">{agent.name || 'Unknown Agent'}</p>
             <span
               className={cn(
                 'text-xs px-2 py-0.5 rounded-full',
@@ -289,7 +289,7 @@ function AgentCard({
         </div>
         <div className="text-right">
           <p className="text-2xl font-mono font-bold" style={{ color: agent.color }}>
-            {formatScore(agent.score)}
+            {formatScore(agent.score || 0)}
           </p>
           <p className="text-xs text-white/40">points</p>
         </div>
@@ -298,9 +298,9 @@ function AgentCard({
       <div className="h-2 bg-white/10 rounded-full overflow-hidden">
         <motion.div
           className="h-full rounded-full"
-          style={{ backgroundColor: agent.color }}
+          style={{ backgroundColor: agent.color || '#6B7280' }}
           initial={{ width: 0 }}
-          animate={{ width: `${agent.progress}%` }}
+          animate={{ width: `${agent.progress || 0}%` }}
           transition={{ duration: 0.5 }}
         />
       </div>

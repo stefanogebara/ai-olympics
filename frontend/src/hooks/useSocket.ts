@@ -63,11 +63,36 @@ export function useSocket() {
       setConnected(false);
     });
 
+    // ---------------------------------------------------------------------------
+    // Backend emits StreamEvent wrappers: { type, competitionId, eventId, timestamp, data }
+    // The actual payload is nested inside `event.data`.
+    // We handle both wrapped (StreamEvent) and flat (legacy) formats for safety.
+    // ---------------------------------------------------------------------------
+
     // Competition events
-    socket.on(SOCKET_EVENTS.COMPETITION_START, (data: { competitionId: string; name: string }) => {
+    socket.on(SOCKET_EVENTS.COMPETITION_START, (event: any) => {
       reset();
-      setCompetition(data.competitionId, data.name);
+      const inner = event?.data ?? event;
+      const competition = inner?.competition ?? inner;
+      setCompetition(
+        event?.competitionId || competition?.id || '',
+        competition?.name || 'Competition'
+      );
       setStatus('running');
+
+      // Initialize agents from the competition's agent list
+      const agents = competition?.agents;
+      if (Array.isArray(agents)) {
+        for (const agent of agents) {
+          updateAgent(agent.id, {
+            name: agent.name,
+            color: agent.color || '#6B7280',
+            status: 'initializing',
+            progress: 0,
+            score: 0,
+          });
+        }
+      }
     });
 
     socket.on(SOCKET_EVENTS.COMPETITION_END, () => {
@@ -75,8 +100,9 @@ export function useSocket() {
     });
 
     // Event events
-    socket.on(SOCKET_EVENTS.EVENT_START, (data: { eventName: string }) => {
-      setCurrentEvent(data.eventName);
+    socket.on(SOCKET_EVENTS.EVENT_START, (event: any) => {
+      const inner = event?.data ?? event;
+      setCurrentEvent(inner?.task?.name || inner?.eventName || '');
     });
 
     socket.on(SOCKET_EVENTS.EVENT_END, () => {
@@ -84,46 +110,63 @@ export function useSocket() {
     });
 
     // Agent events
-    socket.on(SOCKET_EVENTS.AGENT_STATE, (data: AgentStateUpdate) => {
-      updateAgent(data.agentId, data);
+    socket.on(SOCKET_EVENTS.AGENT_STATE, (event: any) => {
+      const inner = event?.data ?? event;
+      if (inner?.agentId) {
+        updateAgent(inner.agentId, inner);
+      }
     });
 
-    socket.on(SOCKET_EVENTS.AGENT_ACTION, (data: ActionEvent) => {
-      addAction(data);
-      // Also update agent's current action
-      updateAgent(data.agentId, {
-        currentAction: `${data.type}${data.target ? `: ${data.target}` : ''}`,
-        actionCount: (useStore.getState().agents[data.agentId]?.actionCount || 0) + 1,
-      });
+    socket.on(SOCKET_EVENTS.AGENT_ACTION, (event: any) => {
+      const inner = event?.data ?? event;
+      if (inner?.agentId) {
+        addAction(inner);
+        updateAgent(inner.agentId, {
+          currentAction: `${inner.type}${inner.target ? `: ${inner.target}` : ''}`,
+          actionCount: (useStore.getState().agents[inner.agentId]?.actionCount || 0) + 1,
+        });
+      }
     });
 
-    socket.on(SOCKET_EVENTS.AGENT_PROGRESS, (data: { agentId: string; progress: number }) => {
-      updateAgent(data.agentId, { progress: data.progress });
+    socket.on(SOCKET_EVENTS.AGENT_PROGRESS, (event: any) => {
+      const inner = event?.data ?? event;
+      if (inner?.agentId) {
+        updateAgent(inner.agentId, { progress: inner.progress });
+      }
     });
 
-    socket.on(SOCKET_EVENTS.AGENT_COMPLETE, (data: { agentId: string; score: number }) => {
-      updateAgent(data.agentId, {
-        status: 'completed',
-        score: data.score,
-        progress: 100,
-      });
+    socket.on(SOCKET_EVENTS.AGENT_COMPLETE, (event: any) => {
+      const inner = event?.data ?? event;
+      const agentId = inner?.agentId;
+      if (agentId) {
+        updateAgent(agentId, {
+          status: 'completed',
+          score: inner?.result?.score ?? inner?.score ?? 0,
+          progress: 100,
+        });
+      }
     });
 
-    socket.on(SOCKET_EVENTS.AGENT_ERROR, (data: { agentId: string; error: string }) => {
-      updateAgent(data.agentId, {
-        status: 'failed',
-        currentAction: `Error: ${data.error}`,
-      });
+    socket.on(SOCKET_EVENTS.AGENT_ERROR, (event: any) => {
+      const inner = event?.data ?? event;
+      if (inner?.agentId) {
+        updateAgent(inner.agentId, {
+          status: 'failed',
+          currentAction: `Error: ${inner.error}`,
+        });
+      }
     });
 
     // Leaderboard
-    socket.on(SOCKET_EVENTS.LEADERBOARD_UPDATE, (entries: LeaderboardEntry[]) => {
+    socket.on(SOCKET_EVENTS.LEADERBOARD_UPDATE, (event: any) => {
+      const entries = event?.data?.leaderboard ?? (Array.isArray(event) ? event : []);
       setLeaderboard(entries);
     });
 
     // Commentary
-    socket.on(SOCKET_EVENTS.COMMENTARY_UPDATE, (commentary: CommentaryEvent) => {
-      addCommentary(commentary);
+    socket.on(SOCKET_EVENTS.COMMENTARY_UPDATE, (event: any) => {
+      const inner = event?.data ?? event;
+      addCommentary(inner);
     });
 
     // Timer updates (custom event)
