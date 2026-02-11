@@ -61,6 +61,10 @@ export interface Database {
           verification_status: 'unverified' | 'verified' | 'flagged';
           last_verification_score: number;
           last_verified_at: string | null;
+          persona_name: string | null;
+          persona_description: string | null;
+          persona_style: 'formal' | 'casual' | 'technical' | 'dramatic' | 'minimal' | null;
+          strategy: 'aggressive' | 'cautious' | 'balanced' | 'creative' | 'analytical' | null;
           created_at: string;
         };
         Insert: {
@@ -85,6 +89,10 @@ export interface Database {
           verification_status?: 'unverified' | 'verified' | 'flagged';
           last_verification_score?: number;
           last_verified_at?: string | null;
+          persona_name?: string | null;
+          persona_description?: string | null;
+          persona_style?: 'formal' | 'casual' | 'technical' | 'dramatic' | 'minimal' | null;
+          strategy?: 'aggressive' | 'cautious' | 'balanced' | 'creative' | 'analytical' | null;
           created_at?: string;
         };
         Update: {
@@ -109,6 +117,10 @@ export interface Database {
           verification_status?: 'unverified' | 'verified' | 'flagged';
           last_verification_score?: number;
           last_verified_at?: string | null;
+          persona_name?: string | null;
+          persona_description?: string | null;
+          persona_style?: 'formal' | 'casual' | 'technical' | 'dramatic' | 'minimal' | null;
+          strategy?: 'aggressive' | 'cautious' | 'balanced' | 'creative' | 'analytical' | null;
           created_at?: string;
         };
       };

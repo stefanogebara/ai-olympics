@@ -58,6 +58,9 @@ interface CompetitionState {
   // Commentary
   commentary: CommentaryEvent[];
 
+  // Spectator votes
+  voteCounts: Record<string, { cheers: number; predict_win: number; mvp: number }>;
+
   // UI state
   isConnected: boolean;
 
@@ -70,6 +73,7 @@ interface CompetitionState {
   setLeaderboard: (entries: LeaderboardEntry[]) => void;
   addAction: (action: Omit<ActionEvent, 'id'>) => void;
   addCommentary: (commentary: Omit<CommentaryEvent, 'id'>) => void;
+  setVoteCounts: (voteCounts: Record<string, { cheers: number; predict_win: number; mvp: number }>) => void;
   setConnected: (connected: boolean) => void;
   reset: () => void;
 }
@@ -84,6 +88,7 @@ const initialState = {
   leaderboard: [],
   actions: [],
   commentary: [],
+  voteCounts: {},
   isConnected: false,
 };
 
@@ -135,6 +140,8 @@ export const useStore = create<CompetitionState>((set) => ({
         ...state.commentary,
       ].slice(0, 20), // Keep last 20 comments
     })),
+
+  setVoteCounts: (voteCounts) => set({ voteCounts }),
 
   setConnected: (connected) => set({ isConnected: connected }),
 

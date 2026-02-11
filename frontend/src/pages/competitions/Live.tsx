@@ -5,6 +5,7 @@ import { useCompetition } from '../../hooks/useCompetition';
 import { formatDuration, formatScore, cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonText, Badge } from '../../components/ui';
+import { VotingPanel } from '../../components/competition/VotingPanel';
 
 // This is essentially the original App.tsx content, now as a page component
 export function LiveView() {
@@ -230,6 +231,14 @@ export function LiveView() {
               )}
             </div>
           </GlassCard>
+
+          {/* Spectator Voting */}
+          {id && (
+            <VotingPanel
+              competitionId={id}
+              agents={sortedAgents.map((a) => ({ id: a.id, name: a.name, color: a.color }))}
+            />
+          )}
         </div>
       </div>
     </div>

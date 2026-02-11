@@ -16,7 +16,9 @@ import {
   X,
   Key,
   Globe,
-  Copy
+  Copy,
+  Sparkles,
+  Swords
 } from 'lucide-react';
 
 type AgentType = 'webhook' | 'api_key';
@@ -85,6 +87,12 @@ export function AgentForm() {
   const [apiKey, setApiKey] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
 
+  // Persona & Strategy
+  const [personaName, setPersonaName] = useState('');
+  const [personaDescription, setPersonaDescription] = useState('');
+  const [personaStyle, setPersonaStyle] = useState('');
+  const [strategy, setStrategy] = useState('balanced');
+
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -122,6 +130,10 @@ export function AgentForm() {
       setProvider(data.provider || 'openrouter');
       setModel(data.model || 'anthropic/claude-sonnet-4-20250514');
       setSystemPrompt(data.system_prompt || '');
+      setPersonaName(data.persona_name || '');
+      setPersonaDescription(data.persona_description || '');
+      setPersonaStyle(data.persona_style || '');
+      setStrategy(data.strategy || 'balanced');
     }
   };
 
@@ -176,6 +188,10 @@ export function AgentForm() {
       model: agentType === 'api_key' ? model : null,
       api_key_encrypted: agentType === 'api_key' ? apiKey : null, // Should be encrypted server-side
       system_prompt: agentType === 'api_key' ? systemPrompt : null,
+      persona_name: personaName || null,
+      persona_description: personaDescription || null,
+      persona_style: personaStyle || null,
+      strategy: strategy || null,
     };
 
     try {
@@ -443,6 +459,89 @@ export function AgentForm() {
               </div>
             </motion.div>
           )}
+
+          {/* Persona & Strategy */}
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="space-y-4 pt-4 border-t border-white/10"
+          >
+            <h3 className="font-semibold text-white flex items-center gap-2">
+              <Sparkles size={18} className="text-neon-gold" />
+              Persona & Strategy
+            </h3>
+
+            <Input
+              label="Persona Name"
+              value={personaName}
+              onChange={(e) => setPersonaName(e.target.value)}
+              placeholder="e.g. The Strategist, Speed Demon"
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-1">
+                Persona Description
+              </label>
+              <textarea
+                value={personaDescription}
+                onChange={(e) => setPersonaDescription(e.target.value)}
+                placeholder="Describe your agent's personality and approach..."
+                rows={3}
+                className="w-full px-4 py-2.5 bg-cyber-dark/50 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-neon-cyan/50"
+              />
+            </div>
+
+            <Select
+              label="Persona Style"
+              value={personaStyle}
+              onChange={(e) => setPersonaStyle(e.target.value)}
+              options={[
+                { value: '', label: 'None (default)' },
+                { value: 'formal', label: 'Formal' },
+                { value: 'casual', label: 'Casual' },
+                { value: 'technical', label: 'Technical' },
+                { value: 'dramatic', label: 'Dramatic' },
+                { value: 'minimal', label: 'Minimal' },
+              ]}
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-3">
+                <span className="flex items-center gap-2"><Swords size={16} /> Strategy</span>
+              </label>
+              <div className="space-y-2">
+                {[
+                  { value: 'balanced', label: 'Balanced', desc: 'Default behavior, no special modifiers' },
+                  { value: 'aggressive', label: 'Aggressive', desc: 'Prioritize speed, take risks' },
+                  { value: 'cautious', label: 'Cautious', desc: 'Double-check everything, prefer accuracy' },
+                  { value: 'creative', label: 'Creative', desc: 'Try unconventional approaches' },
+                  { value: 'analytical', label: 'Analytical', desc: 'Break down problems systematically' },
+                ].map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                      strategy === opt.value
+                        ? 'border-neon-cyan bg-neon-cyan/10'
+                        : 'border-white/10 bg-white/5 hover:border-white/20'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value={opt.value}
+                      checked={strategy === opt.value}
+                      onChange={(e) => setStrategy(e.target.value)}
+                      className="mt-1 accent-neon-cyan"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-white">{opt.label}</span>
+                      <p className="text-xs text-white/50">{opt.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </motion.div>
 
           {/* Submit */}
           <div className="flex gap-4 pt-4">

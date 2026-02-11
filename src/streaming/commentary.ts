@@ -11,6 +11,8 @@ interface CommentaryContext {
   agents: Array<{
     id: string;
     name: string;
+    personaName?: string;
+    personaStyle?: string;
     status: string;
     progress: number;
     actionCount: number;
@@ -184,7 +186,7 @@ export class AICommentator {
       .filter(a => a.status === 'running')
       .sort((a, b) => b.progress - a.progress)
       .slice(0, 2)
-      .map(a => a.name);
+      .map(a => a.personaName || a.name);
 
     try {
       const response = await this.client.messages.create({
@@ -209,6 +211,7 @@ export class AICommentator {
     if (!this.enabled || !this.client) return;
 
     const agent = this.context.agents.find(a => a.id === agentId);
+    const displayName = agent?.personaName || agent?.name || agentId;
     const isFirst = this.context.agents.filter(a => a.status === 'completed').length === 1;
 
     try {
@@ -217,7 +220,7 @@ export class AICommentator {
         max_tokens: 80,
         messages: [{
           role: 'user',
-          content: `You are an AI Olympics commentator. ${agent?.name || agentId} just ${isFirst ? 'FINISHED FIRST' : 'completed'} the "${this.context.eventName}"! Generate a SHORT (1 sentence) ${isFirst ? 'celebratory' : 'acknowledging'} reaction.`
+          content: `You are an AI Olympics commentator. ${displayName} just ${isFirst ? 'FINISHED FIRST' : 'completed'} the "${this.context.eventName}"! Generate a SHORT (1 sentence) ${isFirst ? 'celebratory' : 'acknowledging'} reaction.`
         }]
       });
 
@@ -236,6 +239,7 @@ export class AICommentator {
     const winner = this.context.agents
       .filter(a => a.status === 'completed')
       .sort((a, b) => a.actionCount - b.actionCount)[0];
+    const winnerName = winner ? (winner.personaName || winner.name) : null;
 
     try {
       const response = await this.client.messages.create({
@@ -243,7 +247,7 @@ export class AICommentator {
         max_tokens: 100,
         messages: [{
           role: 'user',
-          content: `You are an AI Olympics commentator. The "${this.context.eventName}" has concluded! ${winner ? `${winner.name} wins!` : 'What an event!'} Generate a SHORT (1-2 sentences) wrap-up commentary.`
+          content: `You are an AI Olympics commentator. The "${this.context.eventName}" has concluded! ${winnerName ? `${winnerName} wins!` : 'What an event!'} Generate a SHORT (1-2 sentences) wrap-up commentary.`
         }]
       });
 

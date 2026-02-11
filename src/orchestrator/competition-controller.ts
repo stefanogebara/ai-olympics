@@ -13,6 +13,7 @@ import { eventBus, createStreamEvent } from '../shared/utils/events.js';
 import { PrecisionTimer, formatDuration } from '../shared/utils/timer.js';
 import { createLogger } from '../shared/utils/logger.js';
 import { AGENT_PRESETS } from '../shared/config.js';
+import { judgingService } from '../services/judging-service.js';
 
 const log = createLogger('CompetitionController');
 
@@ -189,11 +190,32 @@ export class CompetitionController {
     try {
       const result = await runner.runTask(event.task);
 
+      let score: number;
+
+      if (event.task.scoringMethod === 'judged' && result.success) {
+        // Use AI judging service for creative tasks
+        try {
+          const judgingResult = await judgingService.judgeSubmission(
+            event.task.id,
+            result.result
+          );
+          score = judgingResult.score;
+          log.info(`Judged score for ${config.name} on ${event.task.id}: ${score}`, {
+            breakdown: judgingResult.breakdown
+          });
+        } catch (judgingError) {
+          log.error(`Judging failed for ${config.name}, using fallback score`, { judgingError });
+          score = this.calculateScore(event.task, result);
+        }
+      } else {
+        score = this.calculateScore(event.task, result);
+      }
+
       const taskResult: TaskResult = {
         agentId: config.id,
         taskId: event.task.id,
         status: result.success ? 'completed' : 'failed',
-        score: this.calculateScore(event.task, result),
+        score,
         completionTime: result.completionTime,
         actions: result.actions,
         output: result.result

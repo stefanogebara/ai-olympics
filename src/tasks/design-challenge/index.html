@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Design Challenge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .timer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 1.5rem;
+      color: #00d4ff;
+      z-index: 100;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .left-panel {
+      width: 50%;
+      padding: 30px;
+      overflow-y: auto;
+      border-right: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .right-panel {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #a0aec0;
+      margin-bottom: 20px;
+    }
+
+    .brief-card {
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid #7c3aed;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .brief-card h3 {
+      color: #7c3aed;
+      margin-bottom: 12px;
+    }
+
+    .brief-card p, .brief-card li {
+      color: #cbd5e0;
+      line-height: 1.6;
+    }
+
+    .brief-card ul {
+      margin-left: 20px;
+      margin-top: 8px;
+    }
+
+    .editor-label {
+      display: block;
+      color: #a0aec0;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+    }
+
+    .code-editor {
+      width: 100%;
+      height: calc(100vh - 200px);
+      background: #0d1117;
+      color: #c9d1d9;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      tab-size: 2;
+    }
+
+    .code-editor:focus {
+      outline: none;
+      border-color: #7c3aed;
+    }
+
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .preview-header h3 { color: #00d4ff; }
+
+    .preview-frame {
+      flex: 1;
+      border: none;
+      background: #fff;
+    }
+
+    .submit-btn {
+      margin: 15px 20px;
+      padding: 14px;
+      background: linear-gradient(90deg, #7c3aed, #00d4ff);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .submit-btn:hover { transform: translateY(-2px); }
+
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 60px 40px;
+    }
+
+    .success-message.show { display: block; }
+
+    .success-message h2 { color: #48bb78; margin-bottom: 15px; }
+    .success-message p { color: #a0aec0; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+
+  <div class="container" id="mainContainer">
+    <div class="left-panel">
+      <div class="header">
+        <h1>Design Challenge</h1>
+        <p>Build a responsive UI component from the design brief below.</p>
+      </div>
+
+      <div class="brief-card">
+        <h3>Design Brief: Pricing Card Component</h3>
+        <p>Create a modern pricing card component with the following requirements:</p>
+        <ul>
+          <li>A card with a plan name ("Pro Plan"), price ("$29/month"), and at least 4 feature bullet points</li>
+          <li>A prominent "Get Started" call-to-action button</li>
+          <li>Use a dark theme with accent colors (blues/purples preferred)</li>
+          <li>Include hover effects on the button</li>
+          <li>Card should have rounded corners, subtle border, and a shadow</li>
+          <li>Must be centered on the page</li>
+        </ul>
+      </div>
+
+      <div class="brief-card">
+        <h3>Judging Criteria</h3>
+        <ul>
+          <li><strong>Visual Quality (40%)</strong> - Aesthetics, color harmony, typography</li>
+          <li><strong>Code Quality (30%)</strong> - Clean HTML/CSS, semantic markup</li>
+          <li><strong>Completeness (20%)</strong> - All brief requirements met</li>
+          <li><strong>Responsiveness (10%)</strong> - Adapts to different widths</li>
+        </ul>
+      </div>
+
+      <label class="editor-label" for="codeEditor">Write your HTML/CSS below:</label>
+      <textarea id="codeEditor" class="code-editor" aria-label="HTML/CSS Code Editor" spellcheck="false">&lt;!-- Write your HTML and CSS here --&gt;
+&lt;style&gt;
+
+&lt;/style&gt;
+
+&lt;div&gt;
+
+&lt;/div&gt;</textarea>
+    </div>
+
+    <div class="right-panel">
+      <div class="preview-header">
+        <h3>Live Preview</h3>
+        <button class="submit-btn" id="submitBtn" aria-label="Submit Design">Submit Design</button>
+      </div>
+      <iframe id="previewFrame" class="preview-frame" sandbox="allow-same-origin" title="Design Preview"></iframe>
+    </div>
+  </div>
+
+  <div class="success-message" id="successMessage">
+    <h2>Design Submitted!</h2>
+    <p>Your design has been submitted for judging.</p>
+    <p>Completed in <span id="completionTime">0.00</span> seconds</p>
+    <p style="margin-top:15px;font-size:0.9rem;">Submission ID: <code id="submissionId"></code></p>
+  </div>
+
+  <script>
+    var startTime = Date.now();
+    var timerEl = document.getElementById('timer');
+
+    function updateTimer() {
+      var elapsed = Date.now() - startTime;
+      var minutes = Math.floor(elapsed / 60000);
+      var seconds = Math.floor((elapsed % 60000) / 1000);
+      var millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    var editor = document.getElementById('codeEditor');
+    var previewFrame = document.getElementById('previewFrame');
+
+    function updatePreview() {
+      var doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      doc.open();
+      doc.write(editor.value);
+      doc.close();
+    }
+
+    editor.addEventListener('input', updatePreview);
+
+    editor.addEventListener('keydown', function(e) {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        var start = this.selectionStart;
+        var end = this.selectionEnd;
+        this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 2;
+        updatePreview();
+      }
+    });
+
+    document.getElementById('submitBtn').addEventListener('click', function() {
+      var code = editor.value.trim();
+      if (code.length < 20) {
+        alert('Please write some HTML/CSS before submitting.');
+        return;
+      }
+
+      var completionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      document.getElementById('mainContainer').style.display = 'none';
+      var success = document.getElementById('successMessage');
+      success.classList.add('show');
+      document.getElementById('completionTime').textContent = completionTime;
+      document.getElementById('submissionId').textContent = 'DSG-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+      console.log('DESIGN_CHALLENGE_COMPLETE', {
+        completionTime: parseFloat(completionTime),
+        timestamp: Date.now(),
+        submission: code,
+        charCount: code.length
+      });
+    });
+  </script>
+</body>
+</html>

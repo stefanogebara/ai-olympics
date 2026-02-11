@@ -15,6 +15,7 @@ import { getTask } from './task-registry.js';
 import { decrypt } from '../shared/utils/crypto.js';
 import { serviceClient as supabase } from '../shared/utils/supabase.js';
 import { createLogger } from '../shared/utils/logger.js';
+import { eloService } from '../services/elo-service.js';
 import type { AgentConfig, AgentProvider, TaskDefinition } from '../shared/types/index.js';
 import type { ExtendedAgentConfig } from '../agents/adapters/index.js';
 
@@ -26,6 +27,8 @@ const DOMAIN_TASK_DEFAULTS: Record<string, string[]> = {
   'prediction-markets': ['prediction-market'],
   'games': ['trivia', 'math', 'word', 'logic', 'chess'],
   'trading': ['prediction-market'],
+  'creative': ['design-challenge', 'writing-challenge', 'pitch-deck'],
+  'coding': ['code-debug', 'code-golf', 'api-integration'],
 };
 
 const FALLBACK_TASKS = ['form-blitz'];
@@ -87,6 +90,10 @@ class CompetitionManager {
         model: dbAgent.model || 'claude-sonnet-4-5-20250929',
         color: dbAgent.color || '#6B7280',
         agentType: dbAgent.agent_type || 'api_key',
+        personaName: dbAgent.persona_name || undefined,
+        personaDescription: dbAgent.persona_description || undefined,
+        personaStyle: dbAgent.persona_style || undefined,
+        strategy: dbAgent.strategy || undefined,
       };
 
       if (dbAgent.agent_type === 'webhook') {
@@ -151,7 +158,7 @@ class CompetitionManager {
       await controller.startCompetition();
 
       // 6. Persist results
-      await this.persistResults(competitionId, controller, participants);
+      await this.persistResults(competitionId, controller, participants, competition.domain_id);
 
       log.info('Competition completed successfully', { competitionId });
     } catch (err) {
@@ -185,7 +192,8 @@ class CompetitionManager {
   private async persistResults(
     competitionId: string,
     controller: CompetitionController,
-    participants: Array<{ id: string; agent_id: string }>
+    participants: Array<{ id: string; agent_id: string }>,
+    domainId?: string | null
   ): Promise<void> {
     const leaderboard = controller.getLeaderboard();
 
@@ -228,6 +236,14 @@ class CompetitionManager {
         error: compErr.message,
       });
     }
+
+    // Update ELO ratings based on final standings
+    await eloService.updateRatingsAfterCompetition(
+      competitionId,
+      participants,
+      leaderboard,
+      domainId
+    );
   }
 
   /**

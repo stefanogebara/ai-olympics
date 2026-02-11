@@ -76,6 +76,9 @@ export const SOCKET_EVENTS = {
 
   // Overlay
   OVERLAY_UPDATE: 'overlay:update',
+
+  // Voting
+  VOTE_UPDATE: 'vote:update',
 } as const;
 
 export type AgentId = keyof typeof AGENT_CONFIG;

@@ -178,7 +178,35 @@ export abstract class BaseAgentAdapter {
 
   // Initialize the agent with task instructions
   initialize(systemPrompt: string, taskPrompt: string): void {
-    this.systemPrompt = systemPrompt;
+    let finalSystemPrompt = systemPrompt;
+
+    // Inject persona into system prompt (H4: sanitize to prevent prompt injection)
+    if (this.config.personaName) {
+      // Strip any prompt-injection attempts: remove instruction-like patterns
+      const sanitize = (s: string) => s
+        .replace(/[\x00-\x1f]/g, '')          // control chars
+        .replace(/\b(ignore|disregard|forget|override|system|instruction|prompt)\b/gi, '') // injection keywords
+        .slice(0, 200);                         // hard length cap
+      const safeName = sanitize(this.config.personaName);
+      const safeDesc = this.config.personaDescription ? sanitize(this.config.personaDescription) : '';
+      const safeStyle = this.config.personaStyle || '';
+      const personaPrefix = `You are ${safeName}.${safeDesc ? ` ${safeDesc}.` : ''}${safeStyle ? ` Your communication style is ${safeStyle}.` : ''}\n\n`;
+      finalSystemPrompt = personaPrefix + finalSystemPrompt;
+    }
+
+    // Inject strategy modifier
+    const strategyModifiers: Record<string, string> = {
+      aggressive: 'Prioritize speed. Take risks. Skip verification.',
+      cautious: 'Double-check everything. Prefer accuracy over speed.',
+      creative: 'Try unconventional approaches. Think outside the box.',
+      analytical: 'Break down problems systematically. Consider all options.',
+    };
+    const modifier = this.config.strategy && strategyModifiers[this.config.strategy];
+    if (modifier) {
+      finalSystemPrompt = finalSystemPrompt + `\n\nStrategy: ${modifier}`;
+    }
+
+    this.systemPrompt = finalSystemPrompt;
     this.taskPrompt = taskPrompt;
     this.conversationHistory = [];
     log.info(`Agent ${this.name} initialized`, { agentId: this.id });

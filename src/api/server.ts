@@ -23,9 +23,12 @@ import metaMarketsRouter from './routes/meta-markets.js';
 import verificationRouter from './routes/verification.js';
 import paymentsRouter from './routes/payments.js';
 import tradingRouter from './routes/trading.js';
+import tournamentsRouter from './routes/tournaments.js';
+import championshipsRouter from './routes/championships.js';
 
 // Competition orchestrator
 import { competitionManager } from '../orchestrator/competition-manager.js';
+import { tournamentManager } from '../orchestrator/tournament-manager.js';
 
 // Market services for price streaming
 import { polymarketClient, type PriceUpdate } from '../services/polymarket-client.js';
@@ -96,9 +99,20 @@ export function createAPIServer() {
     }
   });
 
-  // Security headers
+  // L3: Security headers with basic CSP
   app.use(helmet({
-    contentSecurityPolicy: false, // Disable CSP for SPA compatibility
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],  // needed for task pages
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://*.supabase.co", "wss://*.supabase.co", "https://api.anthropic.com", "https://api.openai.com"],
+        frameSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+      },
+    },
     crossOriginEmbedderPolicy: false,
   }));
 
@@ -217,6 +231,44 @@ export function createAPIServer() {
   });
 
   // ============================================================================
+  // CREATIVE TASKS
+  // ============================================================================
+
+  // Design Challenge
+  app.get('/tasks/design-challenge', (_req, res) => {
+    res.sendFile(path.join(tasksDir, 'design-challenge/index.html'));
+  });
+
+  // Writing Challenge
+  app.get('/tasks/writing-challenge', (_req, res) => {
+    res.sendFile(path.join(tasksDir, 'writing-challenge/index.html'));
+  });
+
+  // Pitch Deck Challenge
+  app.get('/tasks/pitch-deck', (_req, res) => {
+    res.sendFile(path.join(tasksDir, 'pitch-deck/index.html'));
+  });
+
+  // ============================================================================
+  // CODING TASKS
+  // ============================================================================
+
+  // Code Debug Challenge
+  app.get('/tasks/code-debug', (_req, res) => {
+    res.sendFile(path.join(tasksDir, 'code-debug/index.html'));
+  });
+
+  // Code Golf Challenge
+  app.get('/tasks/code-golf', (_req, res) => {
+    res.sendFile(path.join(tasksDir, 'code-golf/index.html'));
+  });
+
+  // API Integration Challenge
+  app.get('/tasks/api-integration', (_req, res) => {
+    res.sendFile(path.join(tasksDir, 'api-integration/index.html'));
+  });
+
+  // ============================================================================
   // API ENDPOINTS
   // ============================================================================
 
@@ -262,6 +314,12 @@ export function createAPIServer() {
 
   // Trading (real money orders)
   app.use('/api/trading', tradingRouter);
+
+  // Tournaments
+  app.use('/api/tournaments', tournamentsRouter);
+
+  // Championships
+  app.use('/api/championships', championshipsRouter);
 
   // State
   let currentCompetition: Competition | null = null;
@@ -425,6 +483,112 @@ export function createAPIServer() {
       log.debug(`Socket ${socket.id} unsubscribed from market ${marketId}`);
     });
 
+    // Handle spectator vote casting via WebSocket
+    // Rate limit: track per-socket vote timestamps
+    const voteTimestamps: number[] = [];
+    const VOTE_RATE_LIMIT = 5; // max votes per window
+    const VOTE_RATE_WINDOW = 10_000; // 10 seconds
+
+    socket.on('vote:cast', async (data: { competition_id: string; agent_id: string; vote_type: string }) => {
+      const userId = (socket as any).userId;
+      if (!userId) {
+        socket.emit('vote:error', { error: 'Authentication required' });
+        return;
+      }
+
+      // H5: Per-socket rate limiting
+      const now = Date.now();
+      while (voteTimestamps.length > 0 && voteTimestamps[0] < now - VOTE_RATE_WINDOW) {
+        voteTimestamps.shift();
+      }
+      if (voteTimestamps.length >= VOTE_RATE_LIMIT) {
+        socket.emit('vote:error', { error: 'Rate limit exceeded, try again shortly' });
+        return;
+      }
+      voteTimestamps.push(now);
+
+      const { competition_id, agent_id, vote_type } = data;
+      if (!competition_id || !agent_id || !['cheer', 'predict_win', 'mvp'].includes(vote_type)) {
+        socket.emit('vote:error', { error: 'Invalid vote data' });
+        return;
+      }
+
+      // C3: Validate UUID format to prevent injection
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(competition_id) || !uuidRe.test(agent_id)) {
+        socket.emit('vote:error', { error: 'Invalid ID format' });
+        return;
+      }
+
+      try {
+        // C3: Verify competition exists and is running before allowing votes
+        const { data: comp, error: compErr } = await wsSupabase
+          .from('aio_competitions')
+          .select('id, status')
+          .eq('id', competition_id)
+          .single();
+
+        if (compErr || !comp) {
+          socket.emit('vote:error', { error: 'Competition not found' });
+          return;
+        }
+        if (comp.status !== 'running') {
+          socket.emit('vote:error', { error: 'Voting is only allowed during running competitions' });
+          return;
+        }
+
+        // C3: Verify agent is a participant in this competition
+        const { data: participant } = await wsSupabase
+          .from('aio_competition_participants')
+          .select('id')
+          .eq('competition_id', competition_id)
+          .eq('agent_id', agent_id)
+          .maybeSingle();
+
+        if (!participant) {
+          socket.emit('vote:error', { error: 'Agent is not a participant in this competition' });
+          return;
+        }
+
+        const { error } = await wsSupabase
+          .from('aio_spectator_votes')
+          .insert({
+            competition_id,
+            agent_id,
+            user_id: userId,
+            vote_type,
+          });
+
+        if (error) {
+          socket.emit('vote:error', { error: error.code === '23505' ? 'Already voted' : 'Vote failed' });
+          return;
+        }
+
+        // H5: Use aggregation with limit instead of fetching all rows
+        const { data: votes } = await wsSupabase
+          .from('aio_spectator_votes')
+          .select('agent_id, vote_type')
+          .eq('competition_id', competition_id)
+          .limit(1000);
+
+        const voteCounts: Record<string, { cheers: number; predict_win: number; mvp: number }> = {};
+        for (const vote of votes || []) {
+          if (!voteCounts[vote.agent_id]) {
+            voteCounts[vote.agent_id] = { cheers: 0, predict_win: 0, mvp: 0 };
+          }
+          if (vote.vote_type === 'cheer') voteCounts[vote.agent_id].cheers++;
+          else if (vote.vote_type === 'predict_win') voteCounts[vote.agent_id].predict_win++;
+          else if (vote.vote_type === 'mvp') voteCounts[vote.agent_id].mvp++;
+        }
+
+        // Broadcast updated counts to competition room only
+        io.to(`competition:${competition_id}`).emit('vote:update', { competition_id, voteCounts });
+      } catch (err) {
+        log.error('WebSocket vote:cast failed', { error: err });
+        socket.emit('vote:error', { error: 'Vote failed' });
+      }
+    });
+
     socket.on('disconnect', () => {
       log.info(`Client disconnected: ${socket.id}`);
       eventBus.off('*', handleEvent);
@@ -486,6 +650,12 @@ export function createAPIServer() {
     if (competitionManager.activeCount > 0) {
       log.info(`Cancelling ${competitionManager.activeCount} active competitions...`);
       await competitionManager.cancelAll();
+    }
+
+    // Cancel all active tournaments gracefully
+    if (tournamentManager.activeCount > 0) {
+      log.info(`Cancelling ${tournamentManager.activeCount} active tournaments...`);
+      await tournamentManager.cancelAll();
     }
 
     marketSyncService.stop();

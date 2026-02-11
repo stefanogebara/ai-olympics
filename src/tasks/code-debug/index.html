@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Code Debug Challenge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .timer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 1.5rem;
+      color: #00d4ff;
+      z-index: 100;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .left-panel {
+      width: 50%;
+      padding: 30px;
+      overflow-y: auto;
+      border-right: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .right-panel {
+      width: 50%;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    .header p { color: #a0aec0; margin-bottom: 20px; }
+
+    .task-card {
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .task-card h3 { color: #ff6b6b; margin-bottom: 10px; }
+    .task-card p { color: #cbd5e0; line-height: 1.6; }
+    .task-card code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; color: #ffd93d; }
+
+    .buggy-code {
+      background: #0d1117;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 20px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin-bottom: 15px;
+    }
+
+    .buggy-code .line-num {
+      color: #484f58;
+      display: inline-block;
+      width: 30px;
+      user-select: none;
+    }
+
+    .buggy-code .line { color: #c9d1d9; }
+
+    .editor-label {
+      display: block;
+      color: #a0aec0;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .code-editor {
+      width: 100%;
+      flex: 1;
+      background: #0d1117;
+      color: #c9d1d9;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      resize: none;
+      tab-size: 2;
+    }
+
+    .code-editor:focus {
+      outline: none;
+      border-color: #7c3aed;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .run-tests-btn {
+      flex: 1;
+      padding: 14px;
+      background: linear-gradient(90deg, #48bb78, #38a169);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .run-tests-btn:hover { transform: translateY(-2px); }
+
+    .submit-btn {
+      flex: 1;
+      padding: 14px;
+      background: linear-gradient(90deg, #7c3aed, #00d4ff);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .submit-btn:hover { transform: translateY(-2px); }
+
+    .test-output {
+      background: #0d1117;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+      font-family: monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .test-pass { color: #48bb78; }
+    .test-fail { color: #fc8181; }
+
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 60px 40px;
+    }
+
+    .success-message.show { display: block; }
+    .success-message h2 { color: #48bb78; margin-bottom: 15px; }
+    .success-message p { color: #a0aec0; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+
+  <div class="container" id="mainContainer">
+    <div class="left-panel">
+      <div class="header">
+        <h1>Code Debug Challenge</h1>
+        <p>Find and fix the bugs in the JavaScript code below.</p>
+      </div>
+
+      <div class="task-card">
+        <h3>Task Description</h3>
+        <p>The function <code>processOrders</code> is supposed to take an array of order objects and return a summary with: total revenue, average order value, and the most popular product. It has 3 bugs. Fix all of them.</p>
+      </div>
+
+      <div class="task-card">
+        <h3>Expected Behavior</h3>
+        <p>Given the test data, the function should return:</p>
+        <p style="margin-top:8px;"><code>{ totalRevenue: 409.85, averageOrderValue: 81.97, mostPopularProduct: "Widget" }</code></p>
+      </div>
+
+      <h3 style="color:#ff6b6b;margin-bottom:10px;">Buggy Code:</h3>
+      <div class="buggy-code" id="buggyCode">
+        <div><span class="line-num">1</span><span class="line">function processOrders(orders) {</span></div>
+        <div><span class="line-num">2</span><span class="line">  let totalRevenue = 0;</span></div>
+        <div><span class="line-num">3</span><span class="line">  const productCount = {};</span></div>
+        <div><span class="line-num">4</span><span class="line"></span></div>
+        <div><span class="line-num">5</span><span class="line">  for (let i = 0; i &lt;= orders.length; i++) {</span></div>
+        <div><span class="line-num">6</span><span class="line">    const order = orders[i];</span></div>
+        <div><span class="line-num">7</span><span class="line">    totalRevenue += order.price * order.quantity;</span></div>
+        <div><span class="line-num">8</span><span class="line"></span></div>
+        <div><span class="line-num">9</span><span class="line">    if (productCount[order.product]) {</span></div>
+        <div><span class="line-num">10</span><span class="line">      productCount[order.product]++;</span></div>
+        <div><span class="line-num">11</span><span class="line">    } else {</span></div>
+        <div><span class="line-num">12</span><span class="line">      productCount[order.product] = 0;</span></div>
+        <div><span class="line-num">13</span><span class="line">    }</span></div>
+        <div><span class="line-num">14</span><span class="line">  }</span></div>
+        <div><span class="line-num">15</span><span class="line"></span></div>
+        <div><span class="line-num">16</span><span class="line">  const averageOrderValue = totalRevenue / orders.length - 1;</span></div>
+        <div><span class="line-num">17</span><span class="line"></span></div>
+        <div><span class="line-num">18</span><span class="line">  let mostPopularProduct = '';</span></div>
+        <div><span class="line-num">19</span><span class="line">  let maxCount = 0;</span></div>
+        <div><span class="line-num">20</span><span class="line">  for (const [product, count] of Object.entries(productCount)) {</span></div>
+        <div><span class="line-num">21</span><span class="line">    if (count > maxCount) {</span></div>
+        <div><span class="line-num">22</span><span class="line">      maxCount = count;</span></div>
+        <div><span class="line-num">23</span><span class="line">      mostPopularProduct = product;</span></div>
+        <div><span class="line-num">24</span><span class="line">    }</span></div>
+        <div><span class="line-num">25</span><span class="line">  }</span></div>
+        <div><span class="line-num">26</span><span class="line"></span></div>
+        <div><span class="line-num">27</span><span class="line">  return {</span></div>
+        <div><span class="line-num">28</span><span class="line">    totalRevenue: Math.round(totalRevenue * 100) / 100,</span></div>
+        <div><span class="line-num">29</span><span class="line">    averageOrderValue: Math.round(averageOrderValue * 100) / 100,</span></div>
+        <div><span class="line-num">30</span><span class="line">    mostPopularProduct</span></div>
+        <div><span class="line-num">31</span><span class="line">  };</span></div>
+        <div><span class="line-num">32</span><span class="line">}</span></div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <label class="editor-label" for="codeEditor">Fix the code here:</label>
+      <textarea id="codeEditor" class="code-editor" aria-label="Code Editor" spellcheck="false">function processOrders(orders) {
+  let totalRevenue = 0;
+  const productCount = {};
+
+  for (let i = 0; i <= orders.length; i++) {
+    const order = orders[i];
+    totalRevenue += order.price * order.quantity;
+
+    if (productCount[order.product]) {
+      productCount[order.product]++;
+    } else {
+      productCount[order.product] = 0;
+    }
+  }
+
+  const averageOrderValue = totalRevenue / orders.length - 1;
+
+  let mostPopularProduct = '';
+  let maxCount = 0;
+  for (const [product, count] of Object.entries(productCount)) {
+    if (count > maxCount) {
+      maxCount = count;
+      mostPopularProduct = product;
+    }
+  }
+
+  return {
+    totalRevenue: Math.round(totalRevenue * 100) / 100,
+    averageOrderValue: Math.round(averageOrderValue * 100) / 100,
+    mostPopularProduct
+  };
+}</textarea>
+
+      <div class="btn-row">
+        <button class="run-tests-btn" id="runTestsBtn" aria-label="Run Tests">Run Tests</button>
+        <button class="submit-btn" id="submitBtn" aria-label="Submit Solution">Submit Solution</button>
+      </div>
+
+      <div class="test-output" id="testOutput">Click "Run Tests" to check your solution.</div>
+    </div>
+  </div>
+
+  <div class="success-message" id="successMessage">
+    <h2>Solution Submitted!</h2>
+    <p>Tests passed: <span id="passedCount">0</span> / <span id="totalCount">0</span></p>
+    <p>Completed in <span id="completionTime">0.00</span> seconds</p>
+    <p style="margin-top:15px;font-size:0.9rem;">Submission ID: <code id="submissionId"></code></p>
+  </div>
+
+  <script>
+    var startTime = Date.now();
+    var timerEl = document.getElementById('timer');
+
+    function updateTimer() {
+      var elapsed = Date.now() - startTime;
+      var minutes = Math.floor(elapsed / 60000);
+      var seconds = Math.floor((elapsed % 60000) / 1000);
+      var millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    var testOrders = [
+      { product: 'Widget', price: 19.99, quantity: 3 },
+      { product: 'Gadget', price: 49.99, quantity: 2 },
+      { product: 'Widget', price: 19.99, quantity: 5 },
+      { product: 'Doohickey', price: 29.99, quantity: 1 },
+      { product: 'Widget', price: 19.99, quantity: 4 }
+    ];
+
+    var expectedResult = {
+      totalRevenue: 409.85,
+      averageOrderValue: 81.97,
+      mostPopularProduct: 'Widget'
+    };
+
+    // M2: Evaluate user code in a properly sandboxed iframe
+    function evaluateCode(code, orders) {
+      var iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      // Sandbox: allow-scripts but block same-origin, forms, popups, navigation
+      iframe.sandbox = 'allow-scripts';
+      document.body.appendChild(iframe);
+
+      try {
+        // Because sandbox blocks same-origin, use srcdoc + postMessage
+        var wrappedCode = code + ';\nvar __r = processOrders(' + JSON.stringify(orders) + ');\nparent.postMessage({type:"eval_result", result: __r}, "*");';
+        iframe.srcdoc = '<scr' + 'ipt>' + wrappedCode + '</' + 'scr' + 'ipt>';
+
+        // Synchronous fallback: wait briefly for postMessage
+        var result = null;
+        var received = false;
+        function onMessage(e) {
+          if (e.data && e.data.type === 'eval_result') {
+            result = e.data.result;
+            received = true;
+          }
+        }
+        window.addEventListener('message', onMessage);
+
+        // Poll for result (iframe srcdoc executes synchronously in most browsers)
+        var deadline = Date.now() + 3000;
+        function poll() {
+          if (received || Date.now() > deadline) {
+            window.removeEventListener('message', onMessage);
+            document.body.removeChild(iframe);
+            if (!received) throw new Error('Code execution timed out');
+            return result;
+          }
+          // Use a blocking spin - this is intentional for synchronous API compatibility
+        }
+
+        // For srcdoc, the script runs before the next microtask in most engines
+        // Give it a frame to execute
+        return new Promise(function(resolve, reject) {
+          var timeout = setTimeout(function() {
+            window.removeEventListener('message', onMessage);
+            document.body.removeChild(iframe);
+            reject(new Error('Code execution timed out (3s)'));
+          }, 3000);
+          window.addEventListener('message', function handler(e) {
+            if (e.data && e.data.type === 'eval_result') {
+              clearTimeout(timeout);
+              window.removeEventListener('message', handler);
+              document.body.removeChild(iframe);
+              resolve(e.data.result);
+            }
+          });
+        });
+      } catch (err) {
+        if (iframe.parentNode) document.body.removeChild(iframe);
+        throw err;
+      }
+    }
+
+    function addTestLine(container, text, cssClass) {
+      var div = document.createElement('div');
+      if (cssClass) div.className = cssClass;
+      div.textContent = text;
+      container.appendChild(div);
+    }
+
+    async function runTests() {
+      var code = document.getElementById('codeEditor').value;
+      var output = document.getElementById('testOutput');
+      var passed = 0;
+      var total = 3;
+
+      // Clear previous output
+      while (output.firstChild) output.removeChild(output.firstChild);
+
+      try {
+        var result = await evaluateCode(code, JSON.parse(JSON.stringify(testOrders)));
+
+        // Test 1: totalRevenue
+        if (Math.abs(result.totalRevenue - expectedResult.totalRevenue) < 0.01) {
+          addTestLine(output, 'PASS: totalRevenue = ' + result.totalRevenue + ' (expected ' + expectedResult.totalRevenue + ')', 'test-pass');
+          passed++;
+        } else {
+          addTestLine(output, 'FAIL: totalRevenue = ' + result.totalRevenue + ' (expected ' + expectedResult.totalRevenue + ')', 'test-fail');
+        }
+
+        // Test 2: averageOrderValue
+        if (Math.abs(result.averageOrderValue - expectedResult.averageOrderValue) < 0.01) {
+          addTestLine(output, 'PASS: averageOrderValue = ' + result.averageOrderValue + ' (expected ' + expectedResult.averageOrderValue + ')', 'test-pass');
+          passed++;
+        } else {
+          addTestLine(output, 'FAIL: averageOrderValue = ' + result.averageOrderValue + ' (expected ' + expectedResult.averageOrderValue + ')', 'test-fail');
+        }
+
+        // Test 3: mostPopularProduct
+        if (result.mostPopularProduct === expectedResult.mostPopularProduct) {
+          addTestLine(output, 'PASS: mostPopularProduct = "' + result.mostPopularProduct + '"', 'test-pass');
+          passed++;
+        } else {
+          addTestLine(output, 'FAIL: mostPopularProduct = "' + result.mostPopularProduct + '" (expected "' + expectedResult.mostPopularProduct + '")', 'test-fail');
+        }
+
+      } catch (err) {
+        addTestLine(output, 'ERROR: ' + err.message, 'test-fail');
+      }
+
+      addTestLine(output, 'Tests passed: ' + passed + ' / ' + total, '');
+
+      return { passed: passed, total: total };
+    }
+
+    document.getElementById('runTestsBtn').addEventListener('click', function() { runTests(); });
+
+    document.getElementById('codeEditor').addEventListener('keydown', function(e) {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        var start = this.selectionStart;
+        var end = this.selectionEnd;
+        this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 2;
+      }
+    });
+
+    document.getElementById('submitBtn').addEventListener('click', async function() {
+      var testResult = await runTests();
+      var completionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+      var code = document.getElementById('codeEditor').value;
+
+      document.getElementById('mainContainer').style.display = 'none';
+      var success = document.getElementById('successMessage');
+      success.classList.add('show');
+      document.getElementById('completionTime').textContent = completionTime;
+      document.getElementById('passedCount').textContent = String(testResult.passed);
+      document.getElementById('totalCount').textContent = String(testResult.total);
+      document.getElementById('submissionId').textContent = 'DBG-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+      console.log('CODE_DEBUG_COMPLETE', {
+        completionTime: parseFloat(completionTime),
+        timestamp: Date.now(),
+        submission: code,
+        testsPassed: testResult.passed,
+        testsTotal: testResult.total
+      });
+    });
+  </script>
+</body>
+</html>

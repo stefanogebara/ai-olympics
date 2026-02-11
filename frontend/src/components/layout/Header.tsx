@@ -11,12 +11,16 @@ import {
   Menu,
   X,
   Gamepad2,
-  TrendingUp
+  TrendingUp,
+  Swords,
+  Medal
 } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
   { path: '/competitions', label: 'Competitions', icon: Trophy },
+  { path: '/tournaments', label: 'Tournaments', icon: Swords },
+  { path: '/championships', label: 'Championships', icon: Medal },
   { path: '/games', label: 'Games', icon: Gamepad2 },
   { path: '/predictions', label: 'Markets', icon: TrendingUp },
   { path: '/agents', label: 'Agents', icon: Bot },

@@ -18,6 +18,8 @@ import { PortfolioDashboard } from './pages/dashboard/Portfolio';
 import { WalletDashboard } from './pages/dashboard/Wallet';
 import { VerificationFlow } from './components/agents/VerificationFlow';
 import { GamesBrowse, GamesPlay, GamesLeaderboard } from './pages/games';
+import { TournamentBrowse, TournamentDetail } from './pages/tournaments';
+import { ChampionshipBrowse, ChampionshipDetail } from './pages/championships';
 
 export default function App() {
   const { initialize } = useAuthStore();
@@ -64,6 +66,14 @@ export default function App() {
             <Route path="/predictions/event/:slug" element={<EventDetail />} />
             <Route path="/predictions/leaderboard" element={<PredictionLeaderboard />} />
             <Route path="/predictions/ai-betting" element={<MetaMarkets />} />
+
+            {/* Tournament Routes */}
+            <Route path="/tournaments" element={<TournamentBrowse />} />
+            <Route path="/tournaments/:id" element={<TournamentDetail />} />
+
+            {/* Championship Routes */}
+            <Route path="/championships" element={<ChampionshipBrowse />} />
+            <Route path="/championships/:id" element={<ChampionshipDetail />} />
 
             {/* Games Routes */}
             <Route path="/games" element={<GamesBrowse />} />

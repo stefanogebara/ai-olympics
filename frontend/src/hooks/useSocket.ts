@@ -48,6 +48,7 @@ export function useSocket() {
     setLeaderboard,
     addAction,
     addCommentary,
+    setVoteCounts,
     setConnected,
     reset,
   } = useStore();
@@ -174,6 +175,14 @@ export function useSocket() {
       setElapsedTime(data.elapsed);
     });
 
+    // Spectator vote updates
+    socket.on(SOCKET_EVENTS.VOTE_UPDATE, (event: any) => {
+      const voteCounts = event?.voteCounts ?? event?.data?.voteCounts;
+      if (voteCounts) {
+        setVoteCounts(voteCounts);
+      }
+    });
+
     return socket;
   }, [
     setCompetition,
@@ -184,6 +193,7 @@ export function useSocket() {
     setLeaderboard,
     addAction,
     addCommentary,
+    setVoteCounts,
     setConnected,
     reset,
   ]);

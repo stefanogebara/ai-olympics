@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - API Integration Challenge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .timer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 1.5rem;
+      color: #00d4ff;
+      z-index: 100;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .left-panel {
+      width: 55%;
+      padding: 30px;
+      overflow-y: auto;
+      border-right: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .right-panel {
+      width: 45%;
+      padding: 30px;
+      overflow-y: auto;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #4d96ff, #9b59b6, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    .header p { color: #a0aec0; margin-bottom: 20px; }
+
+    .api-section {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .api-section h3 { color: #4d96ff; margin-bottom: 12px; }
+
+    .endpoint {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    .method { color: #48bb78; font-weight: bold; }
+    .path { color: #ffd93d; }
+    .desc { color: #a0aec0; font-size: 12px; margin-top: 4px; font-family: sans-serif; }
+
+    .response-example {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #c9d1d9;
+      white-space: pre;
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+
+    .task-card {
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid #7c3aed;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .task-card h3 { color: #7c3aed; margin-bottom: 10px; }
+    .task-card p, .task-card li { color: #cbd5e0; line-height: 1.6; }
+    .task-card ul { margin-left: 20px; margin-top: 8px; }
+
+    .answer-section h3 { color: #00d4ff; margin-bottom: 15px; }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      color: #a0aec0;
+      font-size: 0.9rem;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #7c3aed;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(90deg, #7c3aed, #00d4ff);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: transform 0.2s;
+    }
+
+    .submit-btn:hover { transform: translateY(-2px); }
+
+    .result-output {
+      background: #0d1117;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+      font-family: monospace;
+      font-size: 13px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .test-pass { color: #48bb78; }
+    .test-fail { color: #fc8181; }
+
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 60px 40px;
+    }
+
+    .success-message.show { display: block; }
+    .success-message h2 { color: #48bb78; margin-bottom: 15px; }
+    .success-message p { color: #a0aec0; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+
+  <div class="container" id="mainContainer">
+    <div class="left-panel">
+      <div class="header">
+        <h1>API Integration Challenge</h1>
+        <p>Read the API documentation, query the mock endpoints, and submit aggregated results.</p>
+      </div>
+
+      <div class="task-card">
+        <h3>Your Mission</h3>
+        <p>Use the mock REST API documented below to answer these questions:</p>
+        <ul>
+          <li><strong>Total Users</strong> - How many users are in the system?</li>
+          <li><strong>Total Revenue</strong> - Sum of all order amounts</li>
+          <li><strong>Top Spender</strong> - Name of the user who spent the most</li>
+          <li><strong>Most Ordered Product</strong> - Product name with the highest order count</li>
+        </ul>
+        <p style="margin-top:10px;">The API is available at the endpoints shown below. Use <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;color:#ffd93d;">fetch()</code> or read the data displayed in the documentation.</p>
+      </div>
+
+      <div class="api-section">
+        <h3>API Documentation</h3>
+
+        <div class="endpoint">
+          <span class="method">GET</span> <span class="path">/api/mock/users</span>
+          <div class="desc">Returns all users</div>
+          <div class="response-example">[
+  { "id": 1, "name": "Alice Chen", "email": "alice@example.com" },
+  { "id": 2, "name": "Bob Smith", "email": "bob@example.com" },
+  { "id": 3, "name": "Carol Davis", "email": "carol@example.com" },
+  { "id": 4, "name": "David Lee", "email": "david@example.com" },
+  { "id": 5, "name": "Eva Martinez", "email": "eva@example.com" },
+  { "id": 6, "name": "Frank Wilson", "email": "frank@example.com" },
+  { "id": 7, "name": "Grace Kim", "email": "grace@example.com" },
+  { "id": 8, "name": "Henry Brown", "email": "henry@example.com" }
+]</div>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span> <span class="path">/api/mock/orders</span>
+          <div class="desc">Returns all orders</div>
+          <div class="response-example">[
+  { "id": 1,  "userId": 1, "product": "Widget Pro",  "amount": 29.99 },
+  { "id": 2,  "userId": 2, "product": "Gadget X",    "amount": 49.99 },
+  { "id": 3,  "userId": 1, "product": "Widget Pro",  "amount": 29.99 },
+  { "id": 4,  "userId": 3, "product": "Super Gizmo", "amount": 99.99 },
+  { "id": 5,  "userId": 1, "product": "Gadget X",    "amount": 49.99 },
+  { "id": 6,  "userId": 4, "product": "Widget Pro",  "amount": 29.99 },
+  { "id": 7,  "userId": 5, "product": "Widget Pro",  "amount": 29.99 },
+  { "id": 8,  "userId": 2, "product": "Super Gizmo", "amount": 99.99 },
+  { "id": 9,  "userId": 6, "product": "Gadget X",    "amount": 49.99 },
+  { "id": 10, "userId": 1, "product": "Super Gizmo", "amount": 99.99 },
+  { "id": 11, "userId": 3, "product": "Widget Pro",  "amount": 29.99 },
+  { "id": 12, "userId": 7, "product": "Gadget X",    "amount": 49.99 },
+  { "id": 13, "userId": 2, "product": "Widget Pro",  "amount": 29.99 },
+  { "id": 14, "userId": 8, "product": "Super Gizmo", "amount": 99.99 },
+  { "id": 15, "userId": 5, "product": "Gadget X",    "amount": 49.99 }
+]</div>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span> <span class="path">/api/mock/products</span>
+          <div class="desc">Returns all products</div>
+          <div class="response-example">[
+  { "id": "widget-pro",  "name": "Widget Pro",  "price": 29.99, "category": "Widgets" },
+  { "id": "gadget-x",    "name": "Gadget X",    "price": 49.99, "category": "Gadgets" },
+  { "id": "super-gizmo", "name": "Super Gizmo", "price": 99.99, "category": "Gizmos" }
+]</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="answer-section">
+        <h3>Submit Your Answers</h3>
+
+        <div class="form-group">
+          <label for="totalUsers">Total Users</label>
+          <input type="number" id="totalUsers" placeholder="e.g., 10" aria-label="Total Users">
+        </div>
+
+        <div class="form-group">
+          <label for="totalRevenue">Total Revenue (number, no $ sign)</label>
+          <input type="text" id="totalRevenue" placeholder="e.g., 1234.56" aria-label="Total Revenue">
+        </div>
+
+        <div class="form-group">
+          <label for="topSpender">Top Spender (full name)</label>
+          <input type="text" id="topSpender" placeholder="e.g., Alice Chen" aria-label="Top Spender Name">
+        </div>
+
+        <div class="form-group">
+          <label for="mostOrderedProduct">Most Ordered Product (product name)</label>
+          <input type="text" id="mostOrderedProduct" placeholder="e.g., Widget Pro" aria-label="Most Ordered Product">
+        </div>
+
+        <button class="submit-btn" id="submitBtn" aria-label="Submit Answers">Submit Answers</button>
+
+        <div class="result-output" id="resultOutput">Fill in the answers above and click Submit.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="success-message" id="successMessage">
+    <h2>Answers Submitted!</h2>
+    <p>Correct answers: <span id="correctCount">0</span> / 4</p>
+    <p>Completed in <span id="completionTime">0.00</span> seconds</p>
+    <p style="margin-top:15px;font-size:0.9rem;">Submission ID: <code id="submissionId"></code></p>
+  </div>
+
+  <script>
+    // =========================================
+    // MOCK API DATA (embedded for fetch interception)
+    // =========================================
+    var MOCK_USERS = [
+      { id: 1, name: 'Alice Chen', email: 'alice@example.com' },
+      { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+      { id: 3, name: 'Carol Davis', email: 'carol@example.com' },
+      { id: 4, name: 'David Lee', email: 'david@example.com' },
+      { id: 5, name: 'Eva Martinez', email: 'eva@example.com' },
+      { id: 6, name: 'Frank Wilson', email: 'frank@example.com' },
+      { id: 7, name: 'Grace Kim', email: 'grace@example.com' },
+      { id: 8, name: 'Henry Brown', email: 'henry@example.com' }
+    ];
+
+    var MOCK_ORDERS = [
+      { id: 1, userId: 1, product: 'Widget Pro', amount: 29.99, date: '2025-01-15' },
+      { id: 2, userId: 2, product: 'Gadget X', amount: 49.99, date: '2025-01-16' },
+      { id: 3, userId: 1, product: 'Widget Pro', amount: 29.99, date: '2025-01-17' },
+      { id: 4, userId: 3, product: 'Super Gizmo', amount: 99.99, date: '2025-01-18' },
+      { id: 5, userId: 1, product: 'Gadget X', amount: 49.99, date: '2025-01-19' },
+      { id: 6, userId: 4, product: 'Widget Pro', amount: 29.99, date: '2025-01-20' },
+      { id: 7, userId: 5, product: 'Widget Pro', amount: 29.99, date: '2025-01-21' },
+      { id: 8, userId: 2, product: 'Super Gizmo', amount: 99.99, date: '2025-01-22' },
+      { id: 9, userId: 6, product: 'Gadget X', amount: 49.99, date: '2025-01-23' },
+      { id: 10, userId: 1, product: 'Super Gizmo', amount: 99.99, date: '2025-01-24' },
+      { id: 11, userId: 3, product: 'Widget Pro', amount: 29.99, date: '2025-01-25' },
+      { id: 12, userId: 7, product: 'Gadget X', amount: 49.99, date: '2025-01-26' },
+      { id: 13, userId: 2, product: 'Widget Pro', amount: 29.99, date: '2025-01-27' },
+      { id: 14, userId: 8, product: 'Super Gizmo', amount: 99.99, date: '2025-01-28' },
+      { id: 15, userId: 5, product: 'Gadget X', amount: 49.99, date: '2025-01-29' }
+    ];
+
+    var MOCK_PRODUCTS = [
+      { id: 'widget-pro', name: 'Widget Pro', price: 29.99, category: 'Widgets' },
+      { id: 'gadget-x', name: 'Gadget X', price: 49.99, category: 'Gadgets' },
+      { id: 'super-gizmo', name: 'Super Gizmo', price: 99.99, category: 'Gizmos' }
+    ];
+
+    // Correct answers
+    var correctTotalUsers = MOCK_USERS.length; // 8
+
+    var correctTotalRevenue = MOCK_ORDERS.reduce(function(sum, o) { return sum + o.amount; }, 0);
+    correctTotalRevenue = Math.round(correctTotalRevenue * 100) / 100; // 829.85
+
+    var userSpending = {};
+    MOCK_ORDERS.forEach(function(o) {
+      userSpending[o.userId] = (userSpending[o.userId] || 0) + o.amount;
+    });
+    var topSpenderId = Object.keys(userSpending).reduce(function(a, b) {
+      return userSpending[a] > userSpending[b] ? a : b;
+    });
+    var correctTopSpender = MOCK_USERS.find(function(u) { return u.id === parseInt(topSpenderId); }).name;
+
+    var productCount = {};
+    MOCK_ORDERS.forEach(function(o) {
+      productCount[o.product] = (productCount[o.product] || 0) + 1;
+    });
+    var correctMostOrdered = Object.keys(productCount).reduce(function(a, b) {
+      return productCount[a] > productCount[b] ? a : b;
+    });
+
+    // Intercept fetch for mock API
+    var originalFetch = window.fetch;
+    window.fetch = function(url) {
+      var urlStr = typeof url === 'string' ? url : url.toString();
+
+      if (urlStr.indexOf('/api/mock/users') !== -1) {
+        return Promise.resolve(new Response(JSON.stringify(MOCK_USERS), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      if (urlStr.indexOf('/api/mock/orders') !== -1) {
+        var match = urlStr.match(/userId=(\d+)/);
+        if (match) {
+          var uid = parseInt(match[1]);
+          var filtered = MOCK_ORDERS.filter(function(o) { return o.userId === uid; });
+          return Promise.resolve(new Response(JSON.stringify(filtered), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }
+        return Promise.resolve(new Response(JSON.stringify(MOCK_ORDERS), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      if (urlStr.indexOf('/api/mock/products') !== -1) {
+        return Promise.resolve(new Response(JSON.stringify(MOCK_PRODUCTS), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      return originalFetch.apply(this, arguments);
+    };
+
+    // =========================================
+    // Timer
+    // =========================================
+    var startTime = Date.now();
+    var timerEl = document.getElementById('timer');
+
+    function updateTimer() {
+      var elapsed = Date.now() - startTime;
+      var minutes = Math.floor(elapsed / 60000);
+      var seconds = Math.floor((elapsed % 60000) / 1000);
+      var millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    // =========================================
+    // DOM helper
+    // =========================================
+    function addResultLine(container, text, cssClass) {
+      var div = document.createElement('div');
+      if (cssClass) div.className = cssClass;
+      div.textContent = text;
+      container.appendChild(div);
+    }
+
+    // =========================================
+    // Submission
+    // =========================================
+    document.getElementById('submitBtn').addEventListener('click', function() {
+      var totalUsers = parseInt(document.getElementById('totalUsers').value) || 0;
+      var totalRevenue = parseFloat(document.getElementById('totalRevenue').value) || 0;
+      var topSpender = document.getElementById('topSpender').value.trim();
+      var mostOrdered = document.getElementById('mostOrderedProduct').value.trim();
+
+      var output = document.getElementById('resultOutput');
+      while (output.firstChild) output.removeChild(output.firstChild);
+
+      var correct = 0;
+
+      if (totalUsers === correctTotalUsers) {
+        addResultLine(output, 'PASS: Total Users = ' + totalUsers, 'test-pass');
+        correct++;
+      } else {
+        addResultLine(output, 'FAIL: Total Users = ' + totalUsers + ' (expected ' + correctTotalUsers + ')', 'test-fail');
+      }
+
+      if (Math.abs(totalRevenue - correctTotalRevenue) < 0.02) {
+        addResultLine(output, 'PASS: Total Revenue = ' + totalRevenue, 'test-pass');
+        correct++;
+      } else {
+        addResultLine(output, 'FAIL: Total Revenue = ' + totalRevenue + ' (expected ' + correctTotalRevenue + ')', 'test-fail');
+      }
+
+      if (topSpender.toLowerCase() === correctTopSpender.toLowerCase()) {
+        addResultLine(output, 'PASS: Top Spender = ' + topSpender, 'test-pass');
+        correct++;
+      } else {
+        addResultLine(output, 'FAIL: Top Spender = "' + topSpender + '" (expected "' + correctTopSpender + '")', 'test-fail');
+      }
+
+      if (mostOrdered.toLowerCase() === correctMostOrdered.toLowerCase()) {
+        addResultLine(output, 'PASS: Most Ordered = ' + mostOrdered, 'test-pass');
+        correct++;
+      } else {
+        addResultLine(output, 'FAIL: Most Ordered = "' + mostOrdered + '" (expected "' + correctMostOrdered + '")', 'test-fail');
+      }
+
+      addResultLine(output, 'Score: ' + correct + ' / 4', '');
+
+      var completionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      document.getElementById('mainContainer').style.display = 'none';
+      var success = document.getElementById('successMessage');
+      success.classList.add('show');
+      document.getElementById('completionTime').textContent = completionTime;
+      document.getElementById('correctCount').textContent = String(correct);
+      document.getElementById('submissionId').textContent = 'API-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+      console.log('API_INTEGRATION_COMPLETE', {
+        completionTime: parseFloat(completionTime),
+        timestamp: Date.now(),
+        answers: {
+          totalUsers: totalUsers,
+          totalRevenue: totalRevenue,
+          topSpender: topSpender,
+          mostOrderedProduct: mostOrdered
+        },
+        correctAnswers: correct,
+        totalQuestions: 4
+      });
+    });
+  </script>
+</body>
+</html>

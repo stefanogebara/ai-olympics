@@ -14,6 +14,10 @@ export interface AgentConfig {
   color: string;  // For UI display
   avatar?: string;
   apiKey?: string;  // Optional override
+  personaName?: string;
+  personaDescription?: string;
+  personaStyle?: 'formal' | 'casual' | 'technical' | 'dramatic' | 'minimal';
+  strategy?: 'aggressive' | 'cautious' | 'balanced' | 'creative' | 'analytical';
 }
 
 export interface AgentState {
@@ -155,7 +159,8 @@ export type StreamEventType =
   | 'round:end'
   | 'match:end'
   | 'bracket:update'
-  | 'elimination:announce';
+  | 'elimination:announce'
+  | 'vote:update';
 
 export interface StreamEvent {
   type: StreamEventType;

@@ -569,5 +569,221 @@ Your mission:
 Think like a grandmaster!`
 });
 
+// ============================================================================
+// CREATIVE TASKS
+// ============================================================================
+
+// Design Challenge - Creative event (judged by AI)
+registerTask({
+  id: 'design-challenge',
+  name: 'Design Challenge',
+  description: 'Build a responsive pricing card component from a design brief using HTML/CSS',
+  category: 'creative',
+  difficulty: 'medium',
+  timeLimit: 300, // 5 minutes
+  maxAgents: 4,
+  config: {
+    briefType: 'pricing-card',
+    evaluationCriteria: ['visual_quality', 'code_quality', 'completeness', 'responsiveness']
+  },
+  scoringMethod: 'judged',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/design-challenge'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the Design Challenge!
+
+You will see a design brief for a pricing card component. Your task:
+1. Read the design brief carefully
+2. Write HTML and CSS in the code editor on the left
+3. The live preview on the right updates as you type
+4. Create a visually appealing pricing card with:
+   - Plan name ("Pro Plan" or similar)
+   - Price ("$29/month" or similar)
+   - At least 4 feature bullet points
+   - A "Get Started" call-to-action button with hover effect
+   - Dark theme with accent colors
+   - Rounded corners, subtle border, and shadow
+   - Centered on the page
+5. Click "Submit Design" when done
+
+You will be judged on visual quality, code quality, completeness, and responsiveness.
+When the success message appears, call the 'done' tool with success=true.`
+});
+
+// Writing Challenge - Creative event (judged by AI)
+registerTask({
+  id: 'writing-challenge',
+  name: 'Writing Challenge',
+  description: 'Write a compelling product description from a creative prompt',
+  category: 'creative',
+  difficulty: 'medium',
+  timeLimit: 240, // 4 minutes
+  maxAgents: 4,
+  config: {
+    promptType: 'product-description',
+    evaluationCriteria: ['creativity', 'persuasiveness', 'grammar_style', 'relevance']
+  },
+  scoringMethod: 'judged',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/writing-challenge'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the Writing Challenge!
+
+You will see a writing prompt on the page. Your task:
+1. Read the prompt carefully - it asks for a persuasive product description for "GreenMind," an AI-powered smart garden device
+2. Target audience: busy urban professionals who love plants but struggle to keep them alive
+3. Type your response in the text area
+4. Write at least 10 words (aim for 150-300 words for best results)
+5. Click "Submit Writing" when done
+
+You will be judged on creativity, persuasiveness, grammar/style, and relevance.
+When the success message appears, call the 'done' tool with success=true.`
+});
+
+// Pitch Deck - Creative event (judged by AI)
+registerTask({
+  id: 'pitch-deck',
+  name: 'Pitch Deck Challenge',
+  description: 'Create a compelling startup pitch deck across 6 slides',
+  category: 'creative',
+  difficulty: 'hard',
+  timeLimit: 360, // 6 minutes
+  maxAgents: 4,
+  config: {
+    slideCount: 6,
+    evaluationCriteria: ['clarity', 'persuasiveness', 'completeness', 'creativity']
+  },
+  scoringMethod: 'judged',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/pitch-deck'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the Pitch Deck Challenge!
+
+Create a startup pitch deck with 6 slides. Navigate between slides using "Previous" and "Next" buttons.
+
+Slide 1 - Title & Vision: Company name, tagline, vision statement
+Slide 2 - The Problem: Problem statement and key pain points
+Slide 3 - The Solution: Your solution and key features
+Slide 4 - Market Opportunity: TAM, SAM, and market trends
+Slide 5 - Business Model: Revenue model, pricing, unit economics
+Slide 6 - Team & Ask: Team description, funding ask, use of funds
+
+Fill out at least 6 fields across all slides, then click "Submit Pitch Deck" on the last slide.
+You will be judged on clarity, persuasiveness, completeness, and creativity.
+When the success message appears, call the 'done' tool with success=true.`
+});
+
+// ============================================================================
+// CODING TASKS
+// ============================================================================
+
+// Code Debug - Coding event (composite scoring)
+registerTask({
+  id: 'code-debug',
+  name: 'Code Debug Challenge',
+  description: 'Find and fix 3 bugs in a JavaScript function',
+  category: 'intelligence',
+  difficulty: 'medium',
+  timeLimit: 180, // 3 minutes
+  maxAgents: 4,
+  config: {
+    bugCount: 3,
+    language: 'javascript'
+  },
+  scoringMethod: 'composite',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/code-debug'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the Code Debug Challenge!
+
+You will see a buggy JavaScript function called processOrders on the left side.
+The function has 3 bugs. Your task:
+
+1. Read the buggy code and the expected behavior
+2. The function should process an array of orders and return:
+   - totalRevenue: 409.85
+   - averageOrderValue: 81.97
+   - mostPopularProduct: "Widget"
+3. Edit the code in the right-side editor to fix all 3 bugs:
+   - Bug 1: Off-by-one error in the for loop (i <= should be i <)
+   - Bug 2: Initial count should be 1, not 0
+   - Bug 3: Missing parentheses in average calculation (division before subtraction)
+4. Click "Run Tests" to verify your fixes
+5. Click "Submit Solution" when all tests pass
+
+When the success message appears, call the 'done' tool with success=true.`
+});
+
+// Code Golf - Coding event (composite scoring)
+registerTask({
+  id: 'code-golf',
+  name: 'Code Golf Challenge',
+  description: 'Write the shortest correct FizzBuzz solution',
+  category: 'intelligence',
+  difficulty: 'medium',
+  timeLimit: 180, // 3 minutes
+  maxAgents: 4,
+  config: {
+    problem: 'fizzbuzz',
+    testCases: 4
+  },
+  scoringMethod: 'composite',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/code-golf'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the Code Golf Challenge!
+
+Write the shortest correct FizzBuzz solution. The function solve(n) should:
+- Return an array of strings from 1 to n
+- Replace multiples of 3 with "Fizz"
+- Replace multiples of 5 with "Buzz"
+- Replace multiples of both with "FizzBuzz"
+- Convert other numbers to strings
+
+Example: solve(5) returns ["1", "2", "Fizz", "4", "Buzz"]
+
+Steps:
+1. Write your solution in the code editor
+2. Click "Run Tests" to verify correctness
+3. Minimize character count - shorter code scores higher
+4. Click "Submit Solution" when all 4 tests pass
+
+Scoring: correctness (60%) + brevity bonus (40%). Fewer characters = higher score.
+When the success message appears, call the 'done' tool with success=true.`
+});
+
+// API Integration - Coding event (composite scoring)
+registerTask({
+  id: 'api-integration',
+  name: 'API Integration Challenge',
+  description: 'Query a mock REST API and submit aggregated data answers',
+  category: 'intelligence',
+  difficulty: 'hard',
+  timeLimit: 240, // 4 minutes
+  maxAgents: 4,
+  config: {
+    endpoints: ['users', 'orders', 'products'],
+    questions: 4
+  },
+  scoringMethod: 'composite',
+  maxScore: 1000,
+  startUrl: getTaskUrl('/tasks/api-integration'),
+  systemPrompt: BASE_SYSTEM_PROMPT,
+  taskPrompt: `Complete the API Integration Challenge!
+
+Read the API documentation on the left side. The data is displayed in the documentation.
+You need to analyze the mock API data and submit 4 answers:
+
+1. Total Users: Count all users (look at /api/mock/users response)
+2. Total Revenue: Sum all order amounts (look at /api/mock/orders response)
+3. Top Spender: Find which user spent the most total across all orders
+4. Most Ordered Product: Find the product name that appears most often in orders
+
+The API data is displayed directly in the documentation panel. Read it carefully and calculate the answers.
+
+Fill in all 4 answer fields on the right side and click "Submit Answers".
+When the success message appears, call the 'done' tool with success=true.`
+});
+
 export { BASE_SYSTEM_PROMPT };
 export default taskRegistry;

@@ -39,6 +39,10 @@ router.get('/', async (req: Request, res: Response) => {
       offset = 0
     } = req.query;
 
+    // M1: Clamp pagination limits
+    const safeLimit = Math.min(Math.max(1, Number(limit) || 50), 100);
+    const safeOffset = Math.max(0, Number(offset) || 0);
+
     let query = supabase
       .from('aio_competitions')
       .select(`
@@ -47,7 +51,7 @@ router.get('/', async (req: Request, res: Response) => {
         participant_count:aio_competition_participants(count)
       `)
       .order('created_at', { ascending: false })
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
+      .range(safeOffset, safeOffset + safeLimit - 1);
 
     if (domain) {
       const { data: domainData } = await supabase
@@ -135,6 +139,19 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 
     if (!name) {
       return res.status(400).json({ error: 'Competition name is required' });
+    }
+
+    // M6: Validate stake_mode, entry_fee, max_participants
+    const ALLOWED_STAKE_MODES = ['sandbox', 'real', 'spectator'];
+    if (!ALLOWED_STAKE_MODES.includes(stake_mode)) {
+      return res.status(400).json({ error: `Invalid stake_mode. Must be one of: ${ALLOWED_STAKE_MODES.join(', ')}` });
+    }
+    if (typeof entry_fee !== 'number' || entry_fee < 0 || entry_fee > 10000) {
+      return res.status(400).json({ error: 'entry_fee must be a number between 0 and 10000' });
+    }
+    const parsedMax = Number(max_participants);
+    if (!Number.isInteger(parsedMax) || parsedMax < 2 || parsedMax > 64) {
+      return res.status(400).json({ error: 'max_participants must be an integer between 2 and 64' });
     }
 
     // Get domain ID if provided
@@ -404,6 +421,109 @@ router.get('/:id/live', async (req: Request, res: Response) => {
   } catch (error) {
     log.error('Failed to get live competition state', { error });
     res.status(500).json({ error: 'Failed to get live state' });
+  }
+});
+
+// ============================================================================
+// SPECTATOR VOTING
+// ============================================================================
+
+// Cast a vote (requires auth)
+router.post('/:id/vote', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    const { agent_id, vote_type } = req.body;
+
+    if (!agent_id || !vote_type) {
+      return res.status(400).json({ error: 'agent_id and vote_type are required' });
+    }
+
+    if (!['cheer', 'predict_win', 'mvp'].includes(vote_type)) {
+      return res.status(400).json({ error: 'vote_type must be cheer, predict_win, or mvp' });
+    }
+
+    const { data, error } = await supabase
+      .from('aio_spectator_votes')
+      .insert({
+        competition_id: id,
+        agent_id,
+        user_id: user.id,
+        vote_type,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'You have already cast this vote type in this competition' });
+      }
+      throw error;
+    }
+
+    log.info('Vote cast', { competitionId: id, agentId: agent_id, voteType: vote_type, userId: user.id });
+    res.status(201).json(data);
+  } catch (error) {
+    log.error('Failed to cast vote', { error });
+    res.status(500).json({ error: 'Failed to cast vote' });
+  }
+});
+
+// Get vote counts for a competition (public)
+router.get('/:id/votes', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('aio_spectator_votes')
+      .select('agent_id, vote_type')
+      .eq('competition_id', id);
+
+    if (error) throw error;
+
+    // Aggregate votes per agent
+    const voteCounts: Record<string, { cheers: number; predict_win: number; mvp: number }> = {};
+    for (const vote of data || []) {
+      if (!voteCounts[vote.agent_id]) {
+        voteCounts[vote.agent_id] = { cheers: 0, predict_win: 0, mvp: 0 };
+      }
+      if (vote.vote_type === 'cheer') voteCounts[vote.agent_id].cheers++;
+      else if (vote.vote_type === 'predict_win') voteCounts[vote.agent_id].predict_win++;
+      else if (vote.vote_type === 'mvp') voteCounts[vote.agent_id].mvp++;
+    }
+
+    res.json(voteCounts);
+  } catch (error) {
+    log.error('Failed to get votes', { error });
+    res.status(500).json({ error: 'Failed to get votes' });
+  }
+});
+
+// Remove a vote (requires auth)
+router.delete('/:id/vote', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    const { vote_type } = req.query;
+
+    if (!vote_type) {
+      return res.status(400).json({ error: 'vote_type query parameter is required' });
+    }
+
+    const { error } = await supabase
+      .from('aio_spectator_votes')
+      .delete()
+      .eq('competition_id', id)
+      .eq('user_id', user.id)
+      .eq('vote_type', vote_type as string);
+
+    if (error) throw error;
+
+    log.info('Vote removed', { competitionId: id, voteType: vote_type, userId: user.id });
+    res.status(204).send();
+  } catch (error) {
+    log.error('Failed to remove vote', { error });
+    res.status(500).json({ error: 'Failed to remove vote' });
   }
 });
 

@@ -98,6 +98,10 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const { sort = 'elo_rating', limit = 50, offset = 0 } = req.query;
 
+    // M1: Clamp pagination limits
+    const safeLimit = Math.min(Math.max(1, Number(limit) || 50), 100);
+    const safeOffset = Math.max(0, Number(offset) || 0);
+
     // Whitelist sort columns to prevent column enumeration
     const sortColumn = ALLOWED_SORT_COLUMNS.includes(sort as string) ? (sort as string) : 'elo_rating';
 
@@ -110,7 +114,7 @@ router.get('/', async (req: Request, res: Response) => {
       .eq('is_active', true)
       .eq('is_public', true)
       .order(sortColumn, { ascending: false })
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
+      .range(safeOffset, safeOffset + safeLimit - 1);
 
     if (error) throw error;
 
@@ -126,14 +130,28 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const { data, error } = await supabase
+    // Sanitize id to prevent PostgREST filter injection
+    const sanitizedId = String(id).replace(/[^a-zA-Z0-9\-_]/g, '');
+    if (!sanitizedId || sanitizedId !== id) {
+      return res.status(400).json({ error: 'Invalid agent identifier' });
+    }
+
+    // Use separate queries instead of .or() to avoid filter injection
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sanitizedId);
+    let query = supabase
       .from('aio_agents')
       .select(`
         *,
         owner:aio_profiles(username)
-      `)
-      .or(`id.eq.${id},slug.eq.${id}`)
-      .single();
+      `);
+
+    if (isUuid) {
+      query = query.eq('id', sanitizedId);
+    } else {
+      query = query.eq('slug', sanitizedId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error || !data) {
       return res.status(404).json({ error: 'Agent not found' });
@@ -182,7 +200,11 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       model,
       api_key,
       system_prompt,
-      is_public = false
+      is_public = false,
+      persona_name,
+      persona_description,
+      persona_style,
+      strategy
     } = req.body;
 
     // Validate required fields
@@ -190,13 +212,36 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // H1: SSRF protection - validate webhook URL at creation time
+    if (agent_type === 'webhook' && webhook_url) {
+      if (isPrivateUrl(webhook_url)) {
+        return res.status(400).json({
+          error: 'Webhook URL must be a public HTTPS endpoint. Private IPs, localhost, and internal addresses are not allowed.'
+        });
+      }
+    }
+
     // Generate webhook secret for webhook agents
     const webhook_secret = agent_type === 'webhook'
       ? 'whs_' + crypto.randomBytes(32).toString('hex')
       : null;
 
+    // H4: Sanitize persona fields - strip control chars, limit length
+    const sanitizeText = (s: string | undefined, maxLen: number) =>
+      s ? s.replace(/[\x00-\x1f]/g, '').slice(0, maxLen) : null;
+
     // Encrypt API key with AES-256-GCM
     const api_key_encrypted = api_key ? encryptApiKey(api_key) : null;
+
+    // L1: Validate persona_style against allowed values
+    const ALLOWED_STYLES = ['formal', 'casual', 'technical', 'dramatic', 'minimal'];
+    const ALLOWED_STRATEGIES = ['aggressive', 'cautious', 'balanced', 'creative', 'analytical'];
+    if (persona_style && !ALLOWED_STYLES.includes(persona_style)) {
+      return res.status(400).json({ error: `Invalid persona_style. Must be one of: ${ALLOWED_STYLES.join(', ')}` });
+    }
+    if (strategy && !ALLOWED_STRATEGIES.includes(strategy)) {
+      return res.status(400).json({ error: `Invalid strategy. Must be one of: ${ALLOWED_STRATEGIES.join(', ')}` });
+    }
 
     // Use user-scoped client so RLS enforces ownership
     const { data, error } = await userDb
@@ -214,7 +259,11 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
         model: agent_type === 'api_key' ? model : null,
         api_key_encrypted,
         system_prompt,
-        is_public
+        is_public,
+        persona_name: sanitizeText(persona_name, 100),
+        persona_description: sanitizeText(persona_description, 500),
+        persona_style: persona_style || null,
+        strategy: strategy || null
       })
       .select()
       .single();
@@ -225,6 +274,10 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       }
       throw error;
     }
+
+    // M5: Strip sensitive data from response
+    delete data.api_key_encrypted;
+    delete data.webhook_secret;
 
     log.info('Agent created', { agentId: data.id, userId: user.id });
     res.status(201).json(data);
@@ -255,7 +308,8 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     const allowedFields = [
       'name', 'slug', 'description', 'color',
       'webhook_url', 'provider', 'model', 'system_prompt',
-      'is_active', 'is_public'
+      'is_active', 'is_public',
+      'persona_name', 'persona_description', 'persona_style', 'strategy'
     ];
 
     const updates: Record<string, any> = {};
@@ -263,6 +317,31 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
       }
+    }
+
+    // H1: SSRF protection - validate webhook URL at update time
+    if (updates.webhook_url && isPrivateUrl(updates.webhook_url)) {
+      return res.status(400).json({
+        error: 'Webhook URL must be a public HTTPS endpoint. Private IPs, localhost, and internal addresses are not allowed.'
+      });
+    }
+
+    // H4: Sanitize persona fields on update
+    if (updates.persona_name !== undefined) {
+      updates.persona_name = updates.persona_name ? String(updates.persona_name).replace(/[\x00-\x1f]/g, '').slice(0, 100) : null;
+    }
+    if (updates.persona_description !== undefined) {
+      updates.persona_description = updates.persona_description ? String(updates.persona_description).replace(/[\x00-\x1f]/g, '').slice(0, 500) : null;
+    }
+
+    // L1: Validate persona_style and strategy on update
+    const ALLOWED_STYLES_U = ['formal', 'casual', 'technical', 'dramatic', 'minimal'];
+    const ALLOWED_STRATEGIES_U = ['aggressive', 'cautious', 'balanced', 'creative', 'analytical'];
+    if (updates.persona_style && !ALLOWED_STYLES_U.includes(updates.persona_style)) {
+      return res.status(400).json({ error: `Invalid persona_style` });
+    }
+    if (updates.strategy && !ALLOWED_STRATEGIES_U.includes(updates.strategy)) {
+      return res.status(400).json({ error: `Invalid strategy` });
     }
 
     // Handle API key update with proper encryption
@@ -396,6 +475,59 @@ router.post('/test-webhook', requireAuth, async (req: Request, res: Response) =>
       success: false,
       message: error instanceof Error ? error.message : 'Failed to reach webhook'
     });
+  }
+});
+
+// Get ELO history for an agent
+router.get('/:id/elo-history', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { limit = 20, offset = 0 } = req.query;
+
+    // M1: Clamp pagination limits
+    const safeLimit = Math.min(Math.max(1, Number(limit) || 20), 100);
+    const safeOffset = Math.max(0, Number(offset) || 0);
+
+    const { data, error } = await supabase
+      .from('aio_elo_history')
+      .select(`
+        *,
+        competition:aio_competitions(name),
+        domain:aio_domains(name, slug)
+      `)
+      .eq('agent_id', id)
+      .order('created_at', { ascending: false })
+      .range(safeOffset, safeOffset + safeLimit - 1);
+
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (error) {
+    log.error('Failed to get ELO history', { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: 'Failed to get ELO history' });
+  }
+});
+
+// Get domain ratings for an agent
+router.get('/:id/domain-ratings', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('aio_agent_domain_ratings')
+      .select(`
+        *,
+        domain:aio_domains(name, slug, icon)
+      `)
+      .eq('agent_id', id)
+      .order('elo_rating', { ascending: false });
+
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (error) {
+    log.error('Failed to get domain ratings', { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: 'Failed to get domain ratings' });
   }
 });
 

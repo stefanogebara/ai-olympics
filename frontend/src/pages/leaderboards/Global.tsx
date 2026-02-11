@@ -18,6 +18,7 @@ interface LeaderboardAgent extends Agent {
   owner: { username: string } | null;
   rank?: number;
   rankChange?: number;
+  domain_elo?: number; // domain-specific ELO when filtering by domain
 }
 
 export function GlobalLeaderboard() {
@@ -43,7 +44,40 @@ export function GlobalLeaderboard() {
   const loadLeaderboard = async () => {
     setLoading(true);
     try {
-      let query = supabase
+      if (selectedDomain !== 'all') {
+        // Use domain-specific ratings from aio_agent_domain_ratings
+        const domain = domains.find(d => d.slug === selectedDomain);
+        if (domain) {
+          const { data: domainRatings } = await supabase
+            .from('aio_agent_domain_ratings')
+            .select(`
+              elo_rating,
+              competitions_in_domain,
+              wins_in_domain,
+              agent:aio_agents(*, owner:aio_profiles(username))
+            `)
+            .eq('domain_id', domain.id)
+            .order('elo_rating', { ascending: false })
+            .limit(100);
+
+          if (domainRatings) {
+            const mapped: LeaderboardAgent[] = domainRatings
+              .filter((dr: any) => dr.agent?.is_active && dr.agent?.is_public)
+              .map((dr: any, i: number) => ({
+                ...dr.agent,
+                rank: i + 1,
+                rankChange: 0,
+                domain_elo: dr.elo_rating,
+              }));
+            setAgents(mapped);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Default: global ratings from aio_agents
+      const { data } = await supabase
         .from('aio_agents')
         .select(`
           *,
@@ -54,18 +88,11 @@ export function GlobalLeaderboard() {
         .order('elo_rating', { ascending: false })
         .limit(100);
 
-      if (selectedDomain !== 'all') {
-        const domain = domains.find(d => d.slug === selectedDomain);
-        if (domain) query = query.eq('domain_id', domain.id);
-      }
-
-      const { data } = await query;
-
       if (data) {
         setAgents(data.map((a, i) => ({
           ...a,
           rank: i + 1,
-          rankChange: 0
+          rankChange: 0,
         })));
       }
     } catch (error) {
@@ -142,7 +169,7 @@ export function GlobalLeaderboard() {
               <p className="font-semibold truncate">{agents[1]?.name}</p>
               <p className="text-sm text-white/50">@{agents[1]?.owner?.username}</p>
               <p className="text-xl font-mono font-bold text-gray-300 mt-2">
-                {agents[1]?.elo_rating}
+                {agents[1]?.domain_elo ?? agents[1]?.elo_rating}
               </p>
               <div className="h-20 bg-gradient-to-t from-gray-400/20 to-transparent mt-4 rounded-t-lg" />
             </GlassCard>
@@ -162,7 +189,7 @@ export function GlobalLeaderboard() {
               <p className="font-semibold truncate text-lg">{agents[0]?.name}</p>
               <p className="text-sm text-white/50">@{agents[0]?.owner?.username}</p>
               <p className="text-2xl font-mono font-bold text-yellow-400 mt-2">
-                {agents[0]?.elo_rating}
+                {agents[0]?.domain_elo ?? agents[0]?.elo_rating}
               </p>
               <div className="h-28 bg-gradient-to-t from-yellow-500/20 to-transparent mt-4 rounded-t-lg" />
             </GlassCard>
@@ -182,7 +209,7 @@ export function GlobalLeaderboard() {
               <p className="font-semibold truncate">{agents[2]?.name}</p>
               <p className="text-sm text-white/50">@{agents[2]?.owner?.username}</p>
               <p className="text-xl font-mono font-bold text-amber-600 mt-2">
-                {agents[2]?.elo_rating}
+                {agents[2]?.domain_elo ?? agents[2]?.elo_rating}
               </p>
               <div className="h-16 bg-gradient-to-t from-amber-600/20 to-transparent mt-4 rounded-t-lg" />
             </GlassCard>
@@ -263,7 +290,7 @@ export function GlobalLeaderboard() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="font-mono font-bold text-neon-cyan">
-                          {agent.elo_rating}
+                          {agent.domain_elo ?? agent.elo_rating}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right text-white/60">
