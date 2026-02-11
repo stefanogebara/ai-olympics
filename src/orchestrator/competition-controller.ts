@@ -26,8 +26,11 @@ export class CompetitionController {
   private competition: Competition | null = null;
   private agents: Map<string, RunningAgent> = new Map();
   private globalTimer: PrecisionTimer = new PrecisionTimer();
+  private headless: boolean;
 
-  constructor() {}
+  constructor(options?: { headless?: boolean }) {
+    this.headless = options?.headless ?? false;
+  }
 
   // Create a new competition
   createCompetition(config: {
@@ -93,7 +96,7 @@ export class CompetitionController {
         const sandbox = await sandboxManager.createLocalSandbox(agentConfig);
 
         const runner = new AgentRunner(agentConfig, {
-          headless: false,
+          headless: this.headless,
           recordActions: true
         });
 
@@ -377,8 +380,9 @@ export async function createQuickCompetition(options: {
   name?: string;
   agents?: AgentConfig[];
   tasks: TaskDefinition[];
+  headless?: boolean;
 }): Promise<CompetitionController> {
-  const controller = new CompetitionController();
+  const controller = new CompetitionController({ headless: options.headless });
 
   // Default agents if not provided
   const agents = options.agents || [

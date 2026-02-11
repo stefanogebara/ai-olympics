@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
 import { createLogger } from '../../shared/utils/logger.js';
+import { competitionManager } from '../../orchestrator/competition-manager.js';
 
 const log = createLogger('CompetitionsAPI');
 
@@ -128,7 +129,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       stake_mode = 'sandbox',
       entry_fee = 0,
       max_participants = 8,
-      scheduled_start
+      scheduled_start,
+      task_ids
     } = req.body;
 
     if (!name) {
@@ -146,6 +148,11 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       domain_id = domain?.id;
     }
 
+    // Validate task_ids if provided
+    const validTaskIds = Array.isArray(task_ids) && task_ids.every((t: unknown) => typeof t === 'string')
+      ? task_ids
+      : null;
+
     const { data, error } = await supabase
       .from('aio_competitions')
       .insert({
@@ -156,7 +163,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
         entry_fee: stake_mode === 'sandbox' ? 0 : entry_fee,
         max_participants,
         created_by: user.id,
-        scheduled_start: scheduled_start || null
+        scheduled_start: scheduled_start || null,
+        task_ids: validTaskIds
       })
       .select(`
         *,
@@ -346,12 +354,56 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
 
     log.info('Competition started', { competitionId: id, userId: user.id });
 
-    // In a real implementation, this would trigger the competition orchestrator
-    // For now, just return the updated competition
+    // Fire-and-forget: trigger the competition orchestrator in the background
+    const competitionId = String(id);
+    competitionManager.startCompetition(competitionId, { taskIds: data.task_ids }).catch(async (err) => {
+      log.error('Competition orchestrator failed', {
+        competitionId: id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // Revert is handled inside competitionManager.startCompetition, but
+      // guard against edge cases where it didn't revert
+      await supabase
+        .from('aio_competitions')
+        .update({ status: 'lobby', started_at: null })
+        .eq('id', competitionId)
+        .eq('status', 'running'); // Only revert if still running
+    });
+
     res.json(data);
   } catch (error) {
     log.error('Failed to start competition', { error });
     res.status(500).json({ error: 'Failed to start competition' });
+  }
+});
+
+// Get live competition state (in-memory, no auth required)
+router.get('/:id/live', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const controller = competitionManager.getActiveCompetition(String(id));
+    if (!controller) {
+      return res.status(404).json({ error: 'No active competition with this ID' });
+    }
+
+    const competition = controller.getCompetition();
+    res.json({
+      id: competition?.id,
+      name: competition?.name,
+      status: competition?.status,
+      currentEventIndex: competition?.currentEventIndex,
+      leaderboard: controller.getLeaderboard(),
+      events: competition?.events.map(e => ({
+        id: e.id,
+        taskName: e.task.name,
+        status: e.status,
+        resultCount: e.results.length,
+      })),
+    });
+  } catch (error) {
+    log.error('Failed to get live competition state', { error });
+    res.status(500).json({ error: 'Failed to get live state' });
   }
 });
 

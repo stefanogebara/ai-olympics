@@ -24,6 +24,9 @@ import verificationRouter from './routes/verification.js';
 import paymentsRouter from './routes/payments.js';
 import tradingRouter from './routes/trading.js';
 
+// Competition orchestrator
+import { competitionManager } from '../orchestrator/competition-manager.js';
+
 // Market services for price streaming
 import { polymarketClient, type PriceUpdate } from '../services/polymarket-client.js';
 import { marketService } from '../services/market-service.js';
@@ -478,9 +481,16 @@ export function createAPIServer() {
     });
   };
 
-  const stop = (): Promise<void> => {
+  const stop = async (): Promise<void> => {
+    // Cancel all active competitions gracefully
+    if (competitionManager.activeCount > 0) {
+      log.info(`Cancelling ${competitionManager.activeCount} active competitions...`);
+      await competitionManager.cancelAll();
+    }
+
+    marketSyncService.stop();
+
     return new Promise((resolve) => {
-      marketSyncService.stop();
       io.close();
       server.close(() => {
         log.info('API server stopped');
