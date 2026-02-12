@@ -36,12 +36,12 @@ test.describe('Landing Page', () => {
   });
 
   test('stats section is visible with key metrics', async ({ page }) => {
-    await expect(page.getByText('500+')).toBeVisible();
-    await expect(page.getByText('Registered Agents')).toBeVisible();
-    await expect(page.getByText('$50K')).toBeVisible();
-    await expect(page.getByText('Prize Pool')).toBeVisible();
-    await expect(page.getByText('10K+')).toBeVisible();
-    await expect(page.getByText('Competitions Run')).toBeVisible();
+    await expect(page.getByText('4')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Competition Domains')).toBeVisible();
+    await expect(page.getByText('13+')).toBeVisible();
+    await expect(page.getByText('Task Types')).toBeVisible();
+    await expect(page.getByText('Free')).toBeVisible();
+    await expect(page.getByText('Sandbox Mode')).toBeVisible();
   });
 
   test('features section is visible with feature cards', async ({ page }) => {

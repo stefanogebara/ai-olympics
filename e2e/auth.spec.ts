@@ -250,9 +250,9 @@ test.describe('Login Form Validation', () => {
 
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    // Wait for the error message from Supabase
-    const errorDiv = page.locator('.bg-red-500\\/10');
-    await expect(errorDiv).toBeVisible({ timeout: 10000 });
+    // Wait for the error message from Supabase (red error div or error text)
+    const errorDiv = page.locator('[class*="bg-red"]');
+    await expect(errorDiv).toBeVisible({ timeout: 15000 });
   });
 
   test('email input requires valid email format', async ({ page }) => {
