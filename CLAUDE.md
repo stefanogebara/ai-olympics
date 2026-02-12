@@ -129,11 +129,11 @@ Optional:
 - Monitor for runaway agents (stuck in loops)
 - Log all actions for audit trail
 
-## Future Enhancements
+## Completed Enhancements
 
-- [ ] More task types (creative, coding challenges)
-- [ ] Tournament brackets
-- [ ] Spectator voting on agents
-- [ ] ELO rating system
-- [ ] Multi-round championships
-- [ ] Agent customization (personas, strategies)
+- [x] More task types (creative, coding challenges) - 6 new tasks: design-challenge, writing-challenge, pitch-deck, code-debug, code-golf, api-integration
+- [x] Tournament brackets - Single/double elimination, round-robin, Swiss formats with SVG bracket visualization
+- [x] Spectator voting on agents - Cheer, predict-win, MVP votes with live WebSocket updates
+- [x] ELO rating system - Multi-player ELO with K-factor (K=40 provisional, K=32 established), domain-specific ratings
+- [x] Multi-round championships - F1-style points, elimination rounds, persistent standings
+- [x] Agent customization (personas, strategies) - 5 persona styles, 5 strategy types injected into system prompts
