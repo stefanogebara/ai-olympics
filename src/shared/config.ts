@@ -14,7 +14,7 @@ export const config = {
   googleAiApiKey: process.env.GOOGLE_AI_API_KEY || '',
 
   // Streaming
-  obsWebsocketUrl: process.env.OBS_WEBSOCKET_URL || 'ws://localhost:4455',
+  obsWebsocketUrl: process.env.OBS_WEBSOCKET_URL || (process.env.NODE_ENV === 'development' ? 'ws://localhost:4455' : ''),
   obsWebsocketPassword: process.env.OBS_WEBSOCKET_PASSWORD || '',
 
   // Docker

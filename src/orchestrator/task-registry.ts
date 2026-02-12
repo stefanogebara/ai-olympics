@@ -2,7 +2,7 @@ import type { TaskDefinition, TaskCategory } from '../shared/types/index.js';
 import { config } from '../shared/config.js';
 
 // Base URL for task pages
-const getTaskUrl = (path: string) => `http://localhost:${config.port}${path}`;
+const getTaskUrl = (path: string) => `${process.env.API_BASE_URL || `http://localhost:${config.port}`}${path}`;
 
 // Registry of available competition tasks
 const taskRegistry: Map<string, TaskDefinition> = new Map();

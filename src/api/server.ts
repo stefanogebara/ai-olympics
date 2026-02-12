@@ -56,7 +56,16 @@ const ALLOWED_ORIGINS = [
     `http://localhost:${config.port}`,
   ] : []),
   process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
+
+// Check if origin matches allowed Vercel deployment patterns
+function isAllowedOrigin(origin: string): boolean {
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  // Allow *.vercel.app deployments
+  if (/^https:\/\/[\w-]+\.vercel\.app$/.test(origin)) return true;
+  return false;
+}
 
 // Rate limiters
 const generalLimiter = rateLimit({
@@ -94,7 +103,13 @@ export function createAPIServer() {
   const server = createServer(app);
   const io = new SocketServer(server, {
     cors: {
-      origin: ALLOWED_ORIGINS,
+      origin: (origin, callback) => {
+        if (!origin || isAllowedOrigin(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
       methods: ['GET', 'POST']
     }
   });
@@ -131,7 +146,7 @@ export function createAPIServer() {
   // CORS - restricted origins
   app.use((_req, res, next) => {
     const origin = _req.headers.origin;
-    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    if (origin && isAllowedOrigin(origin)) {
       res.header('Access-Control-Allow-Origin', origin);
     }
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');

@@ -132,7 +132,7 @@ export class AgentRunner {
     log.agent(this.id, `Starting task: ${task.name}`);
 
     // Initialize the adapter with task prompts (inject dynamic context)
-    const apiBase = `http://localhost:${config.port}`;
+    const apiBase = process.env.API_BASE_URL || `http://localhost:${config.port}`;
     const taskPrompt = task.taskPrompt
       .replace(/\{AGENT_ID\}/g, this.agentConfig.id)
       .replace(/\{COMPETITION_ID\}/g, this.competitionId)

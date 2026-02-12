@@ -101,8 +101,8 @@ class StripeService {
           userId,
           idempotencyKey,
         },
-        success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard/wallet?deposit=success`,
-        cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard/wallet?deposit=cancelled`,
+        success_url: `${process.env.CLIENT_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : '')}/dashboard/wallet?deposit=success`,
+        cancel_url: `${process.env.CLIENT_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : '')}/dashboard/wallet?deposit=cancelled`,
       });
 
       if (!session.url) {

@@ -1,11 +1,15 @@
 import { io, Socket } from 'socket.io-client';
+import { API_BASE } from './api';
 
 // Socket.io client singleton
 let socket: Socket | null = null;
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(window.location.origin, {
+    // In production, connect to the API server directly via VITE_API_URL.
+    // In development, the Vite proxy handles /socket.io so we use the page origin.
+    const socketUrl = import.meta.env.DEV ? window.location.origin : API_BASE;
+    socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
     });
