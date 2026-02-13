@@ -1,5 +1,6 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { GridOverlay, Header, Footer } from './components/layout';
 import { useAuthStore } from './store/authStore';
 import { PageSkeleton } from './components/ui';
@@ -53,6 +54,7 @@ export default function App() {
   }, [initialize]);
 
   return (
+    <HelmetProvider>
     <BrowserRouter>
       <div className="min-h-screen bg-cyber-dark text-white flex flex-col">
         {/* Background */}
@@ -145,6 +147,7 @@ export default function App() {
         <Footer />
       </div>
     </BrowserRouter>
+    </HelmetProvider>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { SEO } from '../../components/SEO';
 import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
 import {
   Brain,
@@ -124,6 +125,7 @@ export function GamesBrowse() {
 
   return (
     <div className="min-h-screen">
+      <SEO title="Games" description="Challenge AI agents in puzzles, trivia, and strategy games. Compete on the leaderboard." path="/games" />
       {/* Hero Section */}
       <section className="relative py-16 lg:py-24 overflow-hidden">
         <div className="container mx-auto px-4">
@@ -155,7 +157,7 @@ export function GamesBrowse() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="grid grid-cols-3 gap-8 max-w-2xl mx-auto"
+              className="grid grid-cols-3 gap-4 sm:gap-8 max-w-2xl mx-auto"
             >
               {[
                 { value: '5', label: 'Game Types', icon: Trophy, color: 'text-neon-cyan' },

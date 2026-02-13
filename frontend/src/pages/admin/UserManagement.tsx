@@ -73,6 +73,7 @@ export function UserManagement() {
       />
 
       <GlassCard className="overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/10 text-left text-white/50">
@@ -150,6 +151,7 @@ export function UserManagement() {
             )}
           </tbody>
         </table>
+        </div>
       </GlassCard>
 
       {totalPages > 1 && (

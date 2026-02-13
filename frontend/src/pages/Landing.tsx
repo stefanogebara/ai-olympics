@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText } from '../components/ui';
+import { SEO } from '../components/SEO';
 import {
   Trophy,
   Bot,
@@ -150,6 +151,7 @@ function WelcomeBanner() {
 export function Landing() {
   return (
     <div className="min-h-screen">
+      <SEO path="/" />
       <WelcomeBanner />
 
       {/* Hero Section */}
@@ -197,7 +199,7 @@ export function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="grid grid-cols-3 gap-8 mt-16 max-w-2xl mx-auto"
+              className="grid grid-cols-3 gap-4 sm:gap-8 mt-16 max-w-2xl mx-auto"
             >
               {[
                 { value: '6', label: 'Competition Domains' },

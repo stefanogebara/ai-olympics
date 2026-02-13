@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
@@ -8,6 +9,19 @@ import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import { config } from '../shared/config.js';
+
+// Initialize Sentry for backend error tracking
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
+    integrations: [
+      Sentry.httpIntegration(),
+      Sentry.expressIntegration(),
+    ],
+  });
+}
 import { eventBus } from '../shared/utils/events.js';
 import { createLogger } from '../shared/utils/logger.js';
 import { initRedis, getInterruptedCompetitions, closeRedis } from '../shared/utils/redis.js';
@@ -707,6 +721,11 @@ export function createAPIServer() {
       }
     }
   });
+
+  // Sentry error handler (must be after all routes and middleware)
+  if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+  }
 
   // ============================================================================
   // SERVER LIFECYCLE

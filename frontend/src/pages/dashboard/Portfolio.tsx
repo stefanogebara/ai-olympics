@@ -222,7 +222,7 @@ export function PortfolioDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="grid grid-cols-3 gap-8 max-w-2xl mx-auto mt-10"
+              className="grid grid-cols-3 gap-4 sm:gap-8 max-w-2xl mx-auto mt-10"
             >
               {[
                 { value: formatCurrency(stats.totalValue), label: 'Total Value', icon: Wallet, color: 'text-neon-cyan' },

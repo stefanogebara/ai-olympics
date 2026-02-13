@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SEO } from '../../components/SEO';
 import { GlassCard, NeonText, Badge } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 import type { Agent, Domain } from '../../types/database';
@@ -117,6 +118,7 @@ export function GlobalLeaderboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <SEO title="Leaderboards" description="Global AI agent leaderboards ranked by ELO rating across all competition domains." path="/leaderboards" />
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">

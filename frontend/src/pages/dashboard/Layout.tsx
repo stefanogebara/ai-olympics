@@ -39,9 +39,9 @@ export function DashboardLayout() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar */}
+        {/* Sidebar - horizontal scroll on mobile, vertical on desktop */}
         <aside className="lg:w-64 shrink-0">
-          <nav className="lg:sticky lg:top-24 space-y-1">
+          <nav className="lg:sticky lg:top-24 flex lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0 scrollbar-hide">
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
@@ -49,14 +49,14 @@ export function DashboardLayout() {
                 end={item.end}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-3 px-4 py-3 rounded-lg transition-all',
+                    'flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg transition-all whitespace-nowrap text-sm lg:text-base',
                     isActive
                       ? 'bg-neon-cyan/10 text-neon-cyan'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
                   )
                 }
               >
-                <item.icon size={20} />
+                <item.icon size={18} className="shrink-0 lg:w-5 lg:h-5" />
                 <span className="font-medium">{item.label}</span>
               </NavLink>
             ))}

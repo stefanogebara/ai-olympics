@@ -268,7 +268,7 @@ export function MetaMarkets() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="grid grid-cols-3 gap-8 max-w-2xl mx-auto mt-12"
+              className="grid grid-cols-3 gap-4 sm:gap-8 max-w-2xl mx-auto mt-12"
             >
               {[
                 { value: matchups.filter(m => m.status === 'live').length.toString(), label: 'Live Markets', icon: Zap, color: 'text-green-400' },
