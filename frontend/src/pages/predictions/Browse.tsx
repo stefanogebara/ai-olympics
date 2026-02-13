@@ -20,45 +20,32 @@ import { supabase } from '../../lib/supabase';
 const PAGE_SIZE = 24;
 const ALL_CATEGORIES: MarketCategory[] = ['all', 'politics', 'sports', 'crypto', 'ai-tech', 'entertainment', 'finance'];
 
-/** Transform a DB row from get_market_events RPC into a MarketEvent */
-function mapRpcToEvent(ev: Record<string, unknown>): MarketEvent {
-  const eventUrl = (ev.event_url as string) || '';
-  const slug = eventUrl
-    .replace(/.*\/event\//, '')
-    .replace(/.*\/markets\//, '')
-    .replace(/-\d+$/, '');
-  const eventTitle = slug
-    ? slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-    : '';
+/** Transform an aio_markets row into a MarketEvent */
+function mapRowToEvent(m: Record<string, unknown>): MarketEvent {
+  const url = (m.url as string) || '';
+  const outcomes = (m.outcomes as { id: string; name: string; probability: number; price: number }[]) || [];
+  const yesOutcome = outcomes.find((o) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
+  const probability = yesOutcome ? yesOutcome.probability : outcomes[0]?.probability ?? 0.5;
 
-  const rawMarkets = (ev.markets as Record<string, unknown>[]) || [];
-  const markets = rawMarkets.map((m) => {
-    const outcomes = (m.outcomes as { id: string; name: string; probability: number; price: number }[]) || [];
-    const yesOutcome = outcomes.find((o) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
-    const probability = yesOutcome ? yesOutcome.probability : outcomes[0]?.probability ?? 0.5;
-    return {
+  return {
+    eventUrl: url,
+    eventTitle: (m.question as string) || '',
+    source: (m.source as string) || '',
+    category: (m.category as string) || 'other',
+    image: (m.image as string) || null,
+    totalVolume: Number(m.total_volume) || 0,
+    volume24h: Number(m.volume_24h) || 0,
+    liquidity: Number(m.liquidity) || 0,
+    closeTime: m.close_time ? Number(m.close_time) : 0,
+    marketCount: 1,
+    markets: [{
       id: m.id as string,
-      question: m.question as string,
+      question: (m.question as string) || '',
       outcomes,
       total_volume: Number(m.total_volume) || 0,
       volume_24h: Number(m.volume_24h) || 0,
       probability,
-    };
-  });
-  markets.sort((a, b) => b.probability - a.probability);
-
-  return {
-    eventUrl,
-    eventTitle,
-    source: (ev.source as string) || '',
-    category: (ev.category as string) || '',
-    image: (ev.image as string) || null,
-    totalVolume: Number(ev.total_volume) || 0,
-    volume24h: Number(ev.volume_24h) || 0,
-    liquidity: Number(ev.liquidity) || 0,
-    closeTime: ev.close_time ? Number(ev.close_time) : 0,
-    marketCount: Number(ev.market_count) || 1,
-    markets,
+    }],
   };
 }
 
@@ -126,24 +113,30 @@ export function PredictionBrowse() {
       setLoadingMore(true);
     }
     try {
-      const { data, error } = await supabase.rpc('get_market_events', {
-        p_category: category,
-        p_sort: sortBy,
-        p_limit: PAGE_SIZE,
-        p_offset: newOffset,
-        p_source: null,
-      });
+      let query = supabase
+        .from('aio_markets')
+        .select('*', { count: 'exact' })
+        .eq('status', 'open');
 
+      if (category !== 'all') {
+        query = query.eq('category', category);
+      }
+
+      if (sortBy === 'volume') {
+        query = query.order('total_volume', { ascending: false });
+      } else if (sortBy === 'newest') {
+        query = query.order('created_at', { ascending: false });
+      } else if (sortBy === 'closing_soon') {
+        query = query.order('close_time', { ascending: true });
+      }
+
+      query = query.range(newOffset, newOffset + PAGE_SIZE - 1);
+
+      const { data, error, count } = await query;
       if (error) throw error;
 
-      const newEvents = (data || []).map(mapRpcToEvent);
-
-      // Get total count
-      const { data: countData } = await supabase.rpc('get_market_events_count', {
-        p_category: category,
-        p_source: null,
-      });
-      const totalCount = typeof countData === 'number' ? countData : 0;
+      const newEvents = (data || []).map(mapRowToEvent);
+      const totalCount = count || 0;
 
       if (newOffset === 0) {
         setEvents(newEvents);
@@ -151,7 +144,7 @@ export function PredictionBrowse() {
         setEvents(prev => [...prev, ...newEvents]);
       }
 
-      setTotal(totalCount || newEvents.length);
+      setTotal(totalCount);
       setHasMore(newOffset + PAGE_SIZE < totalCount);
       setOffset(newOffset);
     } catch (error) {

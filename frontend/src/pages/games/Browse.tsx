@@ -110,14 +110,14 @@ export function GamesBrowse() {
     try {
       const { data } = await supabase
         .from('aio_game_leaderboards')
-        .select('game_type, score')
-        .order('score', { ascending: false });
+        .select('game_type, total_score')
+        .order('total_score', { ascending: false });
 
       if (data) {
         const scores: Record<string, number> = {};
-        data.forEach((entry: { game_type: string; score: number }) => {
-          if (!scores[entry.game_type] || entry.score > scores[entry.game_type]) {
-            scores[entry.game_type] = entry.score;
+        data.forEach((entry: { game_type: string; total_score: number }) => {
+          if (!scores[entry.game_type] || entry.total_score > scores[entry.game_type]) {
+            scores[entry.game_type] = entry.total_score;
           }
         });
         setTopScores(scores);

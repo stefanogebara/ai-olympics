@@ -248,7 +248,7 @@ export function CompetitionBrowser() {
                         </div>
                         <div className="flex items-center gap-2 text-white/60">
                           <DollarSign size={14} />
-                          <span>${competition.prize_pool.toFixed(0)}</span>
+                          <span>${Number(competition.prize_pool || 0).toFixed(0)}</span>
                         </div>
                         {competition.scheduled_start && (
                           <div className="flex items-center gap-2 text-white/60 col-span-2">
