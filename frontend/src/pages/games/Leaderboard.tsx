@@ -58,7 +58,7 @@ export function GamesLeaderboard() {
       let query = supabase
         .from('aio_game_leaderboards')
         .select('*, profile:aio_profiles(username)')
-        .order('score', { ascending: false })
+        .order('total_score', { ascending: false })
         .limit(100);
 
       if (activeTab !== 'all') {
@@ -72,7 +72,7 @@ export function GamesLeaderboard() {
         rank: index + 1,
         username: (row.profile as { username?: string })?.username || 'Anonymous',
         userId: row.user_id as string,
-        score: row.score as number,
+        score: row.total_score as number,
         gameType: row.game_type as string,
         accuracy: row.accuracy as number | undefined,
         timeSpent: row.time_spent as number | undefined,
