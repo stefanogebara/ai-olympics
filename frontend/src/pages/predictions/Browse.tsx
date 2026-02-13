@@ -1,106 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
-import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText } from '../../components/ui';
 import {
   TrendingUp,
   RefreshCw,
-  ExternalLink,
-  BarChart3,
-  Clock,
   Search,
   Filter,
-  Globe,
-  Landmark,
   Trophy,
-  Bitcoin,
-  Cpu,
-  Film,
-  DollarSign,
-  ChevronDown,
-  ChevronUp,
   Wallet,
 } from 'lucide-react';
-
-// Market categories
-type MarketCategory = 'all' | 'politics' | 'sports' | 'crypto' | 'ai-tech' | 'entertainment' | 'finance';
-
-interface CategoryInfo {
-  id: MarketCategory;
-  name: string;
-  count: number;
-  icon: React.ReactNode;
-}
-
-const CATEGORY_CONFIG: Record<MarketCategory, { name: string; icon: React.ReactNode; color: string }> = {
-  'all': { name: 'All Markets', icon: <Globe size={16} />, color: 'cyan' },
-  'politics': { name: 'Politics', icon: <Landmark size={16} />, color: 'red' },
-  'sports': { name: 'Sports', icon: <Trophy size={16} />, color: 'teal' },
-  'crypto': { name: 'Crypto', icon: <Bitcoin size={16} />, color: 'yellow' },
-  'ai-tech': { name: 'AI & Tech', icon: <Cpu size={16} />, color: 'green' },
-  'entertainment': { name: 'Entertainment', icon: <Film size={16} />, color: 'pink' },
-  'finance': { name: 'Finance', icon: <DollarSign size={16} />, color: 'emerald' },
-};
-
-interface EventMarket {
-  id: string;
-  question: string;
-  outcomes: { id: string; name: string; probability: number; price: number }[];
-  total_volume: number;
-  volume_24h: number;
-  probability: number;
-}
-
-interface MarketEvent {
-  eventUrl: string;
-  eventTitle: string;
-  source: string;
-  category: string;
-  image: string | null;
-  totalVolume: number;
-  volume24h: number;
-  liquidity: number;
-  closeTime: number;
-  marketCount: number;
-  markets: EventMarket[];
-}
-
+import type { MarketCategory, MarketEvent, CategoryInfo } from './types';
+import { CATEGORY_CONFIG } from './types';
+import { getEventSlug } from './utils';
+import { EventCard } from './EventCard';
 import { API_BASE } from '../../lib/api';
 
-/**
- * Extract short outcome names from a group of related questions.
- * e.g., ["Will Trump nominate Kevin Warsh as...?", "Will Trump nominate Judy Shelton as...?"]
- * → ["Kevin Warsh", "Judy Shelton"]
- */
-function extractOutcomeNames(questions: string[]): string[] {
-  if (questions.length <= 1) return questions;
-
-  // Find longest common prefix
-  let prefix = questions[0];
-  for (const q of questions) {
-    while (prefix && !q.startsWith(prefix)) {
-      prefix = prefix.slice(0, -1);
-    }
-  }
-
-  // Find longest common suffix
-  let suffix = questions[0];
-  for (const q of questions) {
-    while (suffix && !q.endsWith(suffix)) {
-      suffix = suffix.slice(1);
-    }
-  }
-
-  const prefixLen = prefix.length;
-  const suffixLen = suffix.length;
-
-  return questions.map(q => {
-    const name = q.slice(prefixLen, q.length - suffixLen).trim();
-    // Clean up leftover punctuation
-    return name.replace(/^['"]|['"]$/g, '').trim() || q;
-  });
-}
+const PAGE_SIZE = 24;
+const ALL_CATEGORIES: MarketCategory[] = ['all', 'politics', 'sports', 'crypto', 'ai-tech', 'entertainment', 'finance'];
 
 export function PredictionBrowse() {
   const navigate = useNavigate();
@@ -109,14 +27,12 @@ export function PredictionBrowse() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'volume' | 'newest' | 'closing_soon'>('volume');
-  const [filterType, setFilterType] = useState<'all' | 'BINARY' | 'MULTIPLE_CHOICE'>('all');
   const [category, setCategory] = useState<MarketCategory>('all');
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
-  const PAGE_SIZE = 24;
 
   useEffect(() => {
     loadCategories();
@@ -232,39 +148,9 @@ export function PredictionBrowse() {
     });
   };
 
-  const getEventSlug = (eventUrl: string): string => {
-    // Extract slug from URL like "https://polymarket.com/event/democratic-presidential-nominee-2028"
-    // or Kalshi URLs like "https://kalshi.com/markets/..."
-    const match = eventUrl.match(/\/event\/([^/?#]+)/) || eventUrl.match(/\/markets\/([^/?#]+)/);
-    if (match) return match[1];
-    // Fallback: use last path segment
-    const parts = eventUrl.replace(/[/?#].*$/, '').split('/');
-    return parts[parts.length - 1] || eventUrl;
-  };
-
   const handleCardClick = (event: MarketEvent) => {
     const slug = getEventSlug(event.eventUrl);
     navigate(`/predictions/event/${slug}`);
-  };
-
-  const formatVolume = (volume: number, source?: string): string => {
-    const prefix = '$';
-    if (volume >= 1000000) return `${prefix}${(volume / 1000000).toFixed(1)}M`;
-    if (volume >= 1000) return `${prefix}${(volume / 1000).toFixed(1)}K`;
-    return `${prefix}${volume.toFixed(0)}`;
-  };
-
-  const formatCloseDate = (closeTime?: number): string => {
-    if (!closeTime) return 'No close date';
-    const date = new Date(closeTime);
-    const now = new Date();
-    const diff = date.getTime() - now.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days < 0) return 'Closed';
-    if (days === 0) return 'Closes today';
-    if (days === 1) return 'Closes tomorrow';
-    if (days < 7) return `Closes in ${days} days`;
-    return date.toLocaleDateString();
   };
 
   return (
@@ -325,7 +211,7 @@ export function PredictionBrowse() {
 
       {/* Category Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
-        {(['all', 'politics', 'sports', 'crypto', 'ai-tech', 'entertainment', 'finance'] as MarketCategory[]).map(cat => {
+        {ALL_CATEGORIES.map(cat => {
           const config = CATEGORY_CONFIG[cat];
           const catInfo = categories.find(c => c.id === cat);
           return (
@@ -398,172 +284,16 @@ export function PredictionBrowse() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           <AnimatePresence>
-            {events.map((event, index) => {
-              const catConfig = CATEGORY_CONFIG[event.category as MarketCategory] || CATEGORY_CONFIG['all'];
-              const isMulti = event.marketCount > 1;
-              const isExpanded = expandedEvents.has(event.eventUrl);
-              const VISIBLE_COUNT = 4;
-              const visibleMarkets = isExpanded ? event.markets : event.markets.slice(0, VISIBLE_COUNT);
-              const hiddenCount = event.marketCount - VISIBLE_COUNT;
-
-              // For multi-market events, extract short outcome names
-              const questions = visibleMarkets.map(m => m.question);
-              const outcomeNames = isMulti ? extractOutcomeNames(questions) : questions;
-
-              return (
-                <motion.div
-                  key={event.eventUrl}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3, delay: index * 0.02 }}
-                >
-                  <GlassCard hover className="h-full flex flex-col overflow-hidden cursor-pointer" onClick={() => handleCardClick(event)}>
-                    {/* Card Header */}
-                    <div className="p-4 pb-3">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={event.source === 'polymarket' ? 'default' : 'info'} className="text-[10px]">
-                            {event.source.toUpperCase()}
-                          </Badge>
-                          <span className="text-xs text-white/40 flex items-center gap-1">
-                            {catConfig.icon}
-                            {catConfig.name}
-                          </span>
-                        </div>
-                        <a
-                          href={event.eventUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-white/40 hover:text-neon-magenta transition-colors"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      </div>
-
-                      {/* Event Title + Image */}
-                      <div className="flex gap-3 items-start">
-                        {event.image && (
-                          <img
-                            src={event.image}
-                            alt=""
-                            className="w-10 h-10 rounded-lg object-cover shrink-0"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        )}
-                        <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2">
-                          {isMulti ? event.eventTitle : event.markets[0]?.question || event.eventTitle}
-                        </h3>
-                      </div>
-                    </div>
-
-                    {/* Outcome Rows */}
-                    <div className="flex-1 px-4 pb-2">
-                      {isMulti ? (
-                        // Multi-market event: show outcome rows
-                        <div className="space-y-1.5">
-                          {visibleMarkets.map((market, i) => {
-                            const yesProb = market.probability * 100;
-                            return (
-                              <div key={market.id} className="flex items-center gap-2">
-                                <span className="text-xs text-white/80 truncate flex-1 min-w-0">
-                                  {outcomeNames[i]}
-                                </span>
-                                <div className="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden shrink-0">
-                                  <div
-                                    className="h-full rounded-full transition-all duration-500"
-                                    style={{
-                                      width: `${yesProb}%`,
-                                      background: yesProb > 50
-                                        ? 'linear-gradient(90deg, #06b6d4, #d946ef)'
-                                        : 'rgba(255,255,255,0.25)',
-                                    }}
-                                  />
-                                </div>
-                                <span className={`text-xs font-bold w-10 text-right shrink-0 ${
-                                  yesProb > 50 ? 'text-neon-cyan' : 'text-white/60'
-                                }`}>
-                                  {yesProb.toFixed(0)}%
-                                </span>
-                              </div>
-                            );
-                          })}
-                          {hiddenCount > 0 && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); toggleExpand(event.eventUrl); }}
-                              className="flex items-center gap-1 text-xs text-neon-magenta/70 hover:text-neon-magenta transition-colors pt-0.5"
-                            >
-                              {isExpanded ? (
-                                <>Show less <ChevronUp size={12} /></>
-                              ) : (
-                                <>+{hiddenCount} more <ChevronDown size={12} /></>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        // Single market: show Yes/No probability display
-                        (() => {
-                          const market = event.markets[0];
-                          if (!market) return null;
-                          const yesOutcome = market.outcomes?.find((o: any) => o.name?.toLowerCase() === 'yes' || o.id === 'yes');
-                          const firstOutcome = market.outcomes?.[0];
-                          const prob = yesOutcome
-                            ? yesOutcome.probability * 100
-                            : firstOutcome
-                              ? firstOutcome.probability * 100
-                              : 50;
-
-                          return (
-                            <div>
-                              {market.outcomes?.map((outcome: any) => (
-                                <div key={outcome.id} className="flex items-center gap-2 mb-1.5">
-                                  <span className="text-xs text-white/80 w-12 truncate">{outcome.name}</span>
-                                  <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full transition-all duration-500"
-                                      style={{
-                                        width: `${outcome.probability * 100}%`,
-                                        background: outcome.probability > 0.5
-                                          ? 'linear-gradient(90deg, #06b6d4, #d946ef)'
-                                          : 'rgba(255,255,255,0.25)',
-                                      }}
-                                    />
-                                  </div>
-                                  <span className={`text-xs font-bold w-10 text-right ${
-                                    outcome.probability > 0.5 ? 'text-neon-cyan' : 'text-white/60'
-                                  }`}>
-                                    {(outcome.probability * 100).toFixed(0)}%
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()
-                      )}
-                    </div>
-
-                    {/* Card Footer */}
-                    <div className="px-4 py-3 mt-auto border-t border-white/5 flex items-center justify-between text-xs text-white/40">
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1">
-                          <BarChart3 size={12} />
-                          {formatVolume(event.totalVolume)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} />
-                          {formatCloseDate(event.closeTime)}
-                        </span>
-                      </div>
-                      <span>
-                        via {event.source === 'polymarket' ? 'Polymarket' : event.source === 'kalshi' ? 'Kalshi' : event.source}
-                      </span>
-                    </div>
-                  </GlassCard>
-                </motion.div>
-              );
-            })}
+            {events.map((event, index) => (
+              <EventCard
+                key={event.eventUrl}
+                event={event}
+                index={index}
+                isExpanded={expandedEvents.has(event.eventUrl)}
+                onToggleExpand={toggleExpand}
+                onClick={handleCardClick}
+              />
+            ))}
           </AnimatePresence>
         </div>
       )}

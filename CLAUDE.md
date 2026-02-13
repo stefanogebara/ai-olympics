@@ -280,18 +280,12 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 
 ### High
 - [ ] In-memory event bus (no persistence, no crash recovery)
-- [ ] No CI/CD pipeline (manual deployments)
-- [ ] AI judging bias: Claude judges Claude competitions
 
 ### Medium
 - [ ] Supabase types not auto-generated (some `any` usage)
 - [ ] BetModal lacks focus trap / keyboard support (accessibility)
-- [ ] Predictions type filter broken (outcomeType not on UnifiedMarket)
-- [ ] API keys stored client-side via Supabase (should encrypt server-side)
 
 ### Low
-- [ ] Prediction Browse page is 600+ lines (should split)
-- [ ] Google Fonts (Orbitron, Inter, JetBrains Mono) not properly imported
 - [ ] No image optimization or service worker
 
 ### Resolved
@@ -309,6 +303,12 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Pre-commit hooks (Husky + lint-staged, TypeScript check)
 - [x] Static pages: Docs (6-tab API docs), Privacy Policy, Terms of Service
 - [x] UX audit fixes: 30+ of 40 issues resolved
+- [x] CI/CD pipeline (GitHub Actions: build, test, e2e, security audit)
+- [x] Google Fonts properly imported in index.html (Orbitron, Inter, JetBrains Mono)
+- [x] AI judging bias mitigated (JUDGE_MAP cross-provider judging)
+- [x] API keys encrypted server-side with AES-256-GCM (routed through backend API)
+- [x] Prediction Browse page refactored (split into EventCard, types, utils)
+- [x] Predictions type filter removed (outcomeType not applicable to unified events)
 
 ---
 
@@ -341,6 +341,8 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Error boundaries + Sentry integration
 - [x] 241 unit tests (agent runner, adapters, competition controller, services)
 - [x] E2E test suite (15 Playwright spec files)
+- [x] Server-side API key encryption (AES-256-GCM via backend route, not client-side)
+- [x] CI/CD pipeline (GitHub Actions: 4-job build/test/e2e/security)
 
 ---
 

@@ -83,7 +83,7 @@ type AgentFormData = z.infer<typeof agentSchema>;
 export function AgentForm() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { profile } = useAuthStore();
+  const { profile, session } = useAuthStore();
 
   const isEditing = !!id;
 
@@ -218,8 +218,8 @@ export function AgentForm() {
       return;
     }
 
-    const agentData = {
-      owner_id: profile!.id,
+    // Send through backend API so API keys are encrypted server-side with AES-256-GCM
+    const agentPayload = {
       name: data.name,
       slug: data.slug,
       description: data.description || null,
@@ -227,10 +227,9 @@ export function AgentForm() {
       is_public: isPublic,
       agent_type: agentType,
       webhook_url: agentType === 'webhook' ? data.webhookUrl : null,
-      webhook_secret: agentType === 'webhook' ? webhookSecret : null,
       provider: agentType === 'api_key' ? provider : null,
       model: agentType === 'api_key' ? model : null,
-      api_key_encrypted: agentType === 'api_key' ? data.apiKey : null,
+      api_key: agentType === 'api_key' ? data.apiKey : null,
       system_prompt: agentType === 'api_key' ? data.systemPrompt : null,
       persona_name: data.personaName || null,
       persona_description: data.personaDescription || null,
@@ -239,19 +238,21 @@ export function AgentForm() {
     };
 
     try {
-      if (isEditing) {
-        const { error: updateError } = await supabase
-          .from('aio_agents')
-          .update(agentData)
-          .eq('id', id);
+      const url = isEditing ? `/api/agents/${id}` : '/api/agents';
+      const method = isEditing ? 'PUT' : 'POST';
 
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('aio_agents')
-          .insert(agentData);
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify(agentPayload),
+      });
 
-        if (insertError) throw insertError;
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${res.status}`);
       }
 
       navigate('/dashboard/agents');
