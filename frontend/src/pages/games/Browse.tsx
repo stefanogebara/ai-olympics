@@ -87,6 +87,15 @@ const DIFFICULTY_CONFIG = {
   hard: { label: 'Hard', color: 'text-red-400', bg: 'bg-red-400/20' }
 };
 
+// Static class mapping to avoid dynamic Tailwind class generation (which gets purged in production)
+const GAME_COLOR_CLASSES: Record<string, { bg: string; text: string }> = {
+  cyan: { bg: 'bg-neon-cyan/20', text: 'text-neon-cyan' },
+  magenta: { bg: 'bg-neon-magenta/20', text: 'text-neon-magenta' },
+  green: { bg: 'bg-neon-green/20', text: 'text-neon-green' },
+  yellow: { bg: 'bg-yellow-500/20', text: 'text-yellow-500' },
+  purple: { bg: 'bg-purple-500/20', text: 'text-purple-500' },
+};
+
 import { API_BASE } from '../../lib/api';
 
 export function GamesBrowse() {
@@ -206,7 +215,7 @@ export function GamesBrowse() {
                   <GlassCard hover className="p-6 h-full flex flex-col">
                     {/* Icon and Badge */}
                     <div className="flex items-start justify-between mb-4">
-                      <div className={`w-14 h-14 rounded-xl bg-neon-${game.color}/20 flex items-center justify-center text-neon-${game.color}`}>
+                      <div className={`w-14 h-14 rounded-xl ${GAME_COLOR_CLASSES[game.color]?.bg || 'bg-neon-cyan/20'} flex items-center justify-center ${GAME_COLOR_CLASSES[game.color]?.text || 'text-neon-cyan'}`}>
                         {game.icon}
                       </div>
                       <Badge className={`${diffConfig.bg} ${diffConfig.color}`}>

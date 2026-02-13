@@ -262,23 +262,24 @@ test.describe('Portfolio Dashboard', () => {
 });
 
 // ============================================================================
-// 4. PLACEHOLDER PAGES
+// 4. DASHBOARD PAGES (formerly placeholder, now real)
 // ============================================================================
 
-test.describe('Placeholder Pages', () => {
+test.describe('Dashboard Pages', () => {
   test.beforeEach(async ({ page }) => {
     await loginViaUI(page);
   });
 
-  test('/dashboard/competitions shows "My Competitions" heading with "Coming soon..."', async ({ page }) => {
+  test('/dashboard/competitions shows real My Competitions page', async ({ page }) => {
     await page.goto('/dashboard/competitions');
     await expect(page).toHaveURL(/\/dashboard\/competitions/);
 
-    await expect(page.getByRole('heading', { name: 'My Competitions' })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Coming soon...')).toBeVisible();
+    // Should show real page with heading (not "Coming soon...")
+    await expect(page.locator('h1').filter({ hasText: /Competitions/ })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Coming soon...')).not.toBeVisible({ timeout: 3000 });
   });
 
-  test('/dashboard/wallet shows real Wallet Dashboard (not placeholder)', async ({ page }) => {
+  test('/dashboard/wallet shows real Wallet Dashboard', async ({ page }) => {
     await page.goto('/dashboard/wallet');
     await expect(page).toHaveURL(/\/dashboard\/wallet/);
 
@@ -289,12 +290,13 @@ test.describe('Placeholder Pages', () => {
     await expect(page.locator('h1').filter({ hasText: 'Wallet' })).toBeVisible({ timeout: 10000 });
   });
 
-  test('/dashboard/settings shows "Settings" heading with "Coming soon..."', async ({ page }) => {
+  test('/dashboard/settings shows real Settings page', async ({ page }) => {
     await page.goto('/dashboard/settings');
     await expect(page).toHaveURL(/\/dashboard\/settings/);
 
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Coming soon...')).toBeVisible();
+    // Should show real page with heading (not "Coming soon...")
+    await expect(page.locator('h1').filter({ hasText: /Settings/ })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Coming soon...')).not.toBeVisible({ timeout: 3000 });
   });
 });
 

@@ -36,6 +36,15 @@ const GAME_INFO: Record<string, { name: string; description: string; color: stri
 import { API_BASE } from '../../lib/api';
 const TASK_BASE = API_BASE;
 
+// Static class mapping to avoid dynamic Tailwind class generation (purged in production)
+const GAME_COLOR_CLASSES: Record<string, { bg: string; text: string }> = {
+  cyan: { bg: 'bg-neon-cyan/20', text: 'text-neon-cyan' },
+  magenta: { bg: 'bg-neon-magenta/20', text: 'text-neon-magenta' },
+  green: { bg: 'bg-neon-green/20', text: 'text-neon-green' },
+  yellow: { bg: 'bg-yellow-500/20', text: 'text-yellow-500' },
+  purple: { bg: 'bg-purple-500/20', text: 'text-purple-500' },
+};
+
 export function GamesPlay() {
   const { type } = useParams<{ type: string }>();
   const navigate = useNavigate();
@@ -183,8 +192,8 @@ export function GamesPlay() {
           animate={{ opacity: 1, y: 0 }}
         >
           <GlassCard className="max-w-2xl mx-auto p-8 text-center">
-            <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl bg-neon-${gameInfo.color}/20 flex items-center justify-center`}>
-              <Play size={40} className={`text-neon-${gameInfo.color}`} />
+            <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl ${GAME_COLOR_CLASSES[gameInfo.color]?.bg || 'bg-neon-cyan/20'} flex items-center justify-center`}>
+              <Play size={40} className={GAME_COLOR_CLASSES[gameInfo.color]?.text || 'text-neon-cyan'} />
             </div>
 
             <h2 className="text-2xl font-bold text-white mb-4">Ready to Play?</h2>

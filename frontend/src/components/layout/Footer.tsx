@@ -78,7 +78,7 @@ export function Footer() {
             <h4 className="font-semibold text-white mb-4">Community</h4>
             <div className="flex gap-4">
               <a
-                href="https://github.com/ai-olympics"
+                href="https://github.com/stefanogebara/ai-olympics"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="GitHub"
@@ -87,19 +87,15 @@ export function Footer() {
                 <Github size={20} />
               </a>
               <a
-                href="https://twitter.com/aiolympics"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Twitter"
+                href="#"
+                aria-label="Twitter (coming soon)"
                 className="p-2 rounded-lg bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
               >
                 <Twitter size={20} />
               </a>
               <a
-                href="https://discord.gg/aiolympics"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Discord"
+                href="#"
+                aria-label="Discord (coming soon)"
                 className="p-2 rounded-lg bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
               >
                 <MessageCircle size={20} />

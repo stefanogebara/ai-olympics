@@ -131,14 +131,7 @@ export function Login() {
               )}
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-white/20 bg-cyber-dark text-neon-cyan focus:ring-neon-cyan/30"
-                />
-                <span className="text-sm text-white/60">Remember me</span>
-              </label>
+            <div className="flex items-center justify-end">
               <Link to="/auth/forgot-password" className="text-sm text-neon-cyan hover:underline">
                 Forgot password?
               </Link>

@@ -36,9 +36,9 @@ test.describe('Landing Page', () => {
   });
 
   test('stats section is visible with key metrics', async ({ page }) => {
-    await expect(page.getByText('4')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('6')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Competition Domains')).toBeVisible();
-    await expect(page.getByText('13+')).toBeVisible();
+    await expect(page.getByText('21')).toBeVisible();
     await expect(page.getByText('Task Types')).toBeVisible();
     await expect(page.getByText('Free')).toBeVisible();
     await expect(page.getByText('Sandbox Mode')).toBeVisible();
@@ -50,11 +50,14 @@ test.describe('Landing Page', () => {
     await expect(page.getByRole('heading', { name: 'Climb the Leaderboards' })).toBeVisible();
   });
 
-  test('competition domains section is visible', async ({ page }) => {
+  test('competition domains section shows all 6 domains', async ({ page }) => {
     await expect(page.getByRole('heading', { name: /Competition Domains/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Browser Tasks' }).first()).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Prediction Markets' }).first()).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Trading & Finance' }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Games' }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Creative' }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Coding' }).first()).toBeVisible();
   });
 
   test('animated elements render (framer-motion divs)', async ({ page }) => {
@@ -99,14 +102,17 @@ test.describe('Header Navigation (unauthenticated)', () => {
     await expect(logoLink.locator('text=AI').first()).toBeVisible();
   });
 
-  test('navigation links are visible: Competitions, Games, Agents, Leaderboards', async ({ page }) => {
+  test('navigation links are visible: Competitions, Tournaments, Championships, Games, Markets, Agents, Leaderboards', async ({ page }) => {
     const header = page.locator('header');
 
     // Desktop nav links (hidden on mobile via md:flex)
     const desktopNav = header.locator('nav.hidden.md\\:flex');
 
     await expect(desktopNav.getByRole('link', { name: 'Competitions' })).toBeVisible();
+    await expect(desktopNav.getByRole('link', { name: 'Tournaments' })).toBeVisible();
+    await expect(desktopNav.getByRole('link', { name: 'Championships' })).toBeVisible();
     await expect(desktopNav.getByRole('link', { name: 'Games' })).toBeVisible();
+    await expect(desktopNav.getByRole('link', { name: 'Markets' })).toBeVisible();
     await expect(desktopNav.getByRole('link', { name: 'Agents' })).toBeVisible();
     await expect(desktopNav.getByRole('link', { name: 'Leaderboards' })).toBeVisible();
   });
@@ -200,15 +206,16 @@ test.describe('Footer', () => {
     const footer = page.locator('footer');
     await expect(footer.getByText('Community')).toBeVisible();
 
-    // Social links open in new tab
-    const githubLink = footer.locator('a[href="https://github.com/ai-olympics"]');
+    // GitHub link opens in new tab
+    const githubLink = footer.locator('a[href="https://github.com/stefanogebara/ai-olympics"]');
     await expect(githubLink).toBeVisible();
     await expect(githubLink).toHaveAttribute('target', '_blank');
 
-    const twitterLink = footer.locator('a[href="https://twitter.com/aiolympics"]');
+    // Twitter and Discord are placeholder links
+    const twitterLink = footer.locator('a[aria-label="Twitter (coming soon)"]');
     await expect(twitterLink).toBeVisible();
 
-    const discordLink = footer.locator('a[href="https://discord.gg/aiolympics"]');
+    const discordLink = footer.locator('a[aria-label="Discord (coming soon)"]');
     await expect(discordLink).toBeVisible();
   });
 
@@ -250,7 +257,10 @@ test.describe('Mobile Responsive Navigation', () => {
 
     // All nav links should be present in the mobile menu
     await expect(page.locator('header nav.flex.flex-col a[href="/competitions"]')).toBeVisible();
+    await expect(page.locator('header nav.flex.flex-col a[href="/tournaments"]')).toBeVisible();
+    await expect(page.locator('header nav.flex.flex-col a[href="/championships"]')).toBeVisible();
     await expect(page.locator('header nav.flex.flex-col a[href="/games"]')).toBeVisible();
+    await expect(page.locator('header nav.flex.flex-col a[href="/predictions"]')).toBeVisible();
     await expect(page.locator('header nav.flex.flex-col a[href="/agents"]')).toBeVisible();
     await expect(page.locator('header nav.flex.flex-col a[href="/leaderboards"]')).toBeVisible();
   });

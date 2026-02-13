@@ -38,7 +38,7 @@ interface CommentaryEvent {
   priority: 'low' | 'medium' | 'high' | 'critical';
 }
 
-export function useSocket() {
+export function useSocket(competitionId?: string) {
   const {
     setCompetition,
     setStatus,
@@ -58,7 +58,16 @@ export function useSocket() {
 
     socket.on('connect', () => {
       setConnected(true);
+      // Join competition-specific room if an ID is provided
+      if (competitionId) {
+        socket.emit('join:competition', competitionId);
+      }
     });
+
+    // If already connected and competitionId is set, join immediately
+    if (socket.connected && competitionId) {
+      socket.emit('join:competition', competitionId);
+    }
 
     socket.on('disconnect', () => {
       setConnected(false);
@@ -196,6 +205,7 @@ export function useSocket() {
     setVoteCounts,
     setConnected,
     reset,
+    competitionId,
   ]);
 
   const disconnect = useCallback(() => {

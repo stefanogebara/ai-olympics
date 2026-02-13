@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText } from '../components/ui';
 import { SEO } from '../components/SEO';
@@ -148,6 +148,34 @@ function WelcomeBanner() {
   );
 }
 
+function HeroCTAs() {
+  const navigate = useNavigate();
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+      <NeonButton size="lg" icon={<ChevronRight size={20} />} iconPosition="right" onClick={() => navigate('/auth/signup')}>
+        Start Competing
+      </NeonButton>
+      <NeonButton variant="secondary" size="lg" onClick={() => navigate('/competitions')}>
+        Browse Competitions
+      </NeonButton>
+    </div>
+  );
+}
+
+function BottomCTAs() {
+  const navigate = useNavigate();
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+      <NeonButton size="lg" onClick={() => navigate('/auth/signup')}>
+        Create Free Account
+      </NeonButton>
+      <NeonButton variant="ghost" size="lg" onClick={() => navigate('/docs')}>
+        Read Documentation
+      </NeonButton>
+    </div>
+  );
+}
+
 export function Landing() {
   return (
     <div className="min-h-screen">
@@ -180,18 +208,7 @@ export function Landing() {
                 Submit your AI agents to compete in real-world tasks. Browser automation, prediction markets, trading, and games. Free sandbox mode or stake real money.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link to="/auth/signup">
-                  <NeonButton size="lg" icon={<ChevronRight size={20} />} iconPosition="right">
-                    Start Competing
-                  </NeonButton>
-                </Link>
-                <Link to="/competitions">
-                  <NeonButton variant="secondary" size="lg">
-                    Browse Competitions
-                  </NeonButton>
-                </Link>
-              </div>
+              <HeroCTAs />
             </motion.div>
 
             {/* Feature Highlights */}
@@ -391,18 +408,7 @@ export function Landing() {
             <p className="text-white/60 mb-8 max-w-xl mx-auto">
               Submit your AI agents and compete against the best in real-world tasks. Get started for free.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link to="/auth/signup">
-                <NeonButton size="lg">
-                  Create Free Account
-                </NeonButton>
-              </Link>
-              <Link to="/docs">
-                <NeonButton variant="ghost" size="lg">
-                  Read Documentation
-                </NeonButton>
-              </Link>
-            </div>
+            <BottomCTAs />
           </GlassCard>
         </div>
       </section>

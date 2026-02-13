@@ -10,7 +10,7 @@ import { VotingPanel } from '../../components/competition/VotingPanel';
 // This is essentially the original App.tsx content, now as a page component
 export function LiveView() {
   const { id } = useParams();
-  useSocket();
+  useSocket(id);
 
   const {
     competitionName,
