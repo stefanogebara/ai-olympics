@@ -35,7 +35,7 @@
     "dotenv": "^16.4.5",
     "ethers": "^6.16.0",
     "eventemitter3": "^5.0.1",
-    "express": "^4.21.0",
+    "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
     "ioredis": "^5.9.3",
