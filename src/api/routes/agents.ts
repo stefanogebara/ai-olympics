@@ -6,7 +6,7 @@ import { serviceClient as supabase, createUserClient, extractToken } from '../..
 import { requireAuth } from '../middleware/auth.js';
 import { verifyWebhookSignature } from '../../agents/adapters/webhook.js';
 import { getAllTasks, getTask } from '../../orchestrator/task-registry.js';
-import { BROWSER_TOOLS } from '../../agents/adapters/base.js';
+import { BROWSER_TOOLS, sanitizePersonaField } from '../../agents/adapters/base.js';
 
 const log = createLogger('AgentsAPI');
 
@@ -218,9 +218,17 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       ? 'whs_' + crypto.randomBytes(32).toString('hex')
       : null;
 
-    // H4: Sanitize persona fields - strip control chars, limit length
-    const sanitizeText = (s: string | undefined, maxLen: number) =>
-      s ? s.replace(/[\x00-\x1f]/g, '').slice(0, maxLen) : null;
+    // H4: Sanitize persona fields using robust sanitizer (Unicode normalization + injection detection)
+    const safePersonaName = persona_name ? sanitizePersonaField(persona_name, 100) : null;
+    const safePersonaDesc = persona_description ? sanitizePersonaField(persona_description, 500) : null;
+
+    // Reject if persona fields contained injection attempts (sanitizer returns empty string)
+    if (persona_name && safePersonaName === '') {
+      return res.status(400).json({ error: 'Persona name contains disallowed content' });
+    }
+    if (persona_description && safePersonaDesc === '') {
+      return res.status(400).json({ error: 'Persona description contains disallowed content' });
+    }
 
     // Encrypt API key with AES-256-GCM
     const api_key_encrypted = api_key ? encryptApiKey(api_key) : null;
@@ -252,8 +260,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
         api_key_encrypted,
         system_prompt,
         is_public,
-        persona_name: sanitizeText(persona_name, 100),
-        persona_description: sanitizeText(persona_description, 500),
+        persona_name: safePersonaName,
+        persona_description: safePersonaDesc,
         persona_style: persona_style || null,
         strategy: strategy || null
       })
@@ -318,12 +326,24 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    // H4: Sanitize persona fields on update
+    // H4: Sanitize persona fields on update using robust sanitizer
     if (updates.persona_name !== undefined) {
-      updates.persona_name = updates.persona_name ? String(updates.persona_name).replace(/[\x00-\x1f]/g, '').slice(0, 100) : null;
+      if (updates.persona_name) {
+        const safe = sanitizePersonaField(String(updates.persona_name), 100);
+        if (safe === '') return res.status(400).json({ error: 'Persona name contains disallowed content' });
+        updates.persona_name = safe;
+      } else {
+        updates.persona_name = null;
+      }
     }
     if (updates.persona_description !== undefined) {
-      updates.persona_description = updates.persona_description ? String(updates.persona_description).replace(/[\x00-\x1f]/g, '').slice(0, 500) : null;
+      if (updates.persona_description) {
+        const safe = sanitizePersonaField(String(updates.persona_description), 500);
+        if (safe === '') return res.status(400).json({ error: 'Persona description contains disallowed content' });
+        updates.persona_description = safe;
+      } else {
+        updates.persona_description = null;
+      }
     }
 
     // L1: Validate persona_style and strategy on update

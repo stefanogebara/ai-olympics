@@ -69,6 +69,8 @@ export function EventCard({ event, index, isExpanded, onToggleExpand, onClick }:
               <img
                 src={event.image}
                 alt=""
+                loading="lazy"
+                decoding="async"
                 className="w-10 h-10 rounded-lg object-cover shrink-0"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />

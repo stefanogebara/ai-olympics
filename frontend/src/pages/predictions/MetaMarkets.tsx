@@ -65,12 +65,41 @@ function BetModal({ matchup, agentId, onClose, onSubmit }: BetModalProps) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Focus trap
+  // Focus trap: initial focus + Tab/Shift+Tab cycling within modal
   useEffect(() => {
     const modal = modalRef.current;
     if (!modal) return;
-    const focusable = modal.querySelectorAll<HTMLElement>('button, input, [tabindex]:not([tabindex="-1"])');
-    if (focusable.length > 0) focusable[0].focus();
+
+    const getFocusable = () =>
+      modal.querySelectorAll<HTMLElement>('button, input, [tabindex]:not([tabindex="-1"])');
+
+    // Focus first element
+    const elements = getFocusable();
+    if (elements.length > 0) elements[0].focus();
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleTab);
+    return () => document.removeEventListener('keydown', handleTab);
   }, []);
 
   if (!agent) return null;

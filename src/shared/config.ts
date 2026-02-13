@@ -166,10 +166,21 @@ export function validateConfig(): { valid: boolean; errors: string[]; warnings: 
     if (isProduction) {
       errors.push('API_KEY_ENCRYPTION_KEY is required in production for agent API key storage');
     } else {
-      warnings.push('API_KEY_ENCRYPTION_KEY not set - stored API keys will not be encrypted');
+      warnings.push('API_KEY_ENCRYPTION_KEY not set - using SUPABASE_SERVICE_KEY fallback (not recommended for production)');
     }
   } else if (encKey && encKey.length < 32) {
-    warnings.push('API_KEY_ENCRYPTION_KEY is too short (< 32 chars)');
+    warnings.push('API_KEY_ENCRYPTION_KEY is too short (< 32 chars) - use at least 32 random characters');
+  } else if (encKey) {
+    // Entropy check: detect obviously weak keys (repeated chars, sequential patterns)
+    const uniqueChars = new Set(encKey).size;
+    if (uniqueChars < 8) {
+      warnings.push('API_KEY_ENCRYPTION_KEY has very low entropy (< 8 unique characters) - use a cryptographically random value');
+    }
+  }
+
+  // KMS recommendation in production
+  if (isProduction && encKey) {
+    warnings.push('API_KEY_ENCRYPTION_KEY is stored in a plain environment variable. Consider using a KMS (AWS KMS, GCP Cloud KMS, HashiCorp Vault) for production key management.');
   }
 
   // ========== MEDIUM: Optional but warn ==========

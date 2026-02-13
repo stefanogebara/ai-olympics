@@ -210,7 +210,7 @@ export function PredictionLeaderboard() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neon-cyan to-neon-magenta flex items-center justify-center text-xs font-bold text-black shrink-0">
                         {entry.avatar_url ? (
-                          <img src={entry.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                          <img src={entry.avatar_url} alt="" loading="lazy" decoding="async" className="w-full h-full rounded-full object-cover" />
                         ) : (
                           entry.username?.charAt(0)?.toUpperCase() || '?'
                         )}

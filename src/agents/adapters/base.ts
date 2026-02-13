@@ -14,38 +14,99 @@ const PERSONA_STYLE_MAX_LENGTH = 100;
 // Characters allowed in persona fields: alphanumeric, common punctuation, spaces
 const SAFE_CHARS_RE = /[^a-zA-Z0-9\s.,!?;:'"()\-–—&@#%+=/\[\]{}]/g;
 
+// Unicode homoglyph mappings - confusable characters that look like ASCII
+// Based on Unicode confusables (TR39) for prompt injection evasion
+const HOMOGLYPH_MAP: Record<string, string> = {
+  '\u0430': 'a', '\u0435': 'e', '\u043e': 'o', '\u0440': 'p', '\u0441': 'c',
+  '\u0443': 'y', '\u0445': 'x', '\u0456': 'i', '\u0455': 's', '\u0458': 'j',
+  '\u04bb': 'h', '\u0501': 'd', '\u051b': 'q', '\u051d': 'w',
+  '\u2170': 'i', '\u2171': 'ii', '\u2172': 'iii', '\u2173': 'iv', '\u2174': 'v',
+  '\uff41': 'a', '\uff42': 'b', '\uff43': 'c', '\uff44': 'd', '\uff45': 'e',
+  '\uff46': 'f', '\uff47': 'g', '\uff48': 'h', '\uff49': 'i', '\uff4a': 'j',
+  '\uff4b': 'k', '\uff4c': 'l', '\uff4d': 'm', '\uff4e': 'n', '\uff4f': 'o',
+  '\uff50': 'p', '\uff51': 'q', '\uff52': 'r', '\uff53': 's', '\uff54': 't',
+  '\uff55': 'u', '\uff56': 'v', '\uff57': 'w', '\uff58': 'x', '\uff59': 'y',
+  '\uff5a': 'z',
+  '\u200b': '',  // zero-width space
+  '\u200c': '',  // zero-width non-joiner
+  '\u200d': '',  // zero-width joiner
+  '\u2060': '',  // word joiner
+  '\ufeff': '',  // zero-width no-break space (BOM)
+};
+
+/**
+ * Normalize Unicode to defeat homoglyph-based injection evasion.
+ * 1. NFKC normalization (decomposes + recomposes compatibility chars)
+ * 2. Map known Cyrillic/fullwidth/confusable characters to ASCII
+ * 3. Strip zero-width characters
+ */
+function normalizeUnicode(input: string): string {
+  // NFKC normalization handles fullwidth -> ASCII, ligatures, etc.
+  let normalized = input.normalize('NFKC');
+
+  // Map remaining homoglyphs that NFKC doesn't catch (e.g. Cyrillic)
+  let result = '';
+  for (const char of normalized) {
+    result += HOMOGLYPH_MAP[char] ?? char;
+  }
+
+  return result;
+}
+
 // Patterns that indicate prompt injection attempts (case-insensitive, word-boundary-aware)
 const INJECTION_PATTERNS = [
+  // "Ignore/disregard/forget previous" variants
   /\bignore\s+(all\s+)?(previous|prior|above|earlier)\b/i,
   /\bdisregard\s+(all\s+)?(previous|prior|above|earlier)\b/i,
   /\bforget\s+(all\s+)?(previous|prior|above|earlier)\b/i,
+  // Override/change instructions
   /\boverride\s+(system|instruction|prompt|rule)/i,
   /\bnew\s+instruction/i,
+  /\bchange\s+(your|the)\s+(role|instruction|prompt|rule)/i,
+  // Identity manipulation
   /\byou\s+are\s+now\b/i,
   /\bact\s+as\s+(if|though)?\s*(you\s+are|a)\b/i,
+  /\bpretend\s+(you\s+are|to\s+be)\b/i,
+  /\broleplay\s+(as|like)\b/i,
+  /\bfrom\s+now\s+on\b/i,
+  /\bswitch\s+to\s+(a\s+)?new\s+(mode|persona|role)\b/i,
+  // Role/message separators (ChatML, markdown headers used as separators)
   /\bsystem\s*:\s*/i,
   /\bassistant\s*:\s*/i,
   /\buser\s*:\s*/i,
   /\bhuman\s*:\s*/i,
+  /#{3,}/,                            // ### or more (markdown separators used to inject)
+  /\[INST\]/i,                        // Llama-style instruction tags
+  /<\|im_start\|>/i,                  // ChatML tags
+  /<\|im_end\|>/i,
+  // Known jailbreak terms
   /\b(jailbreak|DAN|bypass|hack)\b/i,
+  /\bdo\s+anything\s+now\b/i,
+  // Code/markup injection
   /```/,                              // code fences (often used in injection)
   /<\/?[a-z]+/i,                      // HTML/XML tags
   /\{[{%]/,                           // template syntax
+  // Multi-line separator patterns (newlines used to create fake message boundaries)
+  /\n{2,}\s*(system|assistant|user|human)\s*:/i,
 ];
 
 /**
  * Sanitize a persona field value.
- * 1. Strip control characters and non-safe characters
- * 2. Collapse whitespace
- * 3. Check for injection patterns
- * 4. Enforce length limit
+ * 1. Normalize Unicode (NFKC + homoglyph mapping)
+ * 2. Strip control characters and non-safe characters
+ * 3. Collapse whitespace
+ * 4. Check for injection patterns (on both original and normalized)
+ * 5. Enforce length limit
  * Returns the sanitized string, or empty string if injection detected.
  */
 export function sanitizePersonaField(raw: string, maxLength: number): string {
   if (!raw || typeof raw !== 'string') return '';
 
+  // Normalize Unicode first to defeat homoglyph evasion
+  let clean = normalizeUnicode(raw);
+
   // Strip control characters (U+0000-U+001F, U+007F-U+009F)
-  let clean = raw.replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+  clean = clean.replace(/[\x00-\x1f\x7f-\x9f]/g, '');
 
   // Replace non-safe characters
   clean = clean.replace(SAFE_CHARS_RE, '');

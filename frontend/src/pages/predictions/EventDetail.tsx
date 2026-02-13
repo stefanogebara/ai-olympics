@@ -363,6 +363,8 @@ export function EventDetail() {
             <img
               src={event.image}
               alt=""
+              loading="lazy"
+              decoding="async"
               className="w-16 h-16 rounded-xl object-cover shrink-0"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />

@@ -6,11 +6,28 @@
 import crypto from 'crypto';
 
 // Derive a 256-bit key from the configured secret or service key
-const keySource = process.env.API_KEY_ENCRYPTION_KEY || process.env.SUPABASE_SERVICE_KEY;
+const explicitKey = process.env.API_KEY_ENCRYPTION_KEY;
+const keySource = explicitKey || process.env.SUPABASE_SERVICE_KEY;
 
 if (!keySource) {
   throw new Error(
     'Missing encryption key. Set API_KEY_ENCRYPTION_KEY or SUPABASE_SERVICE_KEY environment variable.'
+  );
+}
+
+if (!explicitKey) {
+  console.warn(
+    '[crypto] WARNING: Using SUPABASE_SERVICE_KEY as encryption key fallback. ' +
+    'Set API_KEY_ENCRYPTION_KEY for production use. ' +
+    'If the service key is rotated, all encrypted data becomes unrecoverable.'
+  );
+}
+
+if (process.env.NODE_ENV === 'production' && explicitKey) {
+  console.info(
+    '[crypto] NOTE: Encryption key loaded from environment variable. ' +
+    'For enhanced security, consider using a KMS (AWS KMS, GCP Cloud KMS, or HashiCorp Vault) ' +
+    'to manage encryption keys instead of plain environment variables.'
   );
 }
 
