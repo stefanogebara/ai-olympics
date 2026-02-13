@@ -8,7 +8,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
-import { config } from '../shared/config.js';
+import { config, validateConfig } from '../shared/config.js';
 
 // Initialize Sentry for backend error tracking
 if (process.env.SENTRY_DSN) {
@@ -804,6 +804,14 @@ export function createAPIServer() {
   // ============================================================================
 
   const start = async (port: number = config.port): Promise<void> => {
+    // Validate environment configuration
+    log.info('Validating configuration...');
+    const configCheck = validateConfig();
+    if (!configCheck.valid) {
+      log.error('Configuration validation failed - server cannot start', { errors: configCheck.errors });
+      throw new Error(`Configuration errors: ${configCheck.errors.join('; ')}`);
+    }
+
     // Initialize Redis (optional - gracefully degrades)
     await initRedis();
 

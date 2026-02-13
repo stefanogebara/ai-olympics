@@ -126,6 +126,7 @@ function BetModal({ matchup, agentId, onClose, onSubmit }: BetModalProps) {
                 </button>
               ))}
             </div>
+            <p className="text-[10px] text-white/30 mt-1">Virtual currency only — no real money involved.</p>
           </div>
 
           <div className="bg-white/5 rounded-lg p-4 mb-6">

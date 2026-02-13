@@ -247,6 +247,7 @@ function BetPanel({ marketId, marketQuestion, outcome, probability, onClose, onS
               Balance: M${limits.balance.toLocaleString()} | Bets today: {limits.dailyBetsUsed}/{limits.dailyBetsMax} | Positions: {limits.openPositions}/{limits.maxPositions}
             </div>
           )}
+          <div className="text-[10px] text-white/30">Virtual currency only — no real money involved.</div>
 
           {/* Warning */}
           {limitWarning && (
