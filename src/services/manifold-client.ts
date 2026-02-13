@@ -5,6 +5,7 @@
  */
 
 import { createLogger } from '../shared/utils/logger.js';
+import { circuits } from '../shared/utils/circuit-breaker.js';
 
 const log = createLogger('ManifoldClient');
 const MANIFOLD_API_BASE = 'https://api.manifold.markets';
@@ -29,7 +30,7 @@ async function rateLimitedFetch(url: string): Promise<Response> {
   }
 
   requestTimestamps.push(Date.now());
-  return fetch(url);
+  return circuits.manifold.execute(() => fetch(url));
 }
 
 // ============================================================================

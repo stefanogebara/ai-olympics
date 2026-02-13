@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { requireAuth as authMiddleware } from '../middleware/auth.js';
 import { metaMarketService } from '../../services/meta-market-service.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
@@ -12,33 +12,12 @@ const router = Router();
 const log = createLogger('MetaMarketsAPI');
 
 // ============================================================================
-// AUTH MIDDLEWARE
+// AUTH: Uses shared requireAuth middleware (imported as authMiddleware)
+// The middleware attaches (req as any).user and (req as any).userClient
 // ============================================================================
 
 interface AuthenticatedRequest extends Request {
   userId?: string;
-}
-
-async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization required' });
-    }
-
-    const token = authHeader.substring(7);
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-
-    req.userId = user.id;
-    next();
-  } catch (error) {
-    log.error('Auth middleware error', { error: String(error) });
-    res.status(401).json({ error: 'Authentication failed' });
-  }
 }
 
 // ============================================================================
@@ -132,7 +111,7 @@ router.get('/:id/bets', async (req: Request, res: Response) => {
  */
 router.post('/:id/bet', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const marketId = String(req.params.id);
     const outcomeId = String(req.body.outcomeId);
     const amount = req.body.amount;
@@ -172,7 +151,7 @@ router.post('/:id/bet', authMiddleware, async (req: AuthenticatedRequest, res: R
  */
 router.get('/user/bets', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
     const limit = Math.min(parseInt(limitStr as string) || 50, 100);
 

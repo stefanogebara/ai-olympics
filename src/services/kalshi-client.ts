@@ -5,6 +5,7 @@
  */
 
 import { createLogger } from '../shared/utils/logger.js';
+import { circuits } from '../shared/utils/circuit-breaker.js';
 import type { UnifiedMarket } from './polymarket-client.js';
 
 const log = createLogger('KalshiClient');
@@ -157,7 +158,7 @@ export class KalshiClient {
       ...(options.headers as Record<string, string> || {}),
     };
 
-    return fetch(url, { ...options, headers });
+    return circuits.kalshi.execute(() => fetch(url, { ...options, headers }));
   }
 
   /**
@@ -175,10 +176,10 @@ export class KalshiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    return fetch(url, {
+    return circuits.kalshi.execute(() => fetch(url, {
       ...options,
       headers
-    });
+    }));
   }
 
   /**

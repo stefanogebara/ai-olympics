@@ -12,6 +12,7 @@
 import { serviceClient } from '../shared/utils/supabase.js';
 import { marketService } from './market-service.js';
 import { createLogger } from '../shared/utils/logger.js';
+import { circuits } from '../shared/utils/circuit-breaker.js';
 import type { UnifiedMarket } from './polymarket-client.js';
 
 const log = createLogger('MarketSync');
@@ -144,12 +145,12 @@ class MarketSyncService {
       url.searchParams.set(key, val);
     }
 
-    const response = await fetch(url.toString(), {
+    const response = await circuits.polyrouter.execute(() => fetch(url.toString(), {
       headers: {
         'X-API-Key': POLYROUTER_API_KEY,
         'Content-Type': 'application/json',
       },
-    });
+    }));
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');

@@ -1,32 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { requireAuth } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { championshipService } from '../../services/championship-service.js';
 
 const log = createLogger('ChampionshipsAPI');
 
 const router = Router();
-
-// Middleware to verify JWT token from Supabase
-async function requireAuth(req: Request, res: Response, next: Function) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing authorization token' });
-  }
-
-  const token = authHeader.slice(7);
-
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    (req as any).user = user;
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
 
 // List championships
 router.get('/', async (req: Request, res: Response) => {
@@ -194,9 +174,10 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
 router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const id = String(req.params.id);
 
-    // Verify championship is still in registration
+    // Verify championship is still in registration (public read)
     const { data: championship } = await supabase
       .from('aio_championships')
       .select('status')
@@ -211,7 +192,7 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
       return res.status(400).json({ error: 'Cannot leave a championship that has already started' });
     }
 
-    const { error: deleteErr } = await supabase
+    const { error: deleteErr } = await userDb
       .from('aio_championship_participants')
       .delete()
       .eq('championship_id', id)
@@ -231,10 +212,11 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
 router.post('/:id/start-round', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const id = String(req.params.id);
 
-    // Verify creator
-    const { data: championship } = await supabase
+    // Verify creator (user-scoped query)
+    const { data: championship } = await userDb
       .from('aio_championships')
       .select('created_by')
       .eq('id', id)
@@ -262,6 +244,7 @@ router.post('/:id/start-round', requireAuth, async (req: Request, res: Response)
 router.post('/:id/process-round/:roundNumber', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const id = String(req.params.id);
     const roundNumber = parseInt(String(req.params.roundNumber), 10);
 
@@ -269,8 +252,8 @@ router.post('/:id/process-round/:roundNumber', requireAuth, async (req: Request,
       return res.status(400).json({ error: 'Invalid round number' });
     }
 
-    // Verify creator
-    const { data: championship } = await supabase
+    // Verify creator (user-scoped query)
+    const { data: championship } = await userDb
       .from('aio_championships')
       .select('created_by')
       .eq('id', id)

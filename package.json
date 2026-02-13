@@ -20,6 +20,7 @@
     "lint": "eslint src --ext .ts",
     "docker:build": "docker build -t ai-olympics-agent -f infrastructure/docker/Dockerfile.agent .",
     "docker:sandbox": "docker-compose -f infrastructure/docker/docker-compose.sandbox.yml up",
+    "db:types": "supabase gen types typescript --project-id lurebwaudisfilhuhmnj > frontend/src/types/database.generated.ts",
     "prepare": "husky"
   },
   "dependencies": {

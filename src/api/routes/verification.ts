@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { createLogger } from '../../shared/utils/logger.js';
 import { encrypt, decrypt } from '../../shared/utils/crypto.js';
-import { serviceClient as supabase, extractToken, createUserClient } from '../../shared/utils/supabase.js';
+import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { requireAuth } from '../middleware/auth.js';
 import {
   generateVerificationSession,
   type ChallengeAnswers,
@@ -47,25 +48,6 @@ function deserializeExpectedAnswers(json: string): {
     speed_json_parse: new Map(Object.entries(parsed.speed_json_parse)),
     structured_output: parsed.structured_output,
   };
-}
-
-// Auth middleware
-async function requireAuth(req: Request, res: Response, next: Function) {
-  const token = extractToken(req.headers.authorization);
-  if (!token) {
-    return res.status(401).json({ error: 'Missing authorization token' });
-  }
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    (req as any).user = user;
-    (req as any).userClient = createUserClient(token);
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
 }
 
 // ============================================================================

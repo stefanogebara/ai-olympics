@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
-import { createUserClient, extractToken } from '../../shared/utils/supabase.js';
+import { requireAuth } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { competitionManager } from '../../orchestrator/competition-manager.js';
 
@@ -10,29 +10,6 @@ const log = createLogger('CompetitionsAPI');
 const MAX_CONCURRENT_COMPETITIONS = parseInt(process.env.MAX_CONCURRENT_COMPETITIONS || '10', 10);
 
 const router = Router();
-
-// Middleware to verify JWT token from Supabase
-// Sets req.user and req.userClient (RLS-scoped Supabase client)
-async function requireAuth(req: Request, res: Response, next: Function) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing authorization token' });
-  }
-
-  const token = authHeader.slice(7);
-
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    (req as any).user = user;
-    (req as any).userClient = createUserClient(token);
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
 
 // List competitions
 router.get('/', async (req: Request, res: Response) => {

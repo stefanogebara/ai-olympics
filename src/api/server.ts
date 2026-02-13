@@ -447,6 +447,13 @@ export function createAPIServer() {
   // Track market subscriptions per socket
   const socketMarketSubscriptions = new Map<string, Set<string>>();
 
+  // Per-IP connection tracking for rate limiting and max connections
+  const ipConnectionCounts = new Map<string, number>();
+  const ipConnectionTimestamps = new Map<string, number[]>();
+  const MAX_CONNECTIONS_PER_IP = 10;
+  const CONNECTION_RATE_WINDOW = 60_000; // 1 minute
+  const MAX_CONNECTIONS_PER_WINDOW = 20;
+
   // Connect to Polymarket WebSocket for live prices
   let priceStreamConnected = false;
   const connectPriceStream = () => {
@@ -469,6 +476,33 @@ export function createAPIServer() {
     priceStreamConnected = true;
     log.info('Connected to market price stream');
   };
+
+  // WebSocket connection rate limiting middleware (per IP)
+  io.use((socket, next) => {
+    const ip = socket.handshake.address || 'unknown';
+    const now = Date.now();
+
+    // Check max concurrent connections per IP
+    const currentCount = ipConnectionCounts.get(ip) || 0;
+    if (currentCount >= MAX_CONNECTIONS_PER_IP) {
+      log.warn('WebSocket max connections per IP exceeded', { ip, count: currentCount });
+      return next(new Error('Too many connections'));
+    }
+
+    // Check connection rate per IP
+    const timestamps = ipConnectionTimestamps.get(ip) || [];
+    const recentTimestamps = timestamps.filter(ts => now - ts < CONNECTION_RATE_WINDOW);
+    if (recentTimestamps.length >= MAX_CONNECTIONS_PER_WINDOW) {
+      log.warn('WebSocket connection rate limit exceeded', { ip, rate: recentTimestamps.length });
+      return next(new Error('Connection rate limit exceeded'));
+    }
+
+    recentTimestamps.push(now);
+    ipConnectionTimestamps.set(ip, recentTimestamps);
+    ipConnectionCounts.set(ip, currentCount + 1);
+
+    next();
+  });
 
   // WebSocket authentication middleware
   // Connections are always allowed (for spectating), but userId is set only if token is valid.
@@ -558,8 +592,12 @@ export function createAPIServer() {
     });
 
     // Handle market subscriptions for live price updates (requires auth)
-    socket.on('subscribe:market', (marketId: string) => {
+    socket.on('subscribe:market', (marketId: unknown) => {
       if (!requireSocketAuth('subscribe:market')) return;
+      if (!marketId || typeof marketId !== 'string' || marketId.length > 200) {
+        socket.emit('subscribe:market:error', { error: 'Invalid market ID' });
+        return;
+      }
       socket.join(`market:${marketId}`);
 
       const subs = socketMarketSubscriptions.get(socket.id);
@@ -575,7 +613,8 @@ export function createAPIServer() {
       connectPriceStream();
     });
 
-    socket.on('unsubscribe:market', (marketId: string) => {
+    socket.on('unsubscribe:market', (marketId: unknown) => {
+      if (!marketId || typeof marketId !== 'string' || marketId.length > 200) return;
       socket.leave(`market:${marketId}`);
 
       const subs = socketMarketSubscriptions.get(socket.id);
@@ -688,12 +727,45 @@ export function createAPIServer() {
       }
     });
 
+    // Re-authenticate with a new token (e.g., after token refresh)
+    socket.on('auth:refresh', async (token: unknown) => {
+      if (!token || typeof token !== 'string') {
+        socket.emit('auth:status', { authenticated: false, userId: null });
+        return;
+      }
+      try {
+        const { data: { user } } = await wsSupabase.auth.getUser(token);
+        if (user) {
+          (socket as any).userId = user.id;
+          (socket as any).authenticated = true;
+          socket.emit('auth:status', { authenticated: true, userId: user.id });
+        } else {
+          (socket as any).userId = null;
+          (socket as any).authenticated = false;
+          socket.emit('auth:status', { authenticated: false, userId: null });
+        }
+      } catch {
+        (socket as any).userId = null;
+        (socket as any).authenticated = false;
+        socket.emit('auth:status', { authenticated: false, userId: null });
+      }
+    });
+
     socket.on('disconnect', () => {
       log.info(`Client disconnected: ${socket.id}`);
       eventBus.off('*', handleEvent);
 
       // Clean up subscriptions
       socketMarketSubscriptions.delete(socket.id);
+
+      // Decrement IP connection count
+      const ip = socket.handshake.address || 'unknown';
+      const count = ipConnectionCounts.get(ip) || 0;
+      if (count <= 1) {
+        ipConnectionCounts.delete(ip);
+      } else {
+        ipConnectionCounts.set(ip, count - 1);
+      }
     });
   });
 

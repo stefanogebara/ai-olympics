@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { serviceClient as supabase, createUserClient } from '../../shared/utils/supabase.js';
+import { requireAuth as authMiddleware } from '../middleware/auth.js';
 import { orderManager } from '../../services/order-manager.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
@@ -26,35 +26,12 @@ function requireRealMoneyEnabled(_req: Request, res: Response, next: Function) {
 }
 
 // ============================================================================
-// AUTH MIDDLEWARE
+// AUTH: Uses shared requireAuth middleware (imported as authMiddleware)
+// The middleware attaches (req as any).user and (req as any).userClient
 // ============================================================================
 
 interface AuthenticatedRequest extends Request {
   userId?: string;
-  userClient?: ReturnType<typeof createUserClient>;
-}
-
-async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization required' });
-    }
-
-    const token = authHeader.substring(7);
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-
-    req.userId = user.id;
-    req.userClient = createUserClient(token);
-    next();
-  } catch (error) {
-    log.error('Auth middleware error', { error: String(error) });
-    res.status(401).json({ error: 'Authentication failed' });
-  }
 }
 
 // ============================================================================
@@ -67,7 +44,7 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Fu
  */
 router.post('/orders', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const { marketId, marketSource, outcome, amountCents } = req.body;
 
     if (!marketId || !marketSource || !outcome || !amountCents) {
@@ -89,7 +66,7 @@ router.post('/orders', requireRealMoneyEnabled, authMiddleware, async (req: Auth
  */
 router.get('/orders', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const orders = await orderManager.getOpenOrders(userId);
 
     res.json({ orders });
@@ -105,8 +82,8 @@ router.get('/orders', authMiddleware, async (req: AuthenticatedRequest, res: Res
  */
 router.get('/orders/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
-    const userDb = req.userClient!;
+    const userId = (req as any).user.id;
+    const userDb = (req as any).userClient;
     const orderId = req.params.id;
 
     // Use user-scoped client (RLS ensures user can only see their own orders)
@@ -134,7 +111,7 @@ router.get('/orders/:id', authMiddleware, async (req: AuthenticatedRequest, res:
  */
 router.delete('/orders/:id', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const orderId = String(req.params.id);
 
     await orderManager.cancelOrder(userId, orderId);
@@ -156,7 +133,7 @@ router.delete('/orders/:id', requireRealMoneyEnabled, authMiddleware, async (req
  */
 router.get('/positions', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const positions = await orderManager.getUserPositions(userId);
 
     res.json({ positions });
@@ -176,7 +153,7 @@ router.get('/positions', authMiddleware, async (req: AuthenticatedRequest, res: 
  */
 router.get('/history', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const pageStr = Array.isArray(req.query.page) ? req.query.page[0] : req.query.page;
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
 
@@ -184,7 +161,7 @@ router.get('/history', authMiddleware, async (req: AuthenticatedRequest, res: Re
     const limit = Math.min(parseInt(limitStr as string) || 50, 100);
     const offset = (page - 1) * limit;
 
-    const userDb = req.userClient!;
+    const userDb = (req as any).userClient;
 
     // Use user-scoped client for trade history (RLS enforced)
     const { data: trades, error } = await userDb

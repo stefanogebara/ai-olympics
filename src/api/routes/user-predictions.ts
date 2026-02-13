@@ -5,7 +5,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { requireAuth as authMiddleware } from '../middleware/auth.js';
 import { userPortfolioService } from '../../services/user-portfolio-service.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
@@ -13,33 +13,12 @@ const router = Router();
 const log = createLogger('UserPredictionsAPI');
 
 // ============================================================================
-// AUTH MIDDLEWARE
+// AUTH: Uses shared requireAuth middleware (imported as authMiddleware)
+// The middleware attaches (req as any).user and (req as any).userClient
 // ============================================================================
 
 interface AuthenticatedRequest extends Request {
   userId?: string;
-}
-
-async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization required' });
-    }
-
-    const token = authHeader.substring(7);
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-
-    req.userId = user.id;
-    next();
-  } catch (error) {
-    log.error('Auth middleware error', { error: String(error) });
-    res.status(401).json({ error: 'Authentication failed' });
-  }
 }
 
 // ============================================================================
@@ -52,7 +31,7 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Fu
  */
 router.get('/portfolio', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const portfolio = await userPortfolioService.getOrCreatePortfolio(userId);
 
     if (!portfolio) {
@@ -72,7 +51,7 @@ router.get('/portfolio', authMiddleware, async (req: AuthenticatedRequest, res: 
  */
 router.get('/stats', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const stats = await userPortfolioService.getStats(userId);
 
     if (!stats) {
@@ -96,7 +75,7 @@ router.get('/stats', authMiddleware, async (req: AuthenticatedRequest, res: Resp
  */
 router.get('/limits', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const limits = await userPortfolioService.getLimits(userId);
 
     if (!limits) {
@@ -120,7 +99,7 @@ router.get('/limits', authMiddleware, async (req: AuthenticatedRequest, res: Res
  */
 router.post('/bets', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const { marketId, outcome, amount } = req.body;
 
     // Validate required fields
@@ -162,7 +141,7 @@ router.post('/bets', authMiddleware, async (req: AuthenticatedRequest, res: Resp
  */
 router.get('/bets', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
     const offsetStr = Array.isArray(req.query.offset) ? req.query.offset[0] : req.query.offset;
 
@@ -193,7 +172,7 @@ router.get('/bets', authMiddleware, async (req: AuthenticatedRequest, res: Respo
  */
 router.get('/positions', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const positions = await userPortfolioService.getPositions(userId);
 
     res.json({
@@ -246,7 +225,7 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
  */
 router.post('/follow/:followedId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const followedId = String(req.params.followedId);
 
     if (userId === followedId) {
@@ -272,7 +251,7 @@ router.post('/follow/:followedId', authMiddleware, async (req: AuthenticatedRequ
  */
 router.delete('/follow/:followedId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const followedId = String(req.params.followedId);
 
     const success = await userPortfolioService.unfollowTrader(userId, followedId);
@@ -294,7 +273,7 @@ router.delete('/follow/:followedId', authMiddleware, async (req: AuthenticatedRe
  */
 router.get('/following', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const following = await userPortfolioService.getFollowing(userId);
 
     res.json({
@@ -313,7 +292,7 @@ router.get('/following', authMiddleware, async (req: AuthenticatedRequest, res: 
  */
 router.get('/followers', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const followers = await userPortfolioService.getFollowers(userId);
 
     res.json({
@@ -332,7 +311,7 @@ router.get('/followers', authMiddleware, async (req: AuthenticatedRequest, res: 
  */
 router.get('/is-following/:checkId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const checkId = String(req.params.checkId);
 
     const isFollowing = await userPortfolioService.isFollowing(userId, checkId);
@@ -350,7 +329,7 @@ router.get('/is-following/:checkId', authMiddleware, async (req: AuthenticatedRe
  */
 router.get('/feed', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
     const limit = Math.min(parseInt(limitStr as string) || 20, 50);
 

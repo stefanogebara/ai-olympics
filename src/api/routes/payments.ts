@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import express from 'express';
-import { serviceClient as supabase, createUserClient } from '../../shared/utils/supabase.js';
+import { requireAuth as authMiddleware } from '../middleware/auth.js';
 import { walletService } from '../../services/wallet-service.js';
 import { stripeService } from '../../services/stripe-service.js';
 import { cryptoWalletService } from '../../services/crypto-wallet-service.js';
@@ -28,35 +28,12 @@ function requireRealMoneyEnabled(_req: Request, res: Response, next: Function) {
 }
 
 // ============================================================================
-// AUTH MIDDLEWARE
+// AUTH: Uses shared requireAuth middleware (imported as authMiddleware)
+// The middleware attaches (req as any).user and (req as any).userClient
 // ============================================================================
 
 interface AuthenticatedRequest extends Request {
   userId?: string;
-  userClient?: ReturnType<typeof createUserClient>;
-}
-
-async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization required' });
-    }
-
-    const token = authHeader.substring(7);
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-
-    req.userId = user.id;
-    req.userClient = createUserClient(token);
-    next();
-  } catch (error) {
-    log.error('Auth middleware error', { error: String(error) });
-    res.status(401).json({ error: 'Authentication failed' });
-  }
 }
 
 // ============================================================================
@@ -69,7 +46,7 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Fu
  */
 router.get('/wallet', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const wallet = await walletService.getBalance(userId);
 
     res.json({ wallet });
@@ -85,7 +62,7 @@ router.get('/wallet', authMiddleware, async (req: AuthenticatedRequest, res: Res
  */
 router.post('/wallet', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const wallet = await walletService.getOrCreateWallet(userId);
 
     res.json({ wallet });
@@ -105,7 +82,7 @@ router.post('/wallet', authMiddleware, async (req: AuthenticatedRequest, res: Re
  */
 router.post('/deposit/stripe', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const amountCents = req.body.amountCents || req.body.amount_cents;
     const email = req.body.email;
 
@@ -128,7 +105,7 @@ router.post('/deposit/stripe', requireRealMoneyEnabled, authMiddleware, async (r
  */
 router.post('/deposit/crypto', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const address = await cryptoWalletService.getDepositAddress();
 
     res.json({ address, network: 'polygon', token: 'USDC' });
@@ -161,7 +138,7 @@ router.post('/withdraw/stripe', requireRealMoneyEnabled, authMiddleware, async (
  */
 router.post('/withdraw/crypto', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const toAddress = req.body.toAddress || req.body.to_address;
     const amountCents = req.body.amountCents || req.body.amount_cents;
 
@@ -188,7 +165,7 @@ router.post('/withdraw/crypto', requireRealMoneyEnabled, authMiddleware, async (
  */
 router.get('/transactions', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const pageStr = Array.isArray(req.query.page) ? req.query.page[0] : req.query.page;
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
 
@@ -244,7 +221,7 @@ router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async 
  */
 router.post('/crypto-wallets', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const walletAddress = req.body.walletAddress || req.body.wallet_address;
 
     if (!walletAddress) {
@@ -266,7 +243,7 @@ router.post('/crypto-wallets', authMiddleware, async (req: AuthenticatedRequest,
  */
 router.get('/crypto-wallets', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = (req as any).user.id;
     const wallets = await cryptoWalletService.getLinkedWallets(userId);
 
     res.json({ wallets });
@@ -286,8 +263,8 @@ router.get('/crypto-wallets', authMiddleware, async (req: AuthenticatedRequest, 
  */
 router.post('/exchange-credentials', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.userId!;
-    const userDb = req.userClient!;
+    const userId = (req as any).user.id;
+    const userDb = (req as any).userClient;
     const { exchange, credentials } = req.body;
 
     if (!exchange || !credentials) {

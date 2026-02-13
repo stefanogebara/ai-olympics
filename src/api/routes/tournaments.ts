@@ -1,32 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { requireAuth } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { tournamentManager } from '../../orchestrator/tournament-manager.js';
 
 const log = createLogger('TournamentsAPI');
 
 const router = Router();
-
-// Middleware to verify JWT token from Supabase
-async function requireAuth(req: Request, res: Response, next: Function) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing authorization token' });
-  }
-
-  const token = authHeader.slice(7);
-
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    (req as any).user = user;
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
 
 // List tournaments
 router.get('/', async (req: Request, res: Response) => {
@@ -109,6 +89,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const {
       name,
       domain_id,
@@ -130,7 +111,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       ? task_ids
       : null;
 
-    const { data, error } = await supabase
+    const { data, error } = await userDb
       .from('aio_tournaments')
       .insert({
         name,
@@ -162,6 +143,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const { id } = req.params;
     const { agent_id } = req.body;
 
@@ -169,7 +151,7 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Agent ID is required' });
     }
 
-    // Verify tournament is open
+    // Verify tournament is open (public read)
     const { data: tournament } = await supabase
       .from('aio_tournaments')
       .select('*, participant_count:aio_tournament_participants(count)')
@@ -192,8 +174,8 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Tournament is full' });
     }
 
-    // Verify agent ownership
-    const { data: agent } = await supabase
+    // Verify agent ownership (user-scoped query enforces RLS)
+    const { data: agent } = await userDb
       .from('aio_agents')
       .select('id, owner_id, is_active, verification_status, last_verified_at')
       .eq('id', agent_id)
@@ -220,7 +202,7 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
     }
 
     // H3: Use atomic join function to prevent race condition on participant count
-    const { data: joinId, error } = await supabase
+    const { data: joinId, error } = await userDb
       .rpc('aio_join_tournament', {
         p_tournament_id: id,
         p_agent_id: agent_id,
@@ -237,7 +219,7 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
       throw error;
     }
 
-    // Fetch the created participant
+    // Fetch the created participant (public read of newly created record)
     const { data: participant } = await supabase
       .from('aio_tournament_participants')
       .select('*')
@@ -256,8 +238,10 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
 router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const { id } = req.params;
 
+    // Public read to check tournament status
     const { data: tournament } = await supabase
       .from('aio_tournaments')
       .select('status')
@@ -272,7 +256,7 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
       return res.status(400).json({ error: 'Cannot leave a tournament that has started' });
     }
 
-    const { error } = await supabase
+    const { error } = await userDb
       .from('aio_tournament_participants')
       .delete()
       .eq('tournament_id', id)
@@ -292,9 +276,11 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
 router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const { id } = req.params;
 
-    const { data: tournament } = await supabase
+    // Use user-scoped client to verify ownership
+    const { data: tournament } = await userDb
       .from('aio_tournaments')
       .select('*, participant_count:aio_tournament_participants(count)')
       .eq('id', id)
@@ -322,7 +308,7 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
 
     log.info('Tournament starting', { tournamentId: id, userId: user.id });
 
-    // Fire-and-forget
+    // Fire-and-forget (uses serviceClient internally for system operations)
     const tournamentId = String(id);
     tournamentManager.startTournament(tournamentId).catch(async (err) => {
       log.error('Tournament orchestrator failed', {

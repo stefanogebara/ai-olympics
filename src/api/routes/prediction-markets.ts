@@ -6,8 +6,9 @@
  * Supports ALL market categories: politics, sports, crypto, ai-tech, entertainment, finance
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { requireAuth } from '../middleware/auth.js';
 import { marketService, type UnifiedMarket, type MarketCategory, type CategoryInfo } from '../../services/market-service.js';
 import { virtualPortfolioManager } from '../../services/virtual-portfolio.js';
 import { createLogger } from '../../shared/utils/logger.js';
@@ -15,27 +16,8 @@ import { createLogger } from '../../shared/utils/logger.js';
 const router = Router();
 const log = createLogger('PredictionMarketsAPI');
 
-// Auth middleware for admin endpoints
-async function requireAuth(req: Request, res: Response, next: Function) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing authorization token' });
-  }
-  const token = authHeader.slice(7);
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    (req as any).user = user;
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
-
 // Auth middleware that accepts either Supabase user auth OR agent competition headers
-async function requireAuthOrAgent(req: Request, res: Response, next: Function) {
+async function requireAuthOrAgent(req: Request, res: Response, next: NextFunction) {
   // Check for agent auth headers first (X-Agent-Id + X-Competition-Id)
   const agentId = req.headers['x-agent-id'] as string;
   const competitionId = req.headers['x-competition-id'] as string;
@@ -44,7 +26,7 @@ async function requireAuthOrAgent(req: Request, res: Response, next: Function) {
     return next();
   }
 
-  // Fall back to Supabase Bearer token auth
+  // Fall back to Supabase Bearer token auth (attaches user + userClient)
   return requireAuth(req, res, next);
 }
 

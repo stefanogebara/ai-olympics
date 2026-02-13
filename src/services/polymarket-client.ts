@@ -5,6 +5,7 @@
  */
 
 import { createLogger } from '../shared/utils/logger.js';
+import { circuits } from '../shared/utils/circuit-breaker.js';
 
 const log = createLogger('PolymarketClient');
 const GAMMA_API = 'https://gamma-api.polymarket.com';
@@ -28,7 +29,7 @@ async function rateLimitedFetch(url: string, options?: RequestInit): Promise<Res
   }
 
   requestTimestamps.push(Date.now());
-  return fetch(url, options);
+  return circuits.polymarket.execute(() => fetch(url, options));
 }
 
 // ============================================================================

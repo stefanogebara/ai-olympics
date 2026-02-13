@@ -13,6 +13,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../shared/config.js';
 import { createLogger } from '../shared/utils/logger.js';
+import { circuits } from '../shared/utils/circuit-breaker.js';
 import type { AgentProvider } from '../shared/types/index.js';
 
 const log = createLogger('JudgingService');
@@ -195,7 +196,7 @@ class JudgingService {
    * Call a judge model via OpenRouter (supports all providers through one API).
    */
   private async callOpenRouterJudge(model: string, prompt: string): Promise<string> {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await circuits.openrouter.execute(() => fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.openRouterApiKey}`,
@@ -209,7 +210,7 @@ class JudgingService {
         max_tokens: 1024,
         temperature: 0.3, // Low temperature for consistent scoring
       }),
-    });
+    }));
 
     if (!response.ok) {
       const errorText = await response.text();

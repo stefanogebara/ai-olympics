@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { createLogger } from '../../shared/utils/logger.js';
 import { encrypt as encryptApiKey, decrypt as decryptApiKey } from '../../shared/utils/crypto.js';
 import { serviceClient as supabase, createUserClient, extractToken } from '../../shared/utils/supabase.js';
+import { requireAuth } from '../middleware/auth.js';
 import { verifyWebhookSignature } from '../../agents/adapters/webhook.js';
 import { getAllTasks, getTask } from '../../orchestrator/task-registry.js';
 import { BROWSER_TOOLS } from '../../agents/adapters/base.js';
@@ -73,27 +74,6 @@ function isPrivateUrl(urlStr: string): boolean {
 
 // Allowed sort columns for agent listing
 const ALLOWED_SORT_COLUMNS = ['elo_rating', 'name', 'created_at', 'total_wins', 'total_competitions'];
-
-// Middleware to verify JWT token from Supabase
-// Attaches user object and user-scoped Supabase client (respects RLS)
-async function requireAuth(req: Request, res: Response, next: Function) {
-  const token = extractToken(req.headers.authorization);
-  if (!token) {
-    return res.status(401).json({ error: 'Missing authorization token' });
-  }
-
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    (req as any).user = user;
-    (req as any).userClient = createUserClient(token);
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
 
 // List public agents
 router.get('/', async (req: Request, res: Response) => {
