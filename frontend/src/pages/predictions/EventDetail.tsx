@@ -17,7 +17,6 @@ import {
   AlertTriangle,
   Check,
 } from 'lucide-react';
-import { API_BASE } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 
 interface EventMarketDetail {
@@ -130,12 +129,33 @@ function BetPanel({ marketId, marketQuestion, outcome, probability, onClose, onS
 
   useEffect(() => {
     if (session?.access_token) {
-      fetch(`${API_BASE}/api/user/limits`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => data && setLimits(data))
-        .catch(() => {});
+      // Load user portfolio limits directly from Supabase
+      (async () => {
+        try {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (!authUser) return;
+          const { data: portfolio } = await supabase
+            .from('aio_user_portfolios')
+            .select('virtual_balance, total_bets')
+            .eq('user_id', authUser.id)
+            .maybeSingle();
+          const { count: openPositions } = await supabase
+            .from('aio_user_positions')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', authUser.id);
+          if (portfolio) {
+            setLimits({
+              balance: Number(portfolio.virtual_balance) || 10000,
+              maxBet: 1000,
+              minBet: 1,
+              dailyBetsUsed: 0,
+              dailyBetsMax: 100,
+              openPositions: openPositions || 0,
+              maxPositions: 50,
+            });
+          }
+        } catch {}
+      })();
     }
   }, [session]);
 
@@ -150,26 +170,67 @@ function BetPanel({ marketId, marketQuestion, outcome, probability, onClose, onS
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/user/bets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ marketId, outcome, amount: betAmount }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setError(data.error || 'Failed to place bet');
-      } else {
-        setSuccess(true);
-        setTimeout(() => {
-          onSuccess();
-          onClose();
-        }, 1500);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('Not authenticated');
+
+      // Get or create portfolio
+      let { data: portfolio } = await supabase
+        .from('aio_user_portfolios')
+        .select('id, virtual_balance')
+        .eq('user_id', authUser.id)
+        .maybeSingle();
+
+      if (!portfolio) {
+        const { data: newPortfolio, error: createErr } = await supabase
+          .from('aio_user_portfolios')
+          .insert({ user_id: authUser.id, virtual_balance: 10000, starting_balance: 10000 })
+          .select('id, virtual_balance')
+          .single();
+        if (createErr) throw createErr;
+        portfolio = newPortfolio;
       }
-    } catch {
-      setError('Network error, try again');
+
+      const balance = Number(portfolio.virtual_balance) || 0;
+      if (betAmount > balance) {
+        setError(`Insufficient balance (M$${balance.toFixed(0)})`);
+        setLoading(false);
+        return;
+      }
+
+      // Insert bet
+      const { error: betErr } = await supabase
+        .from('aio_user_bets')
+        .insert({
+          user_id: authUser.id,
+          portfolio_id: portfolio.id,
+          market_id: marketId,
+          market_source: 'polymarket',
+          market_question: marketId,
+          outcome,
+          amount: betAmount,
+          shares,
+          probability_at_bet: probability,
+          price_at_bet: probability,
+        });
+
+      if (betErr) throw betErr;
+
+      // Deduct from portfolio
+      await supabase
+        .from('aio_user_portfolios')
+        .update({
+          virtual_balance: balance - betAmount,
+          total_bets: (limits?.dailyBetsUsed || 0) + 1,
+        })
+        .eq('id', portfolio.id);
+
+      setSuccess(true);
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+      }, 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to place bet');
     } finally {
       setLoading(false);
     }

@@ -50,7 +50,7 @@ interface PortfolioStats {
   brierScore?: number;
 }
 
-import { API_BASE } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 export function PortfolioDashboard() {
   const { user, session } = useAuthStore();
@@ -73,91 +73,78 @@ export function PortfolioDashboard() {
   }, []);
 
   const loadPortfolio = async () => {
+    if (!user) { setLoading(false); return; }
     setLoading(true);
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-
-      // Load portfolio, stats, bets, and positions in parallel
-      const [portfolioRes, statsRes, betsRes, positionsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/user/portfolio`, { headers }),
-        fetch(`${API_BASE}/api/user/stats`, { headers }),
-        fetch(`${API_BASE}/api/user/bets?limit=10`, { headers }),
-        fetch(`${API_BASE}/api/user/positions`, { headers }),
+      // Load portfolio, bets, and positions in parallel via Supabase
+      const [portfolioRes, betsRes, positionsRes] = await Promise.all([
+        supabase
+          .from('aio_user_portfolios')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('aio_user_bets')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('aio_user_positions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false }),
       ]);
 
-      if (portfolioRes.ok) {
-        const portfolio = await portfolioRes.json();
-        // Backend returns snake_case fields from Supabase
-        setStats(prev => ({
-          ...prev,
-          cashBalance: portfolio.virtual_balance ?? portfolio.balance ?? prev.cashBalance,
-          totalValue: portfolio.virtual_balance ?? prev.totalValue,
-          totalPnl: portfolio.total_profit ?? prev.totalPnl,
-          totalPnlPercent: portfolio.starting_balance > 0
-            ? ((portfolio.total_profit ?? 0) / portfolio.starting_balance) * 100
+      if (portfolioRes.data) {
+        const p = portfolioRes.data;
+        const startBalance = Number(p.starting_balance) || 10000;
+        const profit = Number(p.total_profit) || 0;
+        const totalBets = Number(p.total_bets) || 0;
+        const winningBets = Number(p.winning_bets) || 0;
+        setStats({
+          cashBalance: Number(p.virtual_balance) || startBalance,
+          totalValue: Number(p.virtual_balance) || startBalance,
+          positionsValue: 0,
+          totalPnl: profit,
+          totalPnlPercent: startBalance > 0 ? (profit / startBalance) * 100 : 0,
+          totalBets,
+          winRate: totalBets > 0 ? (winningBets / totalBets) * 100 : 0,
+          brierScore: p.brier_score != null ? Number(p.brier_score) : 0,
+        });
+      }
+
+      if (positionsRes.data) {
+        setPositions(positionsRes.data.map((p: Record<string, unknown>) => ({
+          id: p.id as string,
+          marketId: p.market_id as string,
+          marketQuestion: p.market_question as string,
+          outcome: p.outcome as 'YES' | 'NO',
+          shares: Number(p.shares) || 0,
+          avgPrice: Number(p.average_cost) || 0,
+          currentPrice: Number(p.current_value) && Number(p.shares)
+            ? Number(p.current_value) / Number(p.shares)
+            : Number(p.average_cost) || 0,
+          value: Number(p.current_value) || Number(p.total_cost) || 0,
+          pnl: Number(p.unrealized_pnl) || 0,
+          pnlPercent: Number(p.total_cost) > 0
+            ? (Number(p.unrealized_pnl || 0) / Number(p.total_cost)) * 100
             : 0,
-        }));
-      }
-
-      if (statsRes.ok) {
-        const s = await statsRes.json();
-        // Service returns camelCase (already transformed)
-        setStats(prev => ({
-          ...prev,
-          totalPnl: s.totalProfit ?? prev.totalPnl,
-          totalPnlPercent: s.profitPercent ?? prev.totalPnlPercent,
-          totalBets: s.totalBets ?? prev.totalBets,
-          winRate: s.winRate ?? prev.winRate,
-          brierScore: s.brierScore ?? prev.brierScore,
-          totalValue: prev.cashBalance,
-        }));
-      }
-
-      if (positionsRes.ok) {
-        const posData = await positionsRes.json();
-        const rawPositions = posData.positions || [];
-        // Map snake_case fields to component interface
-        setPositions(rawPositions.map((p: {
-          id: string; market_id: string; market_question: string;
-          outcome: 'YES' | 'NO'; shares: number; average_cost: number;
-          current_value?: number; total_cost: number; unrealized_pnl?: number;
-        }) => ({
-          id: p.id,
-          marketId: p.market_id,
-          marketQuestion: p.market_question,
-          outcome: p.outcome,
-          shares: p.shares,
-          avgPrice: p.average_cost,
-          currentPrice: p.current_value ? p.current_value / p.shares : p.average_cost,
-          value: p.current_value || p.total_cost,
-          pnl: p.unrealized_pnl || 0,
-          pnlPercent: p.total_cost > 0 ? ((p.unrealized_pnl || 0) / p.total_cost) * 100 : 0,
         })));
       }
 
-      if (betsRes.ok) {
-        const betsData = await betsRes.json();
-        const rawBets = betsData.bets || [];
-        // Map snake_case fields to component interface
-        setRecentBets(rawBets.map((b: {
-          id: string; market_question: string; outcome: 'YES' | 'NO';
-          amount: number; probability_at_bet: number; resolved: boolean;
-          resolution?: string; created_at: string; payout?: number;
-        }) => ({
-          id: b.id,
-          marketQuestion: b.market_question,
-          outcome: b.outcome,
-          amount: b.amount,
-          odds: b.probability_at_bet,
-          status: b.resolved ? (b.resolution === 'win' ? 'won' : 'lost') : 'pending' as const,
-          createdAt: b.created_at,
-          payout: b.payout,
+      if (betsRes.data) {
+        setRecentBets(betsRes.data.map((b: Record<string, unknown>) => ({
+          id: b.id as string,
+          marketQuestion: b.market_question as string,
+          outcome: b.outcome as 'YES' | 'NO',
+          amount: Number(b.amount) || 0,
+          odds: Number(b.probability_at_bet) || 0.5,
+          status: b.resolved
+            ? (b.resolution === 'win' ? 'won' : 'lost')
+            : 'pending' as const,
+          createdAt: b.created_at as string,
+          payout: b.payout ? Number(b.payout) : undefined,
         })));
       }
     } catch (error) {

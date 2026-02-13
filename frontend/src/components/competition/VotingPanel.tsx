@@ -10,23 +10,34 @@ interface VotingPanelProps {
   agents: Array<{ id: string; name: string; color: string }>;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { supabase } from '../../lib/supabase';
 
 export function VotingPanel({ competitionId, agents }: VotingPanelProps) {
   const voteCounts = useStore((s) => s.voteCounts);
   const setVoteCounts = useStore((s) => s.setVoteCounts);
   const [animatingVote, setAnimatingVote] = useState<string | null>(null);
 
-  // Fetch initial vote counts
+  // Fetch initial vote counts from Supabase
   useEffect(() => {
-    fetch(`${API_BASE}/api/competitions/${competitionId}/votes`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && typeof data === 'object' && !data.error) {
-          setVoteCounts(data);
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('aio_spectator_votes')
+          .select('agent_id, vote_type')
+          .eq('competition_id', competitionId);
+
+        if (data) {
+          const counts: Record<string, { cheers: number; predict_win: number; mvp: number }> = {};
+          for (const row of data) {
+            if (!counts[row.agent_id]) counts[row.agent_id] = { cheers: 0, predict_win: 0, mvp: 0 };
+            if (row.vote_type === 'cheer') counts[row.agent_id].cheers++;
+            else if (row.vote_type === 'predict_win') counts[row.agent_id].predict_win++;
+            else if (row.vote_type === 'mvp') counts[row.agent_id].mvp++;
+          }
+          setVoteCounts(counts);
         }
-      })
-      .catch(() => {});
+      } catch {}
+    })();
   }, [competitionId, setVoteCounts]);
 
   const castVote = (agentId: string, voteType: 'cheer' | 'predict_win' | 'mvp') => {

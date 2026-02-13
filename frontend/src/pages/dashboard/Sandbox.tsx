@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import { supabase } from '../../lib/supabase';
-import { API_BASE } from '../../lib/api';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 import { Play, FlaskConical, Clock, ChevronDown, ChevronUp, CheckCircle2, XCircle, Copy, Check } from 'lucide-react';
 
 interface TaskInfo {

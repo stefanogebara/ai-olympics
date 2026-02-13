@@ -4,7 +4,7 @@ import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
 import { BracketViz } from '../../components/tournament/BracketViz';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
-import { API_BASE } from '../../lib/api';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 import {
   Swords,
   Users,
@@ -144,25 +144,20 @@ export function TournamentDetail() {
   };
 
   const joinTournament = async () => {
-    if (!session?.access_token || !selectedAgentId || !id) return;
+    if (!user || !selectedAgentId || !id) return;
     setJoining(true);
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/api/tournaments/${id}/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ agent_id: selectedAgentId }),
-      });
+      const { error: insertError } = await supabase
+        .from('aio_tournament_participants')
+        .insert({
+          tournament_id: id,
+          agent_id: selectedAgentId,
+          user_id: user.id,
+        });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to join');
-      }
-
+      if (insertError) throw new Error(insertError.message);
       await loadTournament();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join');
@@ -172,22 +167,17 @@ export function TournamentDetail() {
   };
 
   const leaveTournament = async () => {
-    if (!session?.access_token || !id) return;
+    if (!user || !id) return;
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/api/tournaments/${id}/leave`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const { error: deleteError } = await supabase
+        .from('aio_tournament_participants')
+        .delete()
+        .eq('tournament_id', id)
+        .eq('user_id', user.id);
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to leave');
-      }
-
+      if (deleteError) throw new Error(deleteError.message);
       await loadTournament();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to leave');
@@ -199,6 +189,12 @@ export function TournamentDetail() {
     setStarting(true);
     setError(null);
 
+    if (!API_BASE) {
+      setError('Tournament start requires the backend server. Please try again later.');
+      setStarting(false);
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/tournaments/${id}/start`, {
         method: 'POST',
@@ -208,11 +204,14 @@ export function TournamentDetail() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to start');
+        const contentType = res.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to start');
+        }
+        throw new Error('Backend server unavailable');
       }
 
-      // Reload to show running state
       setTimeout(() => loadTournament(), 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start');

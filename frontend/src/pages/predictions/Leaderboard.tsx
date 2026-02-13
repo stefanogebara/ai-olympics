@@ -16,7 +16,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
-import { API_BASE } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 interface LeaderboardEntry {
   portfolio_id: string;
@@ -54,11 +54,39 @@ export function PredictionLeaderboard() {
   const loadLeaderboard = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/user/leaderboard?limit=50`);
-      if (res.ok) {
-        const data = await res.json();
-        setEntries(data.leaderboard || []);
-      }
+      const { data, error } = await supabase
+        .from('aio_user_portfolios')
+        .select('*, profile:aio_profiles(username, avatar_url)')
+        .order('total_profit', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const leaderboard: LeaderboardEntry[] = (data || []).map((row: Record<string, unknown>) => {
+        const profile = row.profile as { username?: string; avatar_url?: string } | null;
+        const startBalance = Number(row.starting_balance) || 10000;
+        const profit = Number(row.total_profit) || 0;
+        const totalBets = Number(row.total_bets) || 0;
+        const winningBets = Number(row.winning_bets) || 0;
+        return {
+          portfolio_id: row.id as string,
+          user_id: row.user_id as string,
+          username: profile?.username || 'Anonymous',
+          avatar_url: profile?.avatar_url || undefined,
+          virtual_balance: Number(row.virtual_balance) || startBalance,
+          total_profit: profit,
+          profit_percent: startBalance > 0 ? (profit / startBalance) * 100 : 0,
+          total_bets: totalBets,
+          winning_bets: winningBets,
+          win_rate: totalBets > 0 ? (winningBets / totalBets) * 100 : 0,
+          brier_score: row.brier_score != null ? Number(row.brier_score) : undefined,
+          best_streak: Number(row.best_streak) || 0,
+          current_streak: Number(row.current_streak) || 0,
+          follower_count: 0,
+        };
+      });
+
+      setEntries(leaderboard);
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading leaderboard:', error);
     } finally {
@@ -67,35 +95,40 @@ export function PredictionLeaderboard() {
   };
 
   const loadFollowing = async () => {
-    if (!session?.access_token) return;
+    if (!user) return;
     try {
-      const res = await fetch(`${API_BASE}/api/user/following`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setFollowingSet(new Set(data.following || []));
+      const { data } = await supabase
+        .from('aio_followed_traders')
+        .select('followed_id')
+        .eq('follower_id', user.id);
+      if (data) {
+        setFollowingSet(new Set(data.map((row: { followed_id: string }) => row.followed_id)));
       }
     } catch {}
   };
 
   const toggleFollow = async (userId: string) => {
-    if (!session?.access_token) return;
+    if (!user) return;
     setFollowLoading(userId);
     const isFollowing = followingSet.has(userId);
     try {
-      const res = await fetch(`${API_BASE}/api/user/follow/${userId}`, {
-        method: isFollowing ? 'DELETE' : 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (res.ok) {
-        setFollowingSet(prev => {
-          const next = new Set(prev);
-          if (isFollowing) next.delete(userId);
-          else next.add(userId);
-          return next;
-        });
+      if (isFollowing) {
+        await supabase
+          .from('aio_followed_traders')
+          .delete()
+          .eq('follower_id', user.id)
+          .eq('followed_id', userId);
+      } else {
+        await supabase
+          .from('aio_followed_traders')
+          .insert({ follower_id: user.id, followed_id: userId });
       }
+      setFollowingSet(prev => {
+        const next = new Set(prev);
+        if (isFollowing) next.delete(userId);
+        else next.add(userId);
+        return next;
+      });
     } catch {} finally {
       setFollowLoading(null);
     }

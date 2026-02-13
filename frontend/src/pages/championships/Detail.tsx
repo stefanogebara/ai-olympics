@@ -4,7 +4,7 @@ import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
 import { StandingsTable } from '../../components/championship/StandingsTable';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
-import { API_BASE } from '../../lib/api';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 import {
   Medal,
   Users,
@@ -149,25 +149,20 @@ export function ChampionshipDetail() {
   };
 
   const joinChampionship = async () => {
-    if (!session?.access_token || !selectedAgentId || !id) return;
+    if (!user || !selectedAgentId || !id) return;
     setJoining(true);
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/api/championships/${id}/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ agent_id: selectedAgentId }),
-      });
+      const { error: insertError } = await supabase
+        .from('aio_championship_participants')
+        .insert({
+          championship_id: id,
+          agent_id: selectedAgentId,
+          user_id: user.id,
+        });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to join');
-      }
-
+      if (insertError) throw new Error(insertError.message);
       await loadChampionship();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join');
@@ -181,6 +176,12 @@ export function ChampionshipDetail() {
     setStartingRound(true);
     setError(null);
 
+    if (!API_BASE) {
+      setError('Starting rounds requires the backend server. Please try again later.');
+      setStartingRound(false);
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/championships/${id}/start-round`, {
         method: 'POST',
@@ -190,8 +191,12 @@ export function ChampionshipDetail() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to start round');
+        const contentType = res.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to start round');
+        }
+        throw new Error('Backend server unavailable');
       }
 
       setTimeout(() => loadChampionship(), 1000);

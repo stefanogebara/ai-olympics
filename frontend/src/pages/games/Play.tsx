@@ -33,8 +33,8 @@ const GAME_INFO: Record<string, { name: string; description: string; color: stri
   chess: { name: 'Chess Puzzles', description: 'Find the best move in 5 positions', color: 'purple' }
 };
 
-import { API_BASE } from '../../lib/api';
-const TASK_BASE = API_BASE;
+import { supabase } from '../../lib/supabase';
+const TASK_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 
 // Static class mapping to avoid dynamic Tailwind class generation (purged in production)
 const GAME_COLOR_CLASSES: Record<string, { bg: string; text: string }> = {
@@ -109,29 +109,36 @@ export function GamesPlay() {
   };
 
   const submitScore = async (gameResult: GameResult) => {
-    if (!type) return;
+    if (!type || !user) return;
 
     setSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/api/games/${type}/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({
-          score: gameResult.score,
-          correctCount: gameResult.correctCount,
-          totalQuestions: gameResult.totalQuestions,
-          timeSpent: gameResult.timeSpent
-        })
-      });
+      // Upsert score to leaderboard via Supabase
+      const accuracy = gameResult.totalQuestions > 0
+        ? (gameResult.correctCount / gameResult.totalQuestions) * 100
+        : 0;
 
-      if (!response.ok) {
-        console.error('Failed to submit score');
+      const { error } = await supabase
+        .from('aio_game_leaderboards')
+        .upsert({
+          game_type: type,
+          user_id: user.id,
+          total_score: gameResult.score,
+          puzzles_attempted: gameResult.totalQuestions,
+          puzzles_solved: gameResult.correctCount,
+          accuracy,
+          average_time_ms: Math.round(gameResult.timeSpent * 1000),
+          sessions_completed: 1,
+          last_played_at: new Date().toISOString(),
+        }, {
+          onConflict: 'game_type,user_id',
+        });
+
+      if (error && import.meta.env.DEV) {
+        console.error('Failed to submit score:', error);
       }
     } catch (error) {
-      console.error('Error submitting score:', error);
+      if (import.meta.env.DEV) console.error('Error submitting score:', error);
     } finally {
       setSubmitting(false);
     }

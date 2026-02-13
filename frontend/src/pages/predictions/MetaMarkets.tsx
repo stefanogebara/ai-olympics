@@ -49,7 +49,7 @@ const PROVIDER_COLORS = {
   gemini: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' }
 };
 
-import { API_BASE } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 function BetModal({ matchup, agentId, onClose, onSubmit }: BetModalProps) {
   const [amount, setAmount] = useState(100);
@@ -197,13 +197,41 @@ export function MetaMarkets() {
   const loadMatchups = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/predictions/meta-markets`);
-      if (response.ok) {
-        const data = await response.json();
-        setMatchups(data.matchups || data);
-      } else {
-        setMatchups([]);
-      }
+      const { data, error } = await supabase
+        .from('aio_meta_markets')
+        .select('*, competition:aio_competitions(id, name, status)')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped: AgentMatchup[] = (data || []).map((row: Record<string, unknown>) => {
+        const outcomes = (row.outcomes as Array<{ id: string; name: string; provider?: string }>) || [];
+        const currentOdds = (row.current_odds as Record<string, number>) || {};
+
+        return {
+          id: row.id as string,
+          title: (row.question as string) || '',
+          description: (row.description as string) || '',
+          taskType: (row.market_type as string) || 'winner',
+          agents: outcomes.map(o => ({
+            id: o.id,
+            name: o.name,
+            provider: (o.provider || 'claude') as 'claude' | 'gpt4' | 'gemini',
+            odds: currentOdds[o.id] ?? 1 / outcomes.length,
+            betsCount: 0,
+            totalBets: 0,
+          })),
+          status: row.status === 'open' ? 'upcoming' as const
+            : row.status === 'live' ? 'live' as const
+            : 'completed' as const,
+          startsAt: row.opens_at as string | undefined,
+          endsAt: row.resolves_at as string | undefined,
+          winner: row.resolved_outcome as string | undefined,
+          totalPool: Number(row.total_volume) || 0,
+        };
+      });
+
+      setMatchups(mapped);
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading matchups:', error);
       setMatchups([]);
@@ -213,26 +241,27 @@ export function MetaMarkets() {
   };
 
   const placeBet = async (amount: number) => {
-    if (!selectedBet || !isAuthenticated) return;
+    if (!selectedBet || !isAuthenticated || !user) return;
 
     try {
-      const response = await fetch(`${API_BASE}/api/user/bets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({
-          marketId: `meta-${selectedBet.matchup.id}`,
-          outcome: selectedBet.agentId,
-          amount
-        })
-      });
+      const agent = selectedBet.matchup.agents.find(a => a.id === selectedBet.agentId);
+      const odds = agent?.odds ?? 0.5;
 
-      if (response.ok) {
-        // Refresh matchups
-        loadMatchups();
-      }
+      const { error } = await supabase
+        .from('aio_meta_market_bets')
+        .insert({
+          market_id: selectedBet.matchup.id,
+          user_id: user.id,
+          outcome_id: selectedBet.agentId,
+          outcome_name: agent?.name || selectedBet.agentId,
+          amount,
+          odds_at_bet: odds,
+          potential_payout: amount / odds,
+          status: 'pending',
+        });
+
+      if (error) throw error;
+      loadMatchups();
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error placing bet:', error);
     }
