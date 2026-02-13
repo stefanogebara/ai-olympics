@@ -273,7 +273,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 ## Known Issues & Technical Debt
 
 ### Critical
-- [ ] Legal review needed for Polymarket/Kalshi ToS and gambling regulations
+(none remaining)
 
 ### Medium
 (none remaining)
@@ -306,6 +306,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Supabase types auto-generated (11,882-line database.generated.ts)
 - [x] BetModal focus trap + keyboard support (Tab cycling, Escape to close)
 - [x] Service layer RLS refactor (user-scoped Supabase client for all user-facing routes, AuthenticatedRequest type, optional client param on services)
+- [x] Legal compliance checklist for prediction markets (CFTC, AML/KYC, state gambling, international - docs/legal-compliance-checklist.md)
 - [x] Image lazy loading + service worker (static asset caching, Google Fonts)
 
 ---
