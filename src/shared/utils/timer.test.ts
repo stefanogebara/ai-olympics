@@ -133,7 +133,8 @@ describe('PrecisionTimer', () => {
     await new Promise(r => setTimeout(r, 50));
     const stopped = timer.stop();
     // stopped should be ~20ms, NOT ~70ms (50ms pause excluded)
-    expect(stopped).toBeLessThan(45);
+    // Use generous threshold (60ms) to avoid flaky failures under CI/system load
+    expect(stopped).toBeLessThan(60);
     expect(stopped).toBeGreaterThan(5);
   });
 

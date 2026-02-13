@@ -157,7 +157,7 @@ export function Signup() {
                 label="Confirm Password"
                 type="password"
                 {...register('confirmPassword')}
-                placeholder="••••••••"
+                placeholder="Re-enter your password"
                 icon={<Lock size={18} />}
               />
               {errors.confirmPassword && (

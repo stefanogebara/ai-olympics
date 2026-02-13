@@ -296,13 +296,14 @@ export function PredictionBrowse() {
             <Wallet size={16} />
             Portfolio
           </Link>
-          <NeonButton
+          <button
             onClick={() => loadEvents(0)}
-            icon={<RefreshCw size={18} className={loading ? 'animate-spin' : ''} />}
             disabled={loading}
+            className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors disabled:opacity-50"
+            aria-label="Refresh predictions"
           >
-            Refresh
-          </NeonButton>
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 
