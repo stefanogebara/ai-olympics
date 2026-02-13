@@ -24,7 +24,7 @@ if (process.env.SENTRY_DSN) {
 }
 import { eventBus } from '../shared/utils/events.js';
 import { createLogger } from '../shared/utils/logger.js';
-import { initRedis, getInterruptedCompetitions, closeRedis } from '../shared/utils/redis.js';
+import { initRedis, getInterruptedCompetitions, removeCompetitionSnapshot, closeRedis } from '../shared/utils/redis.js';
 import type { Competition, StreamEvent, Tournament } from '../shared/types/index.js';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
@@ -813,7 +813,28 @@ export function createAPIServer() {
       log.warn(`Found ${interrupted.length} interrupted competition(s) from previous session`, {
         competitions: interrupted.map(c => ({ id: c.competitionId, name: c.name, status: c.status })),
       });
-      // For now, log them. Future: resume or mark as cancelled in DB.
+
+      // Mark interrupted competitions as cancelled in DB and clean up Redis
+      for (const snapshot of interrupted) {
+        try {
+          const { error } = await wsSupabase
+            .from('aio_competitions')
+            .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .eq('id', snapshot.competitionId);
+
+          if (error) {
+            log.error(`Failed to cancel interrupted competition ${snapshot.competitionId}`, { error: error.message });
+          } else {
+            log.info(`Marked interrupted competition as cancelled: ${snapshot.competitionId} (${snapshot.name})`);
+          }
+
+          await removeCompetitionSnapshot(snapshot.competitionId);
+        } catch (err) {
+          log.error(`Error cleaning up interrupted competition ${snapshot.competitionId}`, {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
     }
 
     return new Promise((resolve) => {
