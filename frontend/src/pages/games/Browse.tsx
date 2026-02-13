@@ -96,7 +96,7 @@ const GAME_COLOR_CLASSES: Record<string, { bg: string; text: string }> = {
   purple: { bg: 'bg-purple-500/20', text: 'text-purple-500' },
 };
 
-import { API_BASE } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 export function GamesBrowse() {
   const [topScores, setTopScores] = useState<Record<string, number>>({});
@@ -108,17 +108,18 @@ export function GamesBrowse() {
 
   const loadTopScores = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/games/leaderboard`);
-      if (response.ok) {
-        const data = await response.json();
+      const { data } = await supabase
+        .from('aio_game_leaderboards')
+        .select('game_type, score')
+        .order('score', { ascending: false });
+
+      if (data) {
         const scores: Record<string, number> = {};
-        if (data.leaderboard) {
-          data.leaderboard.forEach((entry: { gameType: string; score: number }) => {
-            if (!scores[entry.gameType] || entry.score > scores[entry.gameType]) {
-              scores[entry.gameType] = entry.score;
-            }
-          });
-        }
+        data.forEach((entry: { game_type: string; score: number }) => {
+          if (!scores[entry.game_type] || entry.score > scores[entry.game_type]) {
+            scores[entry.game_type] = entry.score;
+          }
+        });
         setTopScores(scores);
       }
     } catch (error) {

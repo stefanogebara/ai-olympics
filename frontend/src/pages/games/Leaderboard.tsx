@@ -39,7 +39,7 @@ const GAME_TABS: { id: GameTab; name: string; icon: React.ReactNode }[] = [
   { id: 'chess', name: 'Chess', icon: <Crown size={16} /> }
 ];
 
-import { API_BASE } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 export function GamesLeaderboard() {
   const { user } = useAuthStore();
@@ -55,28 +55,36 @@ export function GamesLeaderboard() {
   const loadLeaderboard = async () => {
     setLoading(true);
     try {
-      const gameFilter = activeTab === 'all' ? '' : `?gameType=${activeTab}`;
-      const response = await fetch(`${API_BASE}/api/games/leaderboard${gameFilter}`);
+      let query = supabase
+        .from('aio_game_leaderboards')
+        .select('*, profile:aio_profiles(username)')
+        .order('score', { ascending: false })
+        .limit(100);
 
-      if (response.ok) {
-        const data = await response.json();
-        const leaderboard = data.leaderboard || data || [];
+      if (activeTab !== 'all') {
+        query = query.eq('game_type', activeTab);
+      }
 
-        // Add ranks
-        const rankedEntries = leaderboard.map((entry: LeaderboardEntry, index: number) => ({
-          ...entry,
-          rank: index + 1
-        }));
+      const { data, error } = await query;
+      if (error) throw error;
 
-        setEntries(rankedEntries);
+      const leaderboard = (data || []).map((row: Record<string, unknown>, index: number) => ({
+        rank: index + 1,
+        username: (row.profile as { username?: string })?.username || 'Anonymous',
+        userId: row.user_id as string,
+        score: row.score as number,
+        gameType: row.game_type as string,
+        accuracy: row.accuracy as number | undefined,
+        timeSpent: row.time_spent as number | undefined,
+        createdAt: row.created_at as string,
+      }));
 
-        // Find current user's rank
-        if (user) {
-          const userEntry = rankedEntries.find((e: LeaderboardEntry) => e.userId === user.id);
-          setUserRank(userEntry?.rank || null);
-        }
-      } else {
-        setEntries([]);
+      setEntries(leaderboard);
+
+      // Find current user's rank
+      if (user) {
+        const userEntry = leaderboard.find((e: LeaderboardEntry) => e.userId === user.id);
+        setUserRank(userEntry?.rank || null);
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading leaderboard:', error);

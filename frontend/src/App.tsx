@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { GridOverlay, Header, Footer } from './components/layout';
 import { useAuthStore } from './store/authStore';
@@ -135,6 +135,12 @@ export default function App() {
             <Route path="/docs" element={<DocsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
+
+            {/* Redirects for common URL mistakes */}
+            <Route path="/login" element={<Navigate to="/auth/login" replace />} />
+            <Route path="/signup" element={<Navigate to="/auth/signup" replace />} />
+            <Route path="/leaderboard" element={<Navigate to="/leaderboards" replace />} />
+            <Route path="/markets" element={<Navigate to="/predictions" replace />} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />

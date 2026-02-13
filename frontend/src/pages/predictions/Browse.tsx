@@ -11,14 +11,56 @@ import {
   Trophy,
   Wallet,
 } from 'lucide-react';
-import type { MarketCategory, MarketEvent, CategoryInfo, SearchMarketResult } from './types';
+import type { MarketCategory, MarketEvent, CategoryInfo } from './types';
 import { CATEGORY_CONFIG } from './types';
 import { getEventSlug } from './utils';
 import { EventCard } from './EventCard';
-import { API_BASE } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 const PAGE_SIZE = 24;
 const ALL_CATEGORIES: MarketCategory[] = ['all', 'politics', 'sports', 'crypto', 'ai-tech', 'entertainment', 'finance'];
+
+/** Transform a DB row from get_market_events RPC into a MarketEvent */
+function mapRpcToEvent(ev: Record<string, unknown>): MarketEvent {
+  const eventUrl = (ev.event_url as string) || '';
+  const slug = eventUrl
+    .replace(/.*\/event\//, '')
+    .replace(/.*\/markets\//, '')
+    .replace(/-\d+$/, '');
+  const eventTitle = slug
+    ? slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : '';
+
+  const rawMarkets = (ev.markets as Record<string, unknown>[]) || [];
+  const markets = rawMarkets.map((m) => {
+    const outcomes = (m.outcomes as { id: string; name: string; probability: number; price: number }[]) || [];
+    const yesOutcome = outcomes.find((o) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
+    const probability = yesOutcome ? yesOutcome.probability : outcomes[0]?.probability ?? 0.5;
+    return {
+      id: m.id as string,
+      question: m.question as string,
+      outcomes,
+      total_volume: Number(m.total_volume) || 0,
+      volume_24h: Number(m.volume_24h) || 0,
+      probability,
+    };
+  });
+  markets.sort((a, b) => b.probability - a.probability);
+
+  return {
+    eventUrl,
+    eventTitle,
+    source: (ev.source as string) || '',
+    category: (ev.category as string) || '',
+    image: (ev.image as string) || null,
+    totalVolume: Number(ev.total_volume) || 0,
+    volume24h: Number(ev.volume_24h) || 0,
+    liquidity: Number(ev.liquidity) || 0,
+    closeTime: ev.close_time ? Number(ev.close_time) : 0,
+    marketCount: Number(ev.market_count) || 1,
+    markets,
+  };
+}
 
 export function PredictionBrowse() {
   const navigate = useNavigate();
@@ -46,10 +88,31 @@ export function PredictionBrowse() {
 
   const loadCategories = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/predictions/categories`);
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data.categories || []);
+      const { data } = await supabase
+        .from('aio_markets')
+        .select('category')
+        .eq('status', 'open');
+
+      if (data) {
+        const counts: Record<string, number> = {};
+        let allCount = 0;
+        for (const row of data) {
+          const cat = row.category || 'other';
+          counts[cat] = (counts[cat] || 0) + 1;
+          allCount++;
+        }
+        const catInfos: CategoryInfo[] = [
+          { id: 'all', name: 'All Markets', count: allCount, icon: CATEGORY_CONFIG.all.icon },
+          ...Object.entries(counts)
+            .filter(([id]) => ALL_CATEGORIES.includes(id as MarketCategory))
+            .map(([id, count]) => ({
+              id: id as MarketCategory,
+              name: CATEGORY_CONFIG[id as MarketCategory]?.name || id,
+              count,
+              icon: CATEGORY_CONFIG[id as MarketCategory]?.icon,
+            })),
+        ];
+        setCategories(catInfos);
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading categories:', error);
@@ -63,12 +126,24 @@ export function PredictionBrowse() {
       setLoadingMore(true);
     }
     try {
-      const response = await fetch(
-        `${API_BASE}/api/predictions/events?limit=${PAGE_SIZE}&offset=${newOffset}&category=${category}&sort=${sortBy}`
-      );
-      if (!response.ok) throw new Error('Failed to fetch events');
-      const data = await response.json();
-      const newEvents = data.events || [];
+      const { data, error } = await supabase.rpc('get_market_events', {
+        p_category: category,
+        p_sort: sortBy,
+        p_limit: PAGE_SIZE,
+        p_offset: newOffset,
+        p_source: null,
+      });
+
+      if (error) throw error;
+
+      const newEvents = (data || []).map(mapRpcToEvent);
+
+      // Get total count
+      const { data: countData } = await supabase.rpc('get_market_events_count', {
+        p_category: category,
+        p_source: null,
+      });
+      const totalCount = typeof countData === 'number' ? countData : 0;
 
       if (newOffset === 0) {
         setEvents(newEvents);
@@ -76,8 +151,8 @@ export function PredictionBrowse() {
         setEvents(prev => [...prev, ...newEvents]);
       }
 
-      setTotal(data.total || newEvents.length);
-      setHasMore(data.hasMore || false);
+      setTotal(totalCount || newEvents.length);
+      setHasMore(newOffset + PAGE_SIZE < totalCount);
       setOffset(newOffset);
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading events:', error);
@@ -102,30 +177,35 @@ export function PredictionBrowse() {
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE}/api/predictions/search?q=${encodeURIComponent(searchQuery)}&limit=100`
-      );
-      if (!response.ok) throw new Error('Failed to search markets');
-      const data = await response.json();
-      // Convert search results (individual markets) into single-market events for display
-      const searchEvents: MarketEvent[] = (data.markets || []).map((m: SearchMarketResult) => ({
-        eventUrl: m.url,
+      const query = searchQuery.trim().toLowerCase();
+      const { data, error } = await supabase
+        .from('aio_markets')
+        .select('*')
+        .eq('status', 'open')
+        .ilike('question', `%${query}%`)
+        .order('total_volume', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      const searchEvents: MarketEvent[] = (data || []).map((m) => ({
+        eventUrl: m.url || '',
         eventTitle: m.question,
         source: m.source,
-        category: m.category,
+        category: m.category || 'other',
         image: m.image || null,
-        totalVolume: m.totalVolume || 0,
-        volume24h: m.volume24h || 0,
-        liquidity: m.liquidity || 0,
-        closeTime: m.closeTime || 0,
+        totalVolume: Number(m.total_volume) || 0,
+        volume24h: Number(m.volume_24h) || 0,
+        liquidity: Number(m.liquidity) || 0,
+        closeTime: m.close_time ? Number(m.close_time) : 0,
         marketCount: 1,
         markets: [{
           id: m.id,
           question: m.question,
           outcomes: m.outcomes || [],
-          total_volume: m.totalVolume || 0,
-          volume_24h: m.volume24h || 0,
-          probability: m.outcomes?.[0]?.probability || 0.5,
+          total_volume: Number(m.total_volume) || 0,
+          volume_24h: Number(m.volume_24h) || 0,
+          probability: (m.outcomes as { probability?: number }[])?.[0]?.probability || 0.5,
         }],
       }));
       setEvents(searchEvents);

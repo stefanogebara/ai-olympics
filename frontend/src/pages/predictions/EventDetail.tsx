@@ -18,6 +18,7 @@ import {
   Check,
 } from 'lucide-react';
 import { API_BASE } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 interface EventMarketDetail {
   id: string;
@@ -299,13 +300,54 @@ export function EventDetail() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/predictions/events/${encodeURIComponent(eventSlug)}`);
-      if (!response.ok) {
-        if (response.status === 404) throw new Error('Event not found');
-        throw new Error('Failed to load event');
-      }
-      const data = await response.json();
-      setEvent(data);
+      // Match markets by URL containing the slug
+      const { data: markets, error: dbError } = await supabase
+        .from('aio_markets')
+        .select('*')
+        .ilike('url', `%${eventSlug}%`)
+        .eq('status', 'open')
+        .order('total_volume', { ascending: false });
+
+      if (dbError) throw dbError;
+      if (!markets || markets.length === 0) throw new Error('Event not found');
+
+      // Group into an event object matching the expected shape
+      const first = markets[0];
+      const eventTitle = eventSlug
+        .split('-')
+        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+      const eventData = {
+        eventUrl: first.url || '',
+        eventTitle,
+        slug: eventSlug,
+        source: first.source,
+        category: first.category || 'other',
+        image: first.image || null,
+        totalVolume: markets.reduce((sum: number, m: Record<string, unknown>) => sum + (Number(m.total_volume) || 0), 0),
+        volume24h: markets.reduce((sum: number, m: Record<string, unknown>) => sum + (Number(m.volume_24h) || 0), 0),
+        liquidity: Math.max(...markets.map((m: Record<string, unknown>) => Number(m.liquidity) || 0)),
+        closeTime: first.close_time ? Number(first.close_time) : 0,
+        marketCount: markets.length,
+        markets: markets.map((m: Record<string, unknown>) => {
+          const outcomes = (m.outcomes as { id: string; name: string; probability: number; price: number }[]) || [];
+          const yesOutcome = outcomes.find((o) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
+          return {
+            id: m.id as string,
+            question: m.question as string,
+            description: (m.description as string) || '',
+            outcomes,
+            total_volume: Number(m.total_volume) || 0,
+            volume_24h: Number(m.volume_24h) || 0,
+            liquidity: Number(m.liquidity) || 0,
+            close_time: m.close_time ? Number(m.close_time) : 0,
+            probability: yesOutcome ? yesOutcome.probability : outcomes[0]?.probability ?? 0.5,
+          };
+        }),
+      };
+
+      setEvent(eventData);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load event');
     } finally {
