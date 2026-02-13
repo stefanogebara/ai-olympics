@@ -82,10 +82,10 @@ export function ChampionshipBrowse() {
 
       if (data) {
         setChampionships(
-          data.map((c: any) => ({
-            ...c,
+          data.map((c: Record<string, unknown>) => ({
+            ...(c as unknown as ChampionshipRow),
             participant_count: Array.isArray(c.participant_count)
-              ? c.participant_count[0]?.count || 0
+              ? (c.participant_count as Array<{ count: number }>)[0]?.count || 0
               : 0,
           }))
         );

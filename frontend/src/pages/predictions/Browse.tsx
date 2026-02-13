@@ -11,7 +11,7 @@ import {
   Trophy,
   Wallet,
 } from 'lucide-react';
-import type { MarketCategory, MarketEvent, CategoryInfo } from './types';
+import type { MarketCategory, MarketEvent, CategoryInfo, SearchMarketResult } from './types';
 import { CATEGORY_CONFIG } from './types';
 import { getEventSlug } from './utils';
 import { EventCard } from './EventCard';
@@ -108,7 +108,7 @@ export function PredictionBrowse() {
       if (!response.ok) throw new Error('Failed to search markets');
       const data = await response.json();
       // Convert search results (individual markets) into single-market events for display
-      const searchEvents: MarketEvent[] = (data.markets || []).map((m: any) => ({
+      const searchEvents: MarketEvent[] = (data.markets || []).map((m: SearchMarketResult) => ({
         eventUrl: m.url,
         eventTitle: m.question,
         source: m.source,
@@ -256,7 +256,7 @@ export function PredictionBrowse() {
             <Filter size={16} className="text-white/40" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as 'volume' | 'newest' | 'closing_soon')}
               className="bg-transparent text-white py-3 pr-2 focus:outline-none text-sm"
             >
               <option value="volume">By Volume</option>

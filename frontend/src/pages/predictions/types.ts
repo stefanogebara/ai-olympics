@@ -41,6 +41,20 @@ export interface MarketEvent {
   markets: EventMarket[];
 }
 
+export interface SearchMarketResult {
+  id: string;
+  url: string;
+  question: string;
+  source: string;
+  category: string;
+  image?: string | null;
+  totalVolume?: number;
+  volume24h?: number;
+  liquidity?: number;
+  closeTime?: number;
+  outcomes?: { id: string; name: string; probability: number; price: number }[];
+}
+
 export const CATEGORY_CONFIG: Record<MarketCategory, { name: string; icon: React.ReactNode; color: string }> = {
   'all': { name: 'All Markets', icon: createElement(Globe, { size: 16 }), color: 'cyan' },
   'politics': { name: 'Politics', icon: createElement(Landmark, { size: 16 }), color: 'red' },

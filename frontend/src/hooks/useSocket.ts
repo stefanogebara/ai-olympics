@@ -38,6 +38,15 @@ interface CommentaryEvent {
   priority: 'low' | 'medium' | 'high' | 'critical';
 }
 
+/**
+ * Loose record type for socket event payloads.
+ * Socket events cross a network boundary with no compile-time guarantees,
+ * so we use a permissive index signature and rely on runtime null-checks
+ * (which the code already performs) rather than pretending the shape is known.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SocketPayload = Record<string, any>;
+
 export function useSocket(competitionId?: string) {
   const {
     setCompetition,
@@ -80,7 +89,7 @@ export function useSocket(competitionId?: string) {
     // ---------------------------------------------------------------------------
 
     // Competition events
-    socket.on(SOCKET_EVENTS.COMPETITION_START, (event: any) => {
+    socket.on(SOCKET_EVENTS.COMPETITION_START, (event: SocketPayload) => {
       reset();
       const inner = event?.data ?? event;
       const competition = inner?.competition ?? inner;
@@ -110,7 +119,7 @@ export function useSocket(competitionId?: string) {
     });
 
     // Event events
-    socket.on(SOCKET_EVENTS.EVENT_START, (event: any) => {
+    socket.on(SOCKET_EVENTS.EVENT_START, (event: SocketPayload) => {
       const inner = event?.data ?? event;
       setCurrentEvent(inner?.task?.name || inner?.eventName || '');
     });
@@ -120,14 +129,14 @@ export function useSocket(competitionId?: string) {
     });
 
     // Agent events
-    socket.on(SOCKET_EVENTS.AGENT_STATE, (event: any) => {
+    socket.on(SOCKET_EVENTS.AGENT_STATE, (event: SocketPayload) => {
       const inner = event?.data ?? event;
       if (inner?.agentId) {
         updateAgent(inner.agentId, inner);
       }
     });
 
-    socket.on(SOCKET_EVENTS.AGENT_ACTION, (event: any) => {
+    socket.on(SOCKET_EVENTS.AGENT_ACTION, (event: SocketPayload) => {
       const inner = event?.data ?? event;
       if (inner?.agentId) {
         addAction(inner);
@@ -138,14 +147,14 @@ export function useSocket(competitionId?: string) {
       }
     });
 
-    socket.on(SOCKET_EVENTS.AGENT_PROGRESS, (event: any) => {
+    socket.on(SOCKET_EVENTS.AGENT_PROGRESS, (event: SocketPayload) => {
       const inner = event?.data ?? event;
       if (inner?.agentId) {
         updateAgent(inner.agentId, { progress: inner.progress });
       }
     });
 
-    socket.on(SOCKET_EVENTS.AGENT_COMPLETE, (event: any) => {
+    socket.on(SOCKET_EVENTS.AGENT_COMPLETE, (event: SocketPayload) => {
       const inner = event?.data ?? event;
       const agentId = inner?.agentId;
       if (agentId) {
@@ -157,7 +166,7 @@ export function useSocket(competitionId?: string) {
       }
     });
 
-    socket.on(SOCKET_EVENTS.AGENT_ERROR, (event: any) => {
+    socket.on(SOCKET_EVENTS.AGENT_ERROR, (event: SocketPayload) => {
       const inner = event?.data ?? event;
       if (inner?.agentId) {
         updateAgent(inner.agentId, {
@@ -168,13 +177,13 @@ export function useSocket(competitionId?: string) {
     });
 
     // Leaderboard
-    socket.on(SOCKET_EVENTS.LEADERBOARD_UPDATE, (event: any) => {
+    socket.on(SOCKET_EVENTS.LEADERBOARD_UPDATE, (event: SocketPayload) => {
       const entries = event?.data?.leaderboard ?? (Array.isArray(event) ? event : []);
       setLeaderboard(entries);
     });
 
     // Commentary
-    socket.on(SOCKET_EVENTS.COMMENTARY_UPDATE, (event: any) => {
+    socket.on(SOCKET_EVENTS.COMMENTARY_UPDATE, (event: SocketPayload) => {
       const inner = event?.data ?? event;
       addCommentary(inner);
     });
@@ -185,7 +194,7 @@ export function useSocket(competitionId?: string) {
     });
 
     // Spectator vote updates
-    socket.on(SOCKET_EVENTS.VOTE_UPDATE, (event: any) => {
+    socket.on(SOCKET_EVENTS.VOTE_UPDATE, (event: SocketPayload) => {
       const voteCounts = event?.voteCounts ?? event?.data?.voteCounts;
       if (voteCounts) {
         setVoteCounts(voteCounts);

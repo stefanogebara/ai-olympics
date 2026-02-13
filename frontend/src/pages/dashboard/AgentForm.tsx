@@ -256,8 +256,8 @@ export function AgentForm() {
       }
 
       navigate('/dashboard/agents');
-    } catch (err: any) {
-      setSubmitError(err.message || 'Failed to save agent');
+    } catch (err: unknown) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save agent');
     }
 
     setLoading(false);

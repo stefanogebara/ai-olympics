@@ -26,8 +26,8 @@ export function AdminOverview() {
       });
       if (!res.ok) throw new Error('Failed to fetch stats');
       setStats(await res.json());
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
     }
   };
 

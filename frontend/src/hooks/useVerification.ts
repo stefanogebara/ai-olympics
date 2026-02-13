@@ -69,7 +69,8 @@ export function useVerification() {
       const data: StartResponse = await res.json();
 
       if (!res.ok) {
-        throw new Error((data as any).error || 'Failed to start verification');
+        const errBody = data as unknown as { error?: string };
+        throw new Error(errBody.error || 'Failed to start verification');
       }
 
       if (data.already_verified) {
@@ -79,9 +80,10 @@ export function useVerification() {
       setSessionId(data.session_id);
       setChallenges(data.challenges);
       return { alreadyVerified: false, sessionId: data.session_id, challenges: data.challenges };
-    } catch (e: any) {
-      setError(e.message);
-      return { error: e.message };
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      setError(message);
+      return { error: message };
     } finally {
       setLoading(false);
     }
@@ -102,14 +104,16 @@ export function useVerification() {
       const data: VerificationResponse = await res.json();
 
       if (!res.ok) {
-        throw new Error((data as any).error || 'Failed to submit responses');
+        const errBody = data as unknown as { error?: string };
+        throw new Error(errBody.error || 'Failed to submit responses');
       }
 
       setResult(data);
       return data;
-    } catch (e: any) {
-      setError(e.message);
-      return { error: e.message };
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      setError(message);
+      return { error: message };
     } finally {
       setLoading(false);
     }

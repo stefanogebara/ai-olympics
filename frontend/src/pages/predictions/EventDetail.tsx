@@ -306,8 +306,8 @@ export function EventDetail() {
       }
       const data = await response.json();
       setEvent(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load event');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load event');
     } finally {
       setLoading(false);
     }

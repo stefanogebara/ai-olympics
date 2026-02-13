@@ -63,13 +63,21 @@ export function GlobalLeaderboard() {
 
           if (domainRatings) {
             const mapped: LeaderboardAgent[] = domainRatings
-              .filter((dr: any) => dr.agent?.is_active && dr.agent?.is_public)
-              .map((dr: any, i: number) => ({
-                ...dr.agent,
-                rank: i + 1,
-                rankChange: 0,
-                domain_elo: dr.elo_rating,
-              }));
+              .filter((dr) => {
+                // Supabase may return joined relations as arrays
+                const agent = Array.isArray(dr.agent) ? dr.agent[0] : dr.agent;
+                return agent?.is_active && agent?.is_public;
+              })
+              .map((dr, i: number) => {
+                const agent = Array.isArray(dr.agent) ? dr.agent[0] : dr.agent;
+                return {
+                  ...(agent as unknown as Agent),
+                  owner: null,
+                  rank: i + 1,
+                  rankChange: 0,
+                  domain_elo: dr.elo_rating,
+                };
+              });
             setAgents(mapped);
             setLoading(false);
             return;

@@ -123,7 +123,11 @@ export function PortfolioDashboard() {
         const posData = await positionsRes.json();
         const rawPositions = posData.positions || [];
         // Map snake_case fields to component interface
-        setPositions(rawPositions.map((p: any) => ({
+        setPositions(rawPositions.map((p: {
+          id: string; market_id: string; market_question: string;
+          outcome: 'YES' | 'NO'; shares: number; average_cost: number;
+          current_value?: number; total_cost: number; unrealized_pnl?: number;
+        }) => ({
           id: p.id,
           marketId: p.market_id,
           marketQuestion: p.market_question,
@@ -141,13 +145,17 @@ export function PortfolioDashboard() {
         const betsData = await betsRes.json();
         const rawBets = betsData.bets || [];
         // Map snake_case fields to component interface
-        setRecentBets(rawBets.map((b: any) => ({
+        setRecentBets(rawBets.map((b: {
+          id: string; market_question: string; outcome: 'YES' | 'NO';
+          amount: number; probability_at_bet: number; resolved: boolean;
+          resolution?: string; created_at: string; payout?: number;
+        }) => ({
           id: b.id,
           marketQuestion: b.market_question,
           outcome: b.outcome,
           amount: b.amount,
           odds: b.probability_at_bet,
-          status: b.resolved ? (b.resolution === 'win' ? 'won' : 'lost') : 'pending',
+          status: b.resolved ? (b.resolution === 'win' ? 'won' : 'lost') : 'pending' as const,
           createdAt: b.created_at,
           payout: b.payout,
         })));

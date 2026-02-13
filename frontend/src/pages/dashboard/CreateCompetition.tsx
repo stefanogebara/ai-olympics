@@ -96,8 +96,8 @@ export function CreateCompetition() {
       if (insertError) throw insertError;
 
       navigate(`/competitions/${result.id}`);
-    } catch (err: any) {
-      setSubmitError(err.message || 'Failed to create competition');
+    } catch (err: unknown) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create competition');
     }
 
     setLoading(false);

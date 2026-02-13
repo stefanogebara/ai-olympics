@@ -71,8 +71,12 @@ export function DashboardOverview() {
 
       if (competitionsData) {
         const competitions = competitionsData
-          .map((cp: any) => cp.competition)
-          .filter((c: any): c is Competition => c !== null);
+          .map((cp) => {
+            // Supabase may return joined relations as arrays or objects
+            const comp = Array.isArray(cp.competition) ? cp.competition[0] : cp.competition;
+            return comp as Competition | null;
+          })
+          .filter((c): c is Competition => c !== null);
         setRecentCompetitions(competitions);
       }
     } catch (error) {

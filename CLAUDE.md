@@ -276,11 +276,8 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [ ] Service role key used for all backend DB ops (bypasses RLS) - needs user-scoped client
 - [ ] Legal review needed for Polymarket/Kalshi ToS and gambling regulations
 
-### High
-- [ ] In-memory event bus (no persistence, no crash recovery)
-
 ### Medium
-- [ ] 36 `any` type usages across 16 frontend files (incremental replacement)
+(none remaining)
 
 ### Resolved
 - [x] Admin dashboard and moderation tools (admin routes + UserManagement, AgentModeration, CompetitionManagement)
@@ -301,6 +298,8 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Google Fonts properly imported in index.html (Orbitron, Inter, JetBrains Mono)
 - [x] AI judging bias mitigated (JUDGE_MAP cross-provider judging)
 - [x] API keys encrypted server-side with AES-256-GCM (routed through backend API)
+- [x] In-memory event bus crash recovery (Redis snapshots, auto-cancel interrupted competitions)
+- [x] `any` types reduced from 36 to 3 (1 consolidated socket type, 2 in code examples)
 - [x] Prediction Browse page refactored (split into EventCard, types, utils)
 - [x] Predictions type filter removed (outcomeType not applicable to unified events)
 - [x] Persona sanitization hardened (Unicode NFKC + homoglyph defense, 26 injection patterns, 254 tests)

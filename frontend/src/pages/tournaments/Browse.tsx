@@ -84,10 +84,10 @@ export function TournamentBrowse() {
 
       if (data) {
         setTournaments(
-          data.map((t: any) => ({
-            ...t,
+          data.map((t: Record<string, unknown>) => ({
+            ...(t as unknown as TournamentRow),
             participant_count: Array.isArray(t.participant_count)
-              ? t.participant_count[0]?.count || 0
+              ? (t.participant_count as Array<{ count: number }>)[0]?.count || 0
               : 0,
           }))
         );

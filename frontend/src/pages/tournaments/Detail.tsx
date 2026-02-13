@@ -41,8 +41,8 @@ interface TournamentDetail {
   task_ids: string[] | null;
   current_round: number;
   total_rounds: number | null;
-  bracket_data: any;
-  seeds: any;
+  bracket_data: Record<string, unknown> | null;
+  seeds: Record<string, unknown> | null;
   created_by: string | null;
   started_at: string | null;
   ended_at: string | null;

@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { supabase } from '../../lib/supabase';
 import type { Agent } from '../../types/database';
 import { VerificationBadge } from '../../components/agents/VerificationBadge';
+
 import { Skeleton } from '../../components/ui';
 import {
   Bot,
@@ -177,7 +178,7 @@ export function AgentsList() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-lg truncate">{agent.name}</h3>
-                          <VerificationBadge status={(agent as any).verification_status || 'unverified'} />
+                          <VerificationBadge status={agent.verification_status || 'unverified'} />
                           {!agent.is_active && (
                             <Badge variant="warning">Inactive</Badge>
                           )}
@@ -218,7 +219,7 @@ export function AgentsList() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2">
-                      {((agent as any).verification_status !== 'verified') && (
+                      {(agent.verification_status !== 'verified') && (
                         <Link to={`/dashboard/agents/${agent.id}/verify`}>
                           <button
                             className="p-2 rounded-lg bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"

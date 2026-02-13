@@ -84,7 +84,11 @@ export function GamesPlay() {
     };
   }, []);
 
-  const handleGameComplete = async (data: any) => {
+  const handleGameComplete = async (data: {
+    score?: number; correctCount?: number; totalQuestions?: number;
+    totalPuzzles?: number; totalProblems?: number; completionTime?: number;
+    answers?: Array<{ correct: boolean; points?: number }>;
+  }) => {
     if (gameState === 'finished') return;
 
     const gameResult: GameResult = {
@@ -179,7 +183,7 @@ export function GamesPlay() {
         </Link>
         <div>
           <h1 className="text-2xl font-display font-bold">
-            <NeonText variant={gameInfo.color as any} glow>{gameInfo.name}</NeonText>
+            <NeonText variant={(['cyan', 'magenta', 'green'] as const).includes(gameInfo.color as 'cyan') ? gameInfo.color as 'cyan' | 'magenta' | 'green' : 'cyan'} glow>{gameInfo.name}</NeonText>
           </h1>
           <p className="text-white/60 text-sm">{gameInfo.description}</p>
         </div>
