@@ -145,6 +145,11 @@ export function GamesPlay() {
   };
 
   const startGame = () => {
+    if (!TASK_BASE) {
+      setError('Games require the backend server to serve game content. The server is not currently connected.');
+      return;
+    }
+
     setGameState('playing');
     setResult(null);
     setError(null);
@@ -231,6 +236,13 @@ export function GamesPlay() {
               <div className="flex items-center justify-center gap-2 text-yellow-400 text-sm mb-6">
                 <AlertCircle size={16} />
                 <span>Sign in to save your score to the leaderboard</span>
+              </div>
+            )}
+
+            {error && (
+              <div className="flex items-center justify-center gap-2 text-red-400 text-sm mb-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 

@@ -3,6 +3,8 @@ import { GlassCard, NeonButton, Badge, Skeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import { Check, X, Globe, Key, ExternalLink } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
+
 interface AgentRow {
   id: string;
   name: string;
@@ -41,10 +43,11 @@ export function AgentModeration() {
   }, [page, statusFilter]);
 
   const fetchAgents = async () => {
+    if (!API_BASE) { setLoading(false); return; }
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: '25', status: statusFilter });
-      const res = await fetch(`/api/admin/agents?${params}`, {
+      const res = await fetch(`${API_BASE}/api/admin/agents?${params}`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       const data = await res.json();
@@ -57,7 +60,8 @@ export function AgentModeration() {
   };
 
   const reviewAgent = async (id: string, approved: boolean) => {
-    await fetch(`/api/admin/agents/${id}/review`, {
+    if (!API_BASE) return;
+    await fetch(`${API_BASE}/api/admin/agents/${id}/review`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

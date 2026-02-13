@@ -3,6 +3,8 @@ import { GlassCard, NeonButton, Badge, Skeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import { XCircle } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
+
 interface CompetitionRow {
   id: string;
   name: string;
@@ -31,12 +33,13 @@ export function CompetitionManagement() {
   }, [page, statusFilter]);
 
   const fetchCompetitions = async () => {
+    if (!API_BASE) { setLoading(false); return; }
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: '25' });
       if (statusFilter !== 'all') params.set('status', statusFilter);
 
-      const res = await fetch(`/api/admin/competitions?${params}`, {
+      const res = await fetch(`${API_BASE}/api/admin/competitions?${params}`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       const data = await res.json();
@@ -49,7 +52,8 @@ export function CompetitionManagement() {
   };
 
   const cancelCompetition = async (id: string) => {
-    await fetch(`/api/admin/competitions/${id}`, {
+    if (!API_BASE) return;
+    await fetch(`${API_BASE}/api/admin/competitions/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

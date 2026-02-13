@@ -3,6 +3,8 @@ import { GlassCard, NeonButton, Input, Badge, Skeleton } from '../../components/
 import { useAuthStore } from '../../store/authStore';
 import { Search, Shield, ShieldOff, Check } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
+
 interface UserRow {
   id: string;
   username: string;
@@ -28,13 +30,18 @@ export function UserManagement() {
   }, [page, search]);
 
   const fetchUsers = async () => {
+    if (!API_BASE) {
+      setError('Admin dashboard requires the backend API server.');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
       const params = new URLSearchParams({ page: String(page), limit: '25' });
       if (search) params.set('search', search);
 
-      const res = await fetch(`/api/admin/users?${params}`, {
+      const res = await fetch(`${API_BASE}/api/admin/users?${params}`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -42,15 +49,16 @@ export function UserManagement() {
       setUsers(data.users || []);
       setTotal(data.total || 0);
     } catch (err) {
-      console.error('Failed to fetch users:', err);
+      if (import.meta.env.DEV) console.error('Failed to fetch users:', err);
       setError('Failed to load users. Check that the API is running.');
     }
     setLoading(false);
   };
 
   const updateUser = async (id: string, updates: Record<string, boolean>) => {
+    if (!API_BASE) return;
     try {
-      const res = await fetch(`/api/admin/users/${id}`, {
+      const res = await fetch(`${API_BASE}/api/admin/users/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

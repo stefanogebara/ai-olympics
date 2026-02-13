@@ -3,7 +3,7 @@ import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import { supabase } from '../../lib/supabase';
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
-import { Play, FlaskConical, Clock, ChevronDown, ChevronUp, CheckCircle2, XCircle, Copy, Check } from 'lucide-react';
+import { Play, FlaskConical, Clock, ChevronDown, ChevronUp, CheckCircle2, XCircle, Copy, Check, AlertTriangle } from 'lucide-react';
 
 interface TaskInfo {
   id: string;
@@ -63,34 +63,39 @@ export function Sandbox() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load user's agents and available tasks in parallel
-      const [agentsRes, tasksRes] = await Promise.all([
-        profile?.id
-          ? supabase
-              .from('aio_agents')
-              .select('id, name, agent_type, provider, model, webhook_url, color')
-              .eq('owner_id', profile.id)
-              .eq('is_active', true)
-          : Promise.resolve({ data: [], error: null }),
-        fetch(`${API_BASE}/api/agents/sandbox/tasks`),
-      ]);
+      // Load user's agents from Supabase
+      if (profile?.id) {
+        const { data } = await supabase
+          .from('aio_agents')
+          .select('id, name, agent_type, provider, model, webhook_url, color')
+          .eq('owner_id', profile.id)
+          .eq('is_active', true);
 
-      if (agentsRes.data) {
-        setAgents(agentsRes.data);
-        if (agentsRes.data.length > 0 && !selectedAgent) {
-          setSelectedAgent(agentsRes.data[0].id);
+        if (data) {
+          setAgents(data);
+          if (data.length > 0 && !selectedAgent) {
+            setSelectedAgent(data[0].id);
+          }
         }
       }
 
-      if (tasksRes.ok) {
-        const taskData = await tasksRes.json();
-        setTasks(taskData);
-        if (taskData.length > 0 && !selectedTask) {
-          setSelectedTask(taskData[0].id);
+      // Load tasks from backend API (requires server)
+      if (API_BASE) {
+        try {
+          const tasksRes = await fetch(`${API_BASE}/api/agents/sandbox/tasks`);
+          if (tasksRes.ok) {
+            const taskData = await tasksRes.json();
+            setTasks(taskData);
+            if (taskData.length > 0 && !selectedTask) {
+              setSelectedTask(taskData[0].id);
+            }
+          }
+        } catch {
+          // Backend unavailable - tasks won't load
         }
       }
     } catch (err) {
-      console.error('Failed to load sandbox data', err);
+      if (import.meta.env.DEV) console.error('Failed to load sandbox data', err);
     } finally {
       setLoading(false);
     }
@@ -98,6 +103,17 @@ export function Sandbox() {
 
   const runTest = async () => {
     if (!selectedAgent || !selectedTask || !session?.access_token) return;
+
+    if (!API_BASE) {
+      setResult({
+        success: false,
+        agentType: 'unknown',
+        task: { id: selectedTask, name: '' },
+        requestPayload: {},
+        error: 'Sandbox testing requires the backend server. The API server is not currently connected.',
+      });
+      return;
+    }
 
     setTesting(true);
     setResult(null);
@@ -164,6 +180,21 @@ export function Sandbox() {
         </div>
         <FlaskConical className="text-neon-cyan" size={32} />
       </div>
+
+      {!API_BASE && (
+        <GlassCard className="p-4 border-yellow-500/30">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={20} className="text-yellow-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-yellow-300 font-medium text-sm">Backend Server Required</p>
+              <p className="text-white/60 text-sm mt-1">
+                The sandbox requires the backend API server to load tasks and execute agent tests.
+                Your agents are shown below, but testing is unavailable until the server is connected.
+              </p>
+            </div>
+          </div>
+        </GlassCard>
+      )}
 
       {agents.length === 0 ? (
         <GlassCard className="p-8 text-center">

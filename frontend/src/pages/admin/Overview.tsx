@@ -3,6 +3,8 @@ import { GlassCard, NeonText, Skeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import { Users, Bot, Trophy, AlertCircle } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
+
 interface AdminStats {
   totalUsers: number;
   totalAgents: number;
@@ -20,8 +22,12 @@ export function AdminOverview() {
   }, []);
 
   const fetchStats = async () => {
+    if (!API_BASE) {
+      setError('Admin dashboard requires the backend API server.');
+      return;
+    }
     try {
-      const res = await fetch('/api/admin/stats', {
+      const res = await fetch(`${API_BASE}/api/admin/stats`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (!res.ok) throw new Error('Failed to fetch stats');

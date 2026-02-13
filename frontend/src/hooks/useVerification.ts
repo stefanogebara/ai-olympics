@@ -55,6 +55,12 @@ export function useVerification() {
     setError(null);
     setResult(null);
 
+    if (!API_BASE) {
+      setError('Verification requires the backend server.');
+      setLoading(false);
+      return { error: 'Verification requires the backend server.' };
+    }
+
     try {
       const headers = await getAuthHeaders();
       const body: Record<string, string> = { agent_id: agentId };
@@ -92,6 +98,12 @@ export function useVerification() {
   const submitResponses = useCallback(async (sid: string, answers: Record<string, unknown>) => {
     setLoading(true);
     setError(null);
+
+    if (!API_BASE) {
+      setError('Verification requires the backend server.');
+      setLoading(false);
+      return { error: 'Verification requires the backend server.' };
+    }
 
     try {
       const headers = await getAuthHeaders();

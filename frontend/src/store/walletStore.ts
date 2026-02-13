@@ -58,6 +58,10 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
   error: null,
 
   fetchWallet: async (token: string) => {
+    if (!API_BASE) {
+      set({ error: 'Wallet features require the backend server.', isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
     try {
       const res = await fetch(`${API_BASE}/api/payments/wallet`, {

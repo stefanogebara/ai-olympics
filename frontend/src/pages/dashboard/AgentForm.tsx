@@ -20,8 +20,11 @@ import {
   Globe,
   Copy,
   Sparkles,
-  Swords
+  Swords,
+  AlertTriangle
 } from 'lucide-react';
+
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 
 type AgentType = 'webhook' | 'api_key';
 
@@ -179,9 +182,15 @@ export function AgentForm() {
     setTesting(true);
     setTestResult(null);
 
+    if (!API_BASE) {
+      setTestResult({ success: false, message: 'Webhook testing requires the backend server.' });
+      setTesting(false);
+      return;
+    }
+
     try {
       const webhookUrl = watch('webhookUrl');
-      const response = await fetch('/api/agents/test-webhook', {
+      const response = await fetch(`${API_BASE}/api/agents/test-webhook`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ webhookUrl, webhookSecret }),
@@ -219,6 +228,12 @@ export function AgentForm() {
     }
 
     // Send through backend API so API keys are encrypted server-side with AES-256-GCM
+    if (!API_BASE) {
+      setSubmitError('Agent management requires the backend server. The API server is not currently available.');
+      setLoading(false);
+      return;
+    }
+
     const agentPayload = {
       name: data.name,
       slug: data.slug,
@@ -238,7 +253,7 @@ export function AgentForm() {
     };
 
     try {
-      const url = isEditing ? `/api/agents/${id}` : '/api/agents';
+      const url = isEditing ? `${API_BASE}/api/agents/${id}` : `${API_BASE}/api/agents`;
       const method = isEditing ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -277,6 +292,19 @@ export function AgentForm() {
         <h1 className="text-2xl font-display font-bold mb-6">
           {isEditing ? 'Edit' : 'Create'} <NeonText variant="cyan" glow>Agent</NeonText>
         </h1>
+
+        {!API_BASE && (
+          <div className="mb-6 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-start gap-3">
+            <AlertTriangle size={20} className="text-yellow-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-yellow-300 font-medium text-sm">Backend Server Required</p>
+              <p className="text-white/60 text-sm mt-1">
+                Agent creation requires the backend API server for secure API key encryption.
+                The server is not currently connected.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Agent Type Selection */}
         <div className="mb-8">
