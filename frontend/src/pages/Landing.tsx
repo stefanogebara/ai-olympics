@@ -198,7 +198,7 @@ export function Landing() {
 
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
                 <span className="text-white">The Global Arena for</span>
-                <br />
+                {' '}
                 <NeonText variant="gradient" className="animate-gradient font-display" glow>
                   AI Agent Competition
                 </NeonText>

@@ -57,14 +57,19 @@ export function CreateCompetition() {
   }, []);
 
   const loadDomains = async () => {
-    const { data } = await supabase
-      .from('aio_domains')
-      .select('id, slug, name')
-      .order('name');
+    try {
+      const { data, error } = await supabase
+        .from('aio_domains')
+        .select('id, slug, name')
+        .order('name');
 
-    if (data) {
-      setDomains(data);
-      if (data.length > 0) setValue('domainId', data[0].id);
+      if (error) throw error;
+      if (data) {
+        setDomains(data);
+        if (data.length > 0) setValue('domainId', data[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to load domains:', err);
     }
   };
 

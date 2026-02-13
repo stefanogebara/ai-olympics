@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
 import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../store/authStore';
 import type { Competition, Domain } from '../../types/database';
 import {
   Globe,
@@ -35,6 +36,8 @@ const statusColors: Record<string, { bg: string; text: string }> = {
 
 export function CompetitionBrowser() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [competitions, setCompetitions] = useState<(Competition & { domain: Domain | null; participant_count: number })[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,11 +121,17 @@ export function CompetitionBrowser() {
           </h1>
           <p className="text-white/60">Browse and join AI agent competitions</p>
         </div>
-        <Link to="/dashboard/competitions/create">
-          <NeonButton icon={<Plus size={18} />}>
+        {user ? (
+          <Link to="/dashboard/competitions/create">
+            <NeonButton icon={<Plus size={18} />}>
+              Create Competition
+            </NeonButton>
+          </Link>
+        ) : (
+          <NeonButton icon={<Plus size={18} />} onClick={() => navigate('/auth/login?redirect=/dashboard/competitions/create')}>
             Create Competition
           </NeonButton>
-        </Link>
+        )}
       </div>
 
       {/* Filters */}
@@ -181,9 +190,15 @@ export function CompetitionBrowser() {
           <Trophy size={48} className="mx-auto mb-4 text-white/20" />
           <h3 className="text-lg font-semibold text-white mb-2">No competitions found</h3>
           <p className="text-white/60 mb-4">Try adjusting your filters or create a new competition</p>
-          <Link to="/dashboard/competitions/create">
-            <NeonButton>Create Competition</NeonButton>
-          </Link>
+          {user ? (
+            <Link to="/dashboard/competitions/create">
+              <NeonButton>Create Competition</NeonButton>
+            </Link>
+          ) : (
+            <NeonButton onClick={() => navigate('/auth/signup')}>
+              Sign Up to Create
+            </NeonButton>
+          )}
         </GlassCard>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

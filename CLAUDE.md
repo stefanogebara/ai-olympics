@@ -276,32 +276,39 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [ ] Service role key used for all backend DB ops (bypasses RLS) - needs user-scoped client
 - [ ] Agent persona sanitization is regex-based (trivially bypassable)
 - [ ] Encryption keys in plain env vars (should use KMS)
-- [ ] No admin dashboard or moderation tools
 - [ ] Legal review needed for Polymarket/Kalshi ToS and gambling regulations
 
 ### High
 - [ ] In-memory event bus (no persistence, no crash recovery)
 - [ ] No CI/CD pipeline (manual deployments)
-- [ ] <5% test coverage
-- [ ] No error boundaries in React frontend
-- [ ] Socket.IO auth is optional (falls back to anonymous)
-- [ ] No circuit breakers for external API failures
+- [ ] AI judging bias: Claude judges Claude competitions
 
 ### Medium
 - [ ] Supabase types not auto-generated (some `any` usage)
-- [ ] No form validation library (should use React Hook Form + Zod)
-- [ ] No code splitting / lazy loading for large pages
-- [ ] No accessibility (ARIA labels, keyboard navigation)
-- [ ] No SEO (meta tags, OpenGraph, sitemap)
-- [ ] No monitoring/APM (Sentry, DataDog)
-- [ ] AI judging bias: Claude judges Claude competitions
+- [ ] BetModal lacks focus trap / keyboard support (accessibility)
+- [ ] Predictions type filter broken (outcomeType not on UnifiedMarket)
+- [ ] API keys stored client-side via Supabase (should encrypt server-side)
 
 ### Low
-- [ ] Static pages (Docs, Privacy, Terms) inline in App.tsx
 - [ ] Prediction Browse page is 600+ lines (should split)
-- [ ] No pre-commit hooks (Husky + lint-staged)
 - [ ] Google Fonts (Orbitron, Inter, JetBrains Mono) not properly imported
 - [ ] No image optimization or service worker
+
+### Resolved
+- [x] Admin dashboard and moderation tools (admin routes + UserManagement, AgentModeration, CompetitionManagement)
+- [x] Test coverage: 241 unit tests across 13 test files (was <5%)
+- [x] Error boundaries in React frontend (ErrorBoundary wraps router, Sentry integration)
+- [x] Socket.IO auth (JWT-based, falls back gracefully)
+- [x] Circuit breakers for external API failures (circuit-breaker.ts)
+- [x] Crash recovery (cancel interrupted competitions on restart)
+- [x] Form validation (React Hook Form + Zod on auth, settings, agent forms)
+- [x] Code splitting / lazy loading (25+ lazy-loaded routes)
+- [x] ARIA labels and keyboard nav (header, footer, live regions)
+- [x] SEO meta tags and OpenGraph (react-helmet-async)
+- [x] Sentry monitoring/APM
+- [x] Pre-commit hooks (Husky + lint-staged, TypeScript check)
+- [x] Static pages: Docs (6-tab API docs), Privacy Policy, Terms of Service
+- [x] UX audit fixes: 30+ of 40 issues resolved
 
 ---
 
@@ -327,6 +334,13 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Platform fee system (10% default on competition prize pools)
 - [x] Settings, My Competitions, Create Competition dashboard pages
 - [x] Updated model lists (Claude Opus 4.6, GPT-4.1, Gemini 2.5, Llama 4, DeepSeek R1)
+- [x] Admin dashboard (user management, agent moderation, competition management)
+- [x] Agent detail page with ELO history, competition history, popularity stats
+- [x] Full API documentation page (6 tabs: quickstart, webhook, API key, competitions, examples, API reference)
+- [x] Auth guards on CTA buttons (redirects unauthenticated users to login)
+- [x] Error boundaries + Sentry integration
+- [x] 241 unit tests (agent runner, adapters, competition controller, services)
+- [x] E2E test suite (15 Playwright spec files)
 
 ---
 

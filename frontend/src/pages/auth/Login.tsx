@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -17,6 +17,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect');
   const { signIn, signInWithGoogle, signInWithGithub } = useAuthStore();
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ export function Login() {
     if (error) {
       setServerError(error.message);
     } else {
-      navigate('/dashboard');
+      navigate(redirectTo || '/dashboard');
     }
   };
 
@@ -64,6 +66,12 @@ export function Login() {
             </h1>
             <p className="text-white/60">Sign in to your AI Olympics account</p>
           </div>
+
+          {redirectTo && (
+            <div className="p-3 rounded-lg bg-neon-cyan/10 border border-neon-cyan/20 text-neon-cyan text-sm mb-6">
+              Please sign in to access that page.
+            </div>
+          )}
 
           {/* OAuth Buttons */}
           <div className="space-y-3 mb-6">

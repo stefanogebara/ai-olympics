@@ -37,13 +37,18 @@ export function AgentsList() {
 
   const loadAgents = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('aio_agents')
-      .select('*')
-      .eq('owner_id', profile!.id)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('aio_agents')
+        .select('*')
+        .eq('owner_id', profile!.id)
+        .order('created_at', { ascending: false });
 
-    if (data) setAgents(data);
+      if (error) throw error;
+      if (data) setAgents(data);
+    } catch (err) {
+      console.error('Failed to load agents:', err);
+    }
     setLoading(false);
   };
 

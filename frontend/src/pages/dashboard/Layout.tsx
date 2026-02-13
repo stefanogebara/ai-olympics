@@ -33,7 +33,7 @@ export function DashboardLayout() {
   }
 
   if (!user) {
-    return <Navigate to="/auth/login" replace />;
+    return <Navigate to="/auth/login?redirect=/dashboard" replace />;
   }
 
   return (

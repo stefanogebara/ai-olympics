@@ -21,6 +21,7 @@ export function UserManagement() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -28,6 +29,7 @@ export function UserManagement() {
 
   const fetchUsers = async () => {
     setLoading(true);
+    setError('');
     try {
       const params = new URLSearchParams({ page: String(page), limit: '25' });
       if (search) params.set('search', search);
@@ -35,25 +37,33 @@ export function UserManagement() {
       const res = await fetch(`/api/admin/users?${params}`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setUsers(data.users || []);
       setTotal(data.total || 0);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+      setError('Failed to load users. Check that the API is running.');
     }
     setLoading(false);
   };
 
   const updateUser = async (id: string, updates: Record<string, boolean>) => {
-    await fetch(`/api/admin/users/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify(updates),
-    });
-    fetchUsers();
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      setError('Failed to update user.');
+    }
   };
 
   const totalPages = Math.ceil(total / 25);
@@ -64,6 +74,12 @@ export function UserManagement() {
         <h2 className="text-xl font-display font-bold">User Management</h2>
         <span className="text-sm text-white/40">{total} users</span>
       </div>
+
+      {error && (
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
 
       <Input
         placeholder="Search by username or display name..."

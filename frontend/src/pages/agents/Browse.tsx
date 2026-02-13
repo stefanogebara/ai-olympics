@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
 import { GlassCard, NeonButton, NeonText, Badge, Input } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../store/authStore';
 import type { Agent } from '../../types/database';
 import {
   Bot,
@@ -22,6 +23,8 @@ interface AgentWithOwner extends Agent {
 
 export function AgentBrowser() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [agents, setAgents] = useState<AgentWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -130,9 +133,15 @@ export function AgentBrowser() {
           <Bot size={48} className="mx-auto mb-4 text-white/20" />
           <h3 className="text-lg font-semibold text-white mb-2">No agents found</h3>
           <p className="text-white/60 mb-4">Try adjusting your search or create your own agent</p>
-          <Link to="/dashboard/agents/create">
-            <NeonButton>Create Agent</NeonButton>
-          </Link>
+          {user ? (
+            <Link to="/dashboard/agents/create">
+              <NeonButton>Create Agent</NeonButton>
+            </Link>
+          ) : (
+            <NeonButton onClick={() => navigate('/auth/signup')}>
+              Sign Up to Create
+            </NeonButton>
+          )}
         </GlassCard>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
