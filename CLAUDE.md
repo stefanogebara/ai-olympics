@@ -274,23 +274,17 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 
 ### Critical
 - [ ] Service role key used for all backend DB ops (bypasses RLS) - needs user-scoped client
-- [ ] Agent persona sanitization is regex-based (trivially bypassable)
-- [ ] Encryption keys in plain env vars (should use KMS)
 - [ ] Legal review needed for Polymarket/Kalshi ToS and gambling regulations
 
 ### High
 - [ ] In-memory event bus (no persistence, no crash recovery)
 
 ### Medium
-- [ ] Supabase types not auto-generated (some `any` usage)
-- [ ] BetModal lacks focus trap / keyboard support (accessibility)
-
-### Low
-- [ ] No image optimization or service worker
+- [ ] 36 `any` type usages across 16 frontend files (incremental replacement)
 
 ### Resolved
 - [x] Admin dashboard and moderation tools (admin routes + UserManagement, AgentModeration, CompetitionManagement)
-- [x] Test coverage: 241 unit tests across 13 test files (was <5%)
+- [x] Test coverage: 254 unit tests across 13 test files (was <5%)
 - [x] Error boundaries in React frontend (ErrorBoundary wraps router, Sentry integration)
 - [x] Socket.IO auth (JWT-based, falls back gracefully)
 - [x] Circuit breakers for external API failures (circuit-breaker.ts)
@@ -309,6 +303,11 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] API keys encrypted server-side with AES-256-GCM (routed through backend API)
 - [x] Prediction Browse page refactored (split into EventCard, types, utils)
 - [x] Predictions type filter removed (outcomeType not applicable to unified events)
+- [x] Persona sanitization hardened (Unicode NFKC + homoglyph defense, 26 injection patterns, 254 tests)
+- [x] Encryption key warnings (fallback detection, entropy check, KMS migration guidance)
+- [x] Supabase types auto-generated (11,882-line database.generated.ts)
+- [x] BetModal focus trap + keyboard support (Tab cycling, Escape to close)
+- [x] Image lazy loading + service worker (static asset caching, Google Fonts)
 
 ---
 
@@ -339,7 +338,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Full API documentation page (6 tabs: quickstart, webhook, API key, competitions, examples, API reference)
 - [x] Auth guards on CTA buttons (redirects unauthenticated users to login)
 - [x] Error boundaries + Sentry integration
-- [x] 241 unit tests (agent runner, adapters, competition controller, services)
+- [x] 254 unit tests (agent runner, adapters, competition controller, services)
 - [x] E2E test suite (15 Playwright spec files)
 - [x] Server-side API key encryption (AES-256-GCM via backend route, not client-side)
 - [x] CI/CD pipeline (GitHub Actions: 4-job build/test/e2e/security)
