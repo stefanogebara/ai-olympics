@@ -273,7 +273,6 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 ## Known Issues & Technical Debt
 
 ### Critical
-- [ ] Service role key used for all backend DB ops (bypasses RLS) - needs user-scoped client
 - [ ] Legal review needed for Polymarket/Kalshi ToS and gambling regulations
 
 ### Medium
@@ -306,6 +305,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Encryption key warnings (fallback detection, entropy check, KMS migration guidance)
 - [x] Supabase types auto-generated (11,882-line database.generated.ts)
 - [x] BetModal focus trap + keyboard support (Tab cycling, Escape to close)
+- [x] Service layer RLS refactor (user-scoped Supabase client for all user-facing routes, AuthenticatedRequest type, optional client param on services)
 - [x] Image lazy loading + service worker (static asset caching, Google Fonts)
 
 ---

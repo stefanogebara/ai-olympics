@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient } from '../../shared/utils/supabase.js';
-import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { requireAuth, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -125,7 +125,7 @@ router.post('/agents/:id/review', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { approved, note } = req.body;
-    const adminUser = (req as any).user;
+    const adminUser = (req as AuthenticatedRequest).user;
 
     if (typeof approved !== 'boolean') {
       return res.status(400).json({ error: 'approved field (boolean) is required' });

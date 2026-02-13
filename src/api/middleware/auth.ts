@@ -1,5 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
+import type { User } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { serviceClient, createUserClient, extractToken } from '../../shared/utils/supabase.js';
+
+/**
+ * Express request with authenticated user and user-scoped Supabase client.
+ * Use this instead of `(req as any).user` / `(req as any).userClient`.
+ */
+export interface AuthenticatedRequest extends Request {
+  user: User;
+  userClient: SupabaseClient;
+}
 
 /**
  * Middleware to verify JWT token from Supabase.
@@ -16,8 +27,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     if (error || !user) {
       return res.status(401).json({ error: 'Invalid token' });
     }
-    (req as any).user = user;
-    (req as any).userClient = createUserClient(token);
+    (req as AuthenticatedRequest).user = user;
+    (req as AuthenticatedRequest).userClient = createUserClient(token);
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid token' });
@@ -29,7 +40,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
  * Must be used AFTER requireAuth.
  */
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  const user = (req as any).user;
+  const user = (req as AuthenticatedRequest).user;
   if (!user) {
     return res.status(401).json({ error: 'Not authenticated' });
   }

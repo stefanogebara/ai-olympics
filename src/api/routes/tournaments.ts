@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { tournamentManager } from '../../orchestrator/tournament-manager.js';
 
@@ -88,8 +88,8 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create tournament (requires auth)
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const {
       name,
       domain_id,
@@ -142,8 +142,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 // Join tournament (requires auth)
 router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
     const { agent_id } = req.body;
 
@@ -237,8 +237,8 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
 // Leave tournament (requires auth)
 router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
 
     // Public read to check tournament status
@@ -275,8 +275,8 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
 // Start tournament (creator only)
 router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
 
     // Use user-scoped client to verify ownership

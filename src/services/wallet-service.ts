@@ -3,6 +3,7 @@
  * Core orchestrator for all money operations: deposits, withdrawals, bet locking, settlement.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { serviceClient } from '../shared/utils/supabase.js';
 import { createLogger } from '../shared/utils/logger.js';
 
@@ -35,9 +36,19 @@ interface Transaction {
 }
 
 class WalletService {
-  async getOrCreateWallet(userId: string): Promise<Wallet> {
+  /**
+   * Returns user-scoped client if provided, otherwise service client.
+   * User-scoped clients respect RLS for defense-in-depth.
+   * Financial write operations (deposit, withdraw, settle) always use serviceClient.
+   */
+  private db(client?: SupabaseClient): SupabaseClient {
+    return client || serviceClient;
+  }
+
+  async getOrCreateWallet(userId: string, client?: SupabaseClient): Promise<Wallet> {
     try {
-      const { data: existing, error: fetchError } = await serviceClient
+      const db = this.db(client);
+      const { data: existing, error: fetchError } = await db
         .from('aio_wallets')
         .select('*')
         .eq('user_id', userId)
@@ -53,6 +64,7 @@ class WalletService {
 
       log.info('Creating new wallet', { userId });
 
+      // Wallet creation uses serviceClient (no INSERT RLS policy for wallets)
       const { data: wallet, error: insertError } = await serviceClient
         .from('aio_wallets')
         .insert({ user_id: userId, balance_cents: 0, pending_cents: 0 })
@@ -70,9 +82,9 @@ class WalletService {
     }
   }
 
-  async getBalance(userId: string): Promise<WalletBalance> {
+  async getBalance(userId: string, client?: SupabaseClient): Promise<WalletBalance> {
     try {
-      const wallet = await this.getOrCreateWallet(userId);
+      const wallet = await this.getOrCreateWallet(userId, client);
       return {
         balance_cents: wallet.balance_cents,
         pending_cents: wallet.pending_cents,
@@ -189,13 +201,14 @@ class WalletService {
   async getTransactionHistory(
     userId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
+    client?: SupabaseClient
   ): Promise<{ transactions: Transaction[]; total: number }> {
     try {
-      const wallet = await this.getOrCreateWallet(userId);
+      const wallet = await this.getOrCreateWallet(userId, client);
       const offset = (page - 1) * limit;
 
-      const { data, error, count } = await serviceClient
+      const { data, error, count } = await this.db(client)
         .from('aio_transactions')
         .select('*', { count: 'exact' })
         .eq('wallet_id', wallet.id)

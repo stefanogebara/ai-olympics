@@ -5,21 +5,12 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { requireAuth as authMiddleware } from '../middleware/auth.js';
+import { requireAuth as authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
 import { userPortfolioService } from '../../services/user-portfolio-service.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const router = Router();
 const log = createLogger('UserPredictionsAPI');
-
-// ============================================================================
-// AUTH: Uses shared requireAuth middleware (imported as authMiddleware)
-// The middleware attaches (req as any).user and (req as any).userClient
-// ============================================================================
-
-interface AuthenticatedRequest extends Request {
-  userId?: string;
-}
 
 // ============================================================================
 // PORTFOLIO ENDPOINTS
@@ -29,10 +20,10 @@ interface AuthenticatedRequest extends Request {
  * GET /api/user/portfolio
  * Get the authenticated user's portfolio
  */
-router.get('/portfolio', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/portfolio', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const portfolio = await userPortfolioService.getOrCreatePortfolio(userId);
+    const { user, userClient } = req as AuthenticatedRequest;
+    const portfolio = await userPortfolioService.getOrCreatePortfolio(user.id, userClient);
 
     if (!portfolio) {
       return res.status(500).json({ error: 'Failed to get portfolio' });
@@ -49,10 +40,10 @@ router.get('/portfolio', authMiddleware, async (req: AuthenticatedRequest, res: 
  * GET /api/user/stats
  * Get the authenticated user's trading stats
  */
-router.get('/stats', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const stats = await userPortfolioService.getStats(userId);
+    const { user, userClient } = req as AuthenticatedRequest;
+    const stats = await userPortfolioService.getStats(user.id, userClient);
 
     if (!stats) {
       return res.status(500).json({ error: 'Failed to get stats' });
@@ -73,10 +64,10 @@ router.get('/stats', authMiddleware, async (req: AuthenticatedRequest, res: Resp
  * GET /api/user/limits
  * Get the authenticated user's betting limits and usage
  */
-router.get('/limits', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/limits', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const limits = await userPortfolioService.getLimits(userId);
+    const { user, userClient } = req as AuthenticatedRequest;
+    const limits = await userPortfolioService.getLimits(user.id, userClient);
 
     if (!limits) {
       return res.status(500).json({ error: 'Failed to get limits' });
@@ -97,9 +88,9 @@ router.get('/limits', authMiddleware, async (req: AuthenticatedRequest, res: Res
  * POST /api/user/bets
  * Place a bet
  */
-router.post('/bets', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/bets', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user, userClient } = req as AuthenticatedRequest;
     const { marketId, outcome, amount } = req.body;
 
     // Validate required fields
@@ -119,14 +110,14 @@ router.post('/bets', authMiddleware, async (req: AuthenticatedRequest, res: Resp
       });
     }
 
-    // Place the bet
-    const result = await userPortfolioService.placeBet(userId, marketId, outcome, betAmount);
+    // Place the bet (user-scoped client enforces RLS)
+    const result = await userPortfolioService.placeBet(user.id, marketId, outcome, betAmount, userClient);
 
     if (!result.success) {
       return res.status(400).json(result);
     }
 
-    log.info(`User ${userId} placed bet: M$${betAmount} on ${outcome} for market ${marketId}`);
+    log.info(`User ${user.id} placed bet: M$${betAmount} on ${outcome} for market ${marketId}`);
 
     res.json(result);
   } catch (error) {
@@ -139,16 +130,16 @@ router.post('/bets', authMiddleware, async (req: AuthenticatedRequest, res: Resp
  * GET /api/user/bets
  * Get user's bet history
  */
-router.get('/bets', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/bets', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user, userClient } = req as AuthenticatedRequest;
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
     const offsetStr = Array.isArray(req.query.offset) ? req.query.offset[0] : req.query.offset;
 
     const limit = Math.min(parseInt(limitStr as string) || 50, 100);
     const offset = parseInt(offsetStr as string) || 0;
 
-    const bets = await userPortfolioService.getBets(userId, limit, offset);
+    const bets = await userPortfolioService.getBets(user.id, limit, offset, userClient);
 
     res.json({
       bets,
@@ -170,10 +161,10 @@ router.get('/bets', authMiddleware, async (req: AuthenticatedRequest, res: Respo
  * GET /api/user/positions
  * Get user's open positions
  */
-router.get('/positions', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/positions', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const positions = await userPortfolioService.getPositions(userId);
+    const { user, userClient } = req as AuthenticatedRequest;
+    const positions = await userPortfolioService.getPositions(user.id, userClient);
 
     res.json({
       positions,
@@ -223,16 +214,16 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
  * POST /api/user/follow/:userId
  * Follow a trader
  */
-router.post('/follow/:followedId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/follow/:followedId', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user, userClient } = req as AuthenticatedRequest;
     const followedId = String(req.params.followedId);
 
-    if (userId === followedId) {
+    if (user.id === followedId) {
       return res.status(400).json({ error: 'Cannot follow yourself' });
     }
 
-    const success = await userPortfolioService.followTrader(userId, followedId);
+    const success = await userPortfolioService.followTrader(user.id, followedId, userClient);
 
     if (!success) {
       return res.status(500).json({ error: 'Failed to follow trader' });
@@ -249,12 +240,12 @@ router.post('/follow/:followedId', authMiddleware, async (req: AuthenticatedRequ
  * DELETE /api/user/follow/:userId
  * Unfollow a trader
  */
-router.delete('/follow/:followedId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/follow/:followedId', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user, userClient } = req as AuthenticatedRequest;
     const followedId = String(req.params.followedId);
 
-    const success = await userPortfolioService.unfollowTrader(userId, followedId);
+    const success = await userPortfolioService.unfollowTrader(user.id, followedId, userClient);
 
     if (!success) {
       return res.status(500).json({ error: 'Failed to unfollow trader' });
@@ -271,10 +262,10 @@ router.delete('/follow/:followedId', authMiddleware, async (req: AuthenticatedRe
  * GET /api/user/following
  * Get list of traders user is following
  */
-router.get('/following', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/following', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const following = await userPortfolioService.getFollowing(userId);
+    const { user, userClient } = req as AuthenticatedRequest;
+    const following = await userPortfolioService.getFollowing(user.id, userClient);
 
     res.json({
       following,
@@ -290,10 +281,10 @@ router.get('/following', authMiddleware, async (req: AuthenticatedRequest, res: 
  * GET /api/user/followers
  * Get list of user's followers
  */
-router.get('/followers', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/followers', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const followers = await userPortfolioService.getFollowers(userId);
+    const { user, userClient } = req as AuthenticatedRequest;
+    const followers = await userPortfolioService.getFollowers(user.id, userClient);
 
     res.json({
       followers,
@@ -309,12 +300,12 @@ router.get('/followers', authMiddleware, async (req: AuthenticatedRequest, res: 
  * GET /api/user/is-following/:userId
  * Check if user is following another
  */
-router.get('/is-following/:checkId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/is-following/:checkId', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user, userClient } = req as AuthenticatedRequest;
     const checkId = String(req.params.checkId);
 
-    const isFollowing = await userPortfolioService.isFollowing(userId, checkId);
+    const isFollowing = await userPortfolioService.isFollowing(user.id, checkId, userClient);
 
     res.json({ isFollowing });
   } catch (error) {
@@ -327,13 +318,13 @@ router.get('/is-following/:checkId', authMiddleware, async (req: AuthenticatedRe
  * GET /api/user/feed
  * Get trades from followed traders
  */
-router.get('/feed', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/feed', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user, userClient } = req as AuthenticatedRequest;
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
     const limit = Math.min(parseInt(limitStr as string) || 20, 50);
 
-    const feed = await userPortfolioService.getFollowedTradesFeed(userId, limit);
+    const feed = await userPortfolioService.getFollowedTradesFeed(user.id, limit, userClient);
 
     res.json({
       trades: feed,

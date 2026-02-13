@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import express from 'express';
-import { requireAuth as authMiddleware } from '../middleware/auth.js';
+import { requireAuth as authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
 import { walletService } from '../../services/wallet-service.js';
 import { stripeService } from '../../services/stripe-service.js';
 import { cryptoWalletService } from '../../services/crypto-wallet-service.js';
@@ -28,15 +28,6 @@ function requireRealMoneyEnabled(_req: Request, res: Response, next: Function) {
 }
 
 // ============================================================================
-// AUTH: Uses shared requireAuth middleware (imported as authMiddleware)
-// The middleware attaches (req as any).user and (req as any).userClient
-// ============================================================================
-
-interface AuthenticatedRequest extends Request {
-  userId?: string;
-}
-
-// ============================================================================
 // WALLET ENDPOINTS
 // ============================================================================
 
@@ -44,10 +35,10 @@ interface AuthenticatedRequest extends Request {
  * GET /api/payments/wallet
  * Get wallet balance
  */
-router.get('/wallet', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/wallet', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const wallet = await walletService.getBalance(userId);
+    const { user, userClient } = req as AuthenticatedRequest;
+    const wallet = await walletService.getBalance(user.id, userClient);
 
     res.json({ wallet });
   } catch (error) {
@@ -60,10 +51,10 @@ router.get('/wallet', authMiddleware, async (req: AuthenticatedRequest, res: Res
  * POST /api/payments/wallet
  * Create wallet
  */
-router.post('/wallet', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/wallet', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const wallet = await walletService.getOrCreateWallet(userId);
+    const { user, userClient } = req as AuthenticatedRequest;
+    const wallet = await walletService.getOrCreateWallet(user.id, userClient);
 
     res.json({ wallet });
   } catch (error) {
@@ -80,9 +71,9 @@ router.post('/wallet', authMiddleware, async (req: AuthenticatedRequest, res: Re
  * POST /api/payments/deposit/stripe
  * Create Stripe checkout session for deposit
  */
-router.post('/deposit/stripe', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/deposit/stripe', requireRealMoneyEnabled, authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user } = req as AuthenticatedRequest;
     const amountCents = req.body.amountCents || req.body.amount_cents;
     const email = req.body.email;
 
@@ -90,7 +81,7 @@ router.post('/deposit/stripe', requireRealMoneyEnabled, authMiddleware, async (r
       return res.status(400).json({ error: 'Missing required fields: amountCents, email' });
     }
 
-    const session = await stripeService.createCheckoutSession(userId, email, amountCents);
+    const session = await stripeService.createCheckoutSession(user.id, email, amountCents);
 
     res.json({ url: session.url });
   } catch (error) {
@@ -103,9 +94,8 @@ router.post('/deposit/stripe', requireRealMoneyEnabled, authMiddleware, async (r
  * POST /api/payments/deposit/crypto
  * Get crypto deposit address
  */
-router.post('/deposit/crypto', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/deposit/crypto', requireRealMoneyEnabled, authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
     const address = await cryptoWalletService.getDepositAddress();
 
     res.json({ address, network: 'polygon', token: 'USDC' });
@@ -123,7 +113,7 @@ router.post('/deposit/crypto', requireRealMoneyEnabled, authMiddleware, async (r
  * POST /api/payments/withdraw/stripe
  * Stripe Connect withdrawal (placeholder)
  */
-router.post('/withdraw/stripe', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/withdraw/stripe', requireRealMoneyEnabled, authMiddleware, async (req: Request, res: Response) => {
   try {
     res.json({ message: 'Stripe Connect withdrawal coming soon' });
   } catch (error) {
@@ -136,9 +126,9 @@ router.post('/withdraw/stripe', requireRealMoneyEnabled, authMiddleware, async (
  * POST /api/payments/withdraw/crypto
  * Execute crypto withdrawal
  */
-router.post('/withdraw/crypto', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/withdraw/crypto', requireRealMoneyEnabled, authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user } = req as AuthenticatedRequest;
     const toAddress = req.body.toAddress || req.body.to_address;
     const amountCents = req.body.amountCents || req.body.amount_cents;
 
@@ -146,7 +136,7 @@ router.post('/withdraw/crypto', requireRealMoneyEnabled, authMiddleware, async (
       return res.status(400).json({ error: 'Missing required fields: toAddress, amountCents' });
     }
 
-    const result = await cryptoWalletService.executeWithdrawal(userId, toAddress, amountCents);
+    const result = await cryptoWalletService.executeWithdrawal(user.id, toAddress, amountCents);
 
     res.json({ txHash: result.txHash });
   } catch (error) {
@@ -163,16 +153,16 @@ router.post('/withdraw/crypto', requireRealMoneyEnabled, authMiddleware, async (
  * GET /api/payments/transactions
  * Get transaction history
  */
-router.get('/transactions', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/transactions', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user, userClient } = req as AuthenticatedRequest;
     const pageStr = Array.isArray(req.query.page) ? req.query.page[0] : req.query.page;
     const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
 
     const page = parseInt(pageStr as string) || 1;
     const limit = Math.min(parseInt(limitStr as string) || 50, 100);
 
-    const result = await walletService.getTransactionHistory(userId, page, limit);
+    const result = await walletService.getTransactionHistory(user.id, page, limit, userClient);
 
     res.json({
       transactions: result.transactions,
@@ -219,16 +209,16 @@ router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async 
  * POST /api/payments/crypto-wallets
  * Link a crypto wallet
  */
-router.post('/crypto-wallets', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/crypto-wallets', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const { user } = req as AuthenticatedRequest;
     const walletAddress = req.body.walletAddress || req.body.wallet_address;
 
     if (!walletAddress) {
       return res.status(400).json({ error: 'Missing required field: walletAddress' });
     }
 
-    const wallet = await cryptoWalletService.linkWallet(userId, walletAddress);
+    const wallet = await cryptoWalletService.linkWallet(user.id, walletAddress);
 
     res.json({ wallet });
   } catch (error) {
@@ -241,10 +231,10 @@ router.post('/crypto-wallets', authMiddleware, async (req: AuthenticatedRequest,
  * GET /api/payments/crypto-wallets
  * Get linked crypto wallets
  */
-router.get('/crypto-wallets', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/crypto-wallets', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const wallets = await cryptoWalletService.getLinkedWallets(userId);
+    const { user } = req as AuthenticatedRequest;
+    const wallets = await cryptoWalletService.getLinkedWallets(user.id);
 
     res.json({ wallets });
   } catch (error) {
@@ -261,10 +251,9 @@ router.get('/crypto-wallets', authMiddleware, async (req: AuthenticatedRequest, 
  * POST /api/payments/exchange-credentials
  * Store exchange API credentials
  */
-router.post('/exchange-credentials', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/exchange-credentials', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const userDb = (req as any).userClient;
+    const { user, userClient: userDb } = req as AuthenticatedRequest;
     const { exchange, credentials } = req.body;
 
     if (!exchange || !credentials) {
@@ -275,7 +264,7 @@ router.post('/exchange-credentials', authMiddleware, async (req: AuthenticatedRe
     const { error } = await userDb
       .from('aio_exchange_credentials')
       .upsert({
-        user_id: userId,
+        user_id: user.id,
         exchange,
         encrypted_credentials: credentials,
         updated_at: new Date().toISOString()

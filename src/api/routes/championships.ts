@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { championshipService } from '../../services/championship-service.js';
 
@@ -100,7 +100,7 @@ router.get('/:id/standings', async (req: Request, res: Response) => {
 // Create championship (requires auth)
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const {
       name,
       domain_id,
@@ -147,7 +147,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 // Join championship (requires auth)
 router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const id = String(req.params.id);
     const { agent_id } = req.body;
 
@@ -173,8 +173,8 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
 // Leave championship (requires auth)
 router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const id = String(req.params.id);
 
     // Verify championship is still in registration (public read)
@@ -211,8 +211,8 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
 // Start next round (creator only)
 router.post('/:id/start-round', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const id = String(req.params.id);
 
     // Verify creator (user-scoped query)
@@ -243,8 +243,8 @@ router.post('/:id/start-round', requireAuth, async (req: Request, res: Response)
 // Process round results (creator only)
 router.post('/:id/process-round/:roundNumber', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const id = String(req.params.id);
     const roundNumber = parseInt(String(req.params.roundNumber), 10);
 

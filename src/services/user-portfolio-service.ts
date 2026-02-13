@@ -4,6 +4,7 @@
  * Supports persistent portfolios, bets, positions, and social features
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { serviceClient as supabase } from '../shared/utils/supabase.js';
 import { createLogger } from '../shared/utils/logger.js';
 import { marketService, type UnifiedMarket } from './market-service.js';
@@ -158,6 +159,14 @@ export class UserPortfolioService {
   }
 
   /**
+   * Returns the user-scoped client if provided, otherwise the service client.
+   * User-scoped clients respect RLS policies for defense-in-depth.
+   */
+  private db(client?: SupabaseClient): SupabaseClient {
+    return client || supabase;
+  }
+
+  /**
    * Check if service is configured
    */
   isConfigured(): boolean {
@@ -167,15 +176,16 @@ export class UserPortfolioService {
   /**
    * Get or create a portfolio for a user
    */
-  async getOrCreatePortfolio(userId: string): Promise<UserPortfolio | null> {
+  async getOrCreatePortfolio(userId: string, client?: SupabaseClient): Promise<UserPortfolio | null> {
     if (!this.initialized) {
       log.warn('Supabase not configured');
       return null;
     }
 
     try {
+      const db = this.db(client);
       // Try to get existing portfolio
-      const { data: existing, error: getError } = await supabase
+      const { data: existing, error: getError } = await db
         .from('aio_user_portfolios')
         .select('*')
         .eq('user_id', userId)
@@ -186,7 +196,7 @@ export class UserPortfolioService {
       }
 
       // Create new portfolio
-      const { data: newPortfolio, error: createError } = await supabase
+      const { data: newPortfolio, error: createError } = await db
         .from('aio_user_portfolios')
         .insert({ user_id: userId })
         .select()
@@ -208,11 +218,11 @@ export class UserPortfolioService {
   /**
    * Get daily bet count for a user (bets placed today)
    */
-  private async getDailyBetCount(userId: string): Promise<number> {
+  private async getDailyBetCount(userId: string, client?: SupabaseClient): Promise<number> {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const { count, error } = await supabase
+    const { count, error } = await this.db(client)
       .from('aio_user_bets')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
@@ -229,8 +239,8 @@ export class UserPortfolioService {
   /**
    * Get open position count for a user
    */
-  private async getOpenPositionCount(userId: string): Promise<number> {
-    const { count, error } = await supabase
+  private async getOpenPositionCount(userId: string, client?: SupabaseClient): Promise<number> {
+    const { count, error } = await this.db(client)
       .from('aio_user_positions')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
@@ -247,16 +257,16 @@ export class UserPortfolioService {
   /**
    * Get current bet limits and usage for a user
    */
-  async getLimits(userId: string): Promise<UserLimits | null> {
+  async getLimits(userId: string, client?: SupabaseClient): Promise<UserLimits | null> {
     if (!this.initialized) return null;
 
     try {
-      const portfolio = await this.getOrCreatePortfolio(userId);
+      const portfolio = await this.getOrCreatePortfolio(userId, client);
       if (!portfolio) return null;
 
       const [dailyBetsUsed, openPositions] = await Promise.all([
-        this.getDailyBetCount(userId),
-        this.getOpenPositionCount(userId),
+        this.getDailyBetCount(userId, client),
+        this.getOpenPositionCount(userId, client),
       ]);
 
       return {
@@ -279,11 +289,11 @@ export class UserPortfolioService {
   /**
    * Get user's portfolio
    */
-  async getPortfolio(userId: string): Promise<UserPortfolio | null> {
+  async getPortfolio(userId: string, client?: SupabaseClient): Promise<UserPortfolio | null> {
     if (!this.initialized) return null;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.db(client)
         .from('aio_user_portfolios')
         .select('*')
         .eq('user_id', userId)
@@ -292,7 +302,7 @@ export class UserPortfolioService {
       if (error) {
         if (error.code === 'PGRST116') {
           // No portfolio found, create one
-          return this.getOrCreatePortfolio(userId);
+          return this.getOrCreatePortfolio(userId, client);
         }
         log.error('Error fetching portfolio', { error: error.message });
         return null;
@@ -312,15 +322,17 @@ export class UserPortfolioService {
     userId: string,
     marketId: string,
     outcome: string,
-    amount: number
+    amount: number,
+    client?: SupabaseClient
   ): Promise<PlaceBetResult> {
     if (!this.initialized) {
       return { success: false, error: 'Supabase not configured' };
     }
 
     try {
+      const db = this.db(client);
       // Get or create portfolio
-      const portfolio = await this.getOrCreatePortfolio(userId);
+      const portfolio = await this.getOrCreatePortfolio(userId, client);
       if (!portfolio) {
         return { success: false, error: 'Failed to get portfolio' };
       }
@@ -341,13 +353,13 @@ export class UserPortfolioService {
       }
 
       // Check daily bet limit
-      const dailyBets = await this.getDailyBetCount(userId);
+      const dailyBets = await this.getDailyBetCount(userId, client);
       if (dailyBets >= MAX_DAILY_BETS) {
         return { success: false, error: `Daily bet limit reached (${MAX_DAILY_BETS} per day)` };
       }
 
       // Check max open positions
-      const openPositions = await this.getOpenPositionCount(userId);
+      const openPositions = await this.getOpenPositionCount(userId, client);
       if (openPositions >= MAX_OPEN_POSITIONS) {
         return { success: false, error: `Maximum ${MAX_OPEN_POSITIONS} open positions allowed` };
       }
@@ -401,7 +413,7 @@ export class UserPortfolioService {
         price_at_bet: normalizedOutcome === 'YES' ? yesOutcome?.price : noOutcome?.price
       };
 
-      const { data: bet, error: betError } = await supabase
+      const { data: bet, error: betError } = await db
         .from('aio_user_bets')
         .insert(betData)
         .select()
@@ -413,10 +425,10 @@ export class UserPortfolioService {
       }
 
       // Update or create position
-      await this.updatePosition(userId, portfolio.id, market, normalizedOutcome, amount, shares);
+      await this.updatePosition(userId, portfolio.id, market, normalizedOutcome, amount, shares, client);
 
       // Get updated portfolio balance
-      const updatedPortfolio = await this.getPortfolio(userId);
+      const updatedPortfolio = await this.getPortfolio(userId, client);
 
       log.info(`User ${userId} bet M$${amount} on ${normalizedOutcome} for market ${marketId}`);
 
@@ -440,11 +452,13 @@ export class UserPortfolioService {
     market: UnifiedMarket,
     outcome: string,
     amount: number,
-    shares: number
+    shares: number,
+    client?: SupabaseClient
   ): Promise<void> {
     try {
+      const db = this.db(client);
       // Check for existing position
-      const { data: existing } = await supabase
+      const { data: existing } = await db
         .from('aio_user_positions')
         .select('*')
         .eq('user_id', userId)
@@ -458,7 +472,7 @@ export class UserPortfolioService {
         const newTotalCost = existing.total_cost + amount;
         const newAvgCost = newTotalCost / newShares;
 
-        await supabase
+        await db
           .from('aio_user_positions')
           .update({
             shares: newShares,
@@ -469,7 +483,7 @@ export class UserPortfolioService {
           .eq('id', existing.id);
       } else {
         // Create new position
-        await supabase
+        await db
           .from('aio_user_positions')
           .insert({
             user_id: userId,
@@ -492,11 +506,11 @@ export class UserPortfolioService {
   /**
    * Get user's bet history
    */
-  async getBets(userId: string, limit: number = 50, offset: number = 0): Promise<UserBet[]> {
+  async getBets(userId: string, limit: number = 50, offset: number = 0, client?: SupabaseClient): Promise<UserBet[]> {
     if (!this.initialized) return [];
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.db(client)
         .from('aio_user_bets')
         .select('*')
         .eq('user_id', userId)
@@ -518,11 +532,11 @@ export class UserPortfolioService {
   /**
    * Get user's open positions
    */
-  async getPositions(userId: string): Promise<UserPosition[]> {
+  async getPositions(userId: string, client?: SupabaseClient): Promise<UserPosition[]> {
     if (!this.initialized) return [];
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.db(client)
         .from('aio_user_positions')
         .select('*')
         .eq('user_id', userId)
@@ -544,20 +558,21 @@ export class UserPortfolioService {
   /**
    * Get user's stats
    */
-  async getStats(userId: string): Promise<UserStats | null> {
+  async getStats(userId: string, client?: SupabaseClient): Promise<UserStats | null> {
     if (!this.initialized) return null;
 
     try {
-      const portfolio = await this.getPortfolio(userId);
+      const db = this.db(client);
+      const portfolio = await this.getPortfolio(userId, client);
       if (!portfolio) return null;
 
       // Get follower/following counts
-      const { count: followerCount } = await supabase
+      const { count: followerCount } = await db
         .from('aio_followed_traders')
         .select('*', { count: 'exact', head: true })
         .eq('followed_id', userId);
 
-      const { count: followingCount } = await supabase
+      const { count: followingCount } = await db
         .from('aio_followed_traders')
         .select('*', { count: 'exact', head: true })
         .eq('follower_id', userId);
@@ -612,7 +627,7 @@ export class UserPortfolioService {
   /**
    * Follow a trader
    */
-  async followTrader(followerId: string, followedId: string): Promise<boolean> {
+  async followTrader(followerId: string, followedId: string, client?: SupabaseClient): Promise<boolean> {
     if (!this.initialized) return false;
 
     if (followerId === followedId) {
@@ -621,7 +636,7 @@ export class UserPortfolioService {
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await this.db(client)
         .from('aio_followed_traders')
         .insert({ follower_id: followerId, followed_id: followedId });
 
@@ -645,11 +660,11 @@ export class UserPortfolioService {
   /**
    * Unfollow a trader
    */
-  async unfollowTrader(followerId: string, followedId: string): Promise<boolean> {
+  async unfollowTrader(followerId: string, followedId: string, client?: SupabaseClient): Promise<boolean> {
     if (!this.initialized) return false;
 
     try {
-      const { error } = await supabase
+      const { error } = await this.db(client)
         .from('aio_followed_traders')
         .delete()
         .eq('follower_id', followerId)
@@ -671,11 +686,11 @@ export class UserPortfolioService {
   /**
    * Get users followed by a user
    */
-  async getFollowing(userId: string): Promise<string[]> {
+  async getFollowing(userId: string, client?: SupabaseClient): Promise<string[]> {
     if (!this.initialized) return [];
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.db(client)
         .from('aio_followed_traders')
         .select('followed_id')
         .eq('follower_id', userId);
@@ -695,11 +710,11 @@ export class UserPortfolioService {
   /**
    * Get users following a user
    */
-  async getFollowers(userId: string): Promise<string[]> {
+  async getFollowers(userId: string, client?: SupabaseClient): Promise<string[]> {
     if (!this.initialized) return [];
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.db(client)
         .from('aio_followed_traders')
         .select('follower_id')
         .eq('followed_id', userId);
@@ -719,11 +734,11 @@ export class UserPortfolioService {
   /**
    * Check if a user is following another
    */
-  async isFollowing(followerId: string, followedId: string): Promise<boolean> {
+  async isFollowing(followerId: string, followedId: string, client?: SupabaseClient): Promise<boolean> {
     if (!this.initialized) return false;
 
     try {
-      const { data } = await supabase
+      const { data } = await this.db(client)
         .from('aio_followed_traders')
         .select('id')
         .eq('follower_id', followerId)
@@ -739,15 +754,15 @@ export class UserPortfolioService {
   /**
    * Get recent trades from followed traders
    */
-  async getFollowedTradesFeed(userId: string, limit: number = 20): Promise<UserBet[]> {
+  async getFollowedTradesFeed(userId: string, limit: number = 20, client?: SupabaseClient): Promise<UserBet[]> {
     if (!this.initialized) return [];
 
     try {
       // Get followed user IDs
-      const following = await this.getFollowing(userId);
+      const following = await this.getFollowing(userId, client);
       if (following.length === 0) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = await this.db(client)
         .from('aio_user_bets')
         .select('*')
         .in('user_id', following)

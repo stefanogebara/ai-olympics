@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { createLogger } from '../../shared/utils/logger.js';
 import { encrypt, decrypt } from '../../shared/utils/crypto.js';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import {
   generateVerificationSession,
   type ChallengeAnswers,
@@ -56,7 +56,7 @@ function deserializeExpectedAnswers(json: string): {
 // ============================================================================
 router.post('/start', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const { agent_id, competition_id } = req.body;
 
     if (!agent_id) {
@@ -64,7 +64,7 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Verify agent ownership (RLS-scoped)
-    const userDb = (req as any).userClient;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { data: agent } = await userDb
       .from('aio_agents')
       .select('id, owner_id, verification_status, last_verified_at')
@@ -168,7 +168,7 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
 // ============================================================================
 router.post('/:sessionId/respond', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const sessionId = req.params.sessionId as string;
     const answers: ChallengeAnswers = req.body;
 
@@ -458,7 +458,7 @@ router.post('/:sessionId/respond', requireAuth, async (req: Request, res: Respon
 // ============================================================================
 router.get('/:sessionId', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const sessionId = req.params.sessionId as string;
 
     const { data: session } = await supabase

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { competitionManager } from '../../orchestrator/competition-manager.js';
 
@@ -109,8 +109,8 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create competition (requires auth)
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const {
       name,
       domain_slug,
@@ -207,8 +207,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 // Join competition (requires auth)
 router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
     const { agent_id } = req.body;
 
@@ -295,8 +295,8 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
 // Leave competition (requires auth)
 router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
 
     // Verify competition is still in lobby
@@ -333,11 +333,11 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
 // Start competition (creator only)
 router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const { id } = req.params;
 
     // Verify ownership (RLS-scoped - user can only see their competitions)
-    const userDb = (req as any).userClient;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { data: competition } = await userDb
       .from('aio_competitions')
       .select('*, participant_count:aio_competition_participants(count)')
@@ -452,8 +452,8 @@ router.get('/:id/live', async (req: Request, res: Response) => {
 // Cast a vote (requires auth)
 router.post('/:id/vote', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
     const { agent_id, vote_type } = req.body;
 
@@ -525,8 +525,8 @@ router.get('/:id/votes', async (req: Request, res: Response) => {
 // Remove a vote (requires auth)
 router.delete('/:id/vote', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
     const { vote_type } = req.query;
 

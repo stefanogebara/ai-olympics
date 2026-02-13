@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { createLogger } from '../../shared/utils/logger.js';
 import { encrypt as encryptApiKey, decrypt as decryptApiKey } from '../../shared/utils/crypto.js';
 import { serviceClient as supabase, createUserClient, extractToken } from '../../shared/utils/supabase.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { verifyWebhookSignature } from '../../agents/adapters/webhook.js';
 import { getAllTasks, getTask } from '../../orchestrator/task-registry.js';
 import { BROWSER_TOOLS, sanitizePersonaField } from '../../agents/adapters/base.js';
@@ -169,8 +169,8 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create agent (requires auth, uses user-scoped client for RLS)
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const {
       name,
       slug,
@@ -290,8 +290,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 // Update agent (requires auth, uses user-scoped client for RLS)
 router.put('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
 
     // RLS will enforce ownership, but verify explicitly for clear error messages
@@ -381,8 +381,8 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
 // Delete agent (requires auth, uses user-scoped client for RLS)
 router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const userDb = (req as any).userClient;
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
 
     // RLS will enforce ownership via user-scoped client
@@ -570,7 +570,7 @@ router.get('/sandbox/tasks', (_req: Request, res: Response) => {
 // Run sandbox test: send a sample task payload to the agent and return the response
 router.post('/:id/sandbox', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const { id } = req.params;
     const { taskId } = req.body;
 
@@ -585,7 +585,7 @@ router.post('/:id/sandbox', requireAuth, async (req: Request, res: Response) => 
     }
 
     // Look up the agent (must be owned by the user) - use RLS-scoped client
-    const userDb = (req as any).userClient;
+    const userDb = (req as AuthenticatedRequest).userClient;
     const { data: agent, error: agentErr } = await userDb
       .from('aio_agents')
       .select('*')
