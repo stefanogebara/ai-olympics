@@ -79,7 +79,13 @@ export class OpenAIAdapter extends BaseAgentAdapter {
         tools: toolCalls.map(t => t.name)
       });
 
-      return { thinking, toolCalls, done, result };
+      return {
+        thinking, toolCalls, done, result,
+        usage: response.usage ? {
+          inputTokens: response.usage.prompt_tokens,
+          outputTokens: response.usage.completion_tokens,
+        } : undefined,
+      };
 
     } catch (error) {
       log.error(`OpenAI API error: ${error}`, { agentId: this.id });

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText, Input, Select } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import { supabase } from '../../lib/supabase';
-import type { Agent } from '../../types/database';
 import {
   Bot,
   Code2,
@@ -32,24 +34,30 @@ const providerOptions = [
 
 const modelOptions: Record<string, { value: string; label: string }[]> = {
   openrouter: [
-    { value: 'anthropic/claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+    { value: 'anthropic/claude-opus-4-6', label: 'Claude Opus 4.6' },
+    { value: 'anthropic/claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5' },
+    { value: 'openai/gpt-4.1', label: 'GPT-4.1' },
     { value: 'openai/gpt-4o', label: 'GPT-4o' },
-    { value: 'google/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { value: 'meta-llama/llama-3.3-70b', label: 'Llama 3.3 70B' },
+    { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+    { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+    { value: 'meta-llama/llama-4-maverick', label: 'Llama 4 Maverick' },
+    { value: 'deepseek/deepseek-r1', label: 'DeepSeek R1' },
   ],
   openai: [
+    { value: 'gpt-4.1', label: 'GPT-4.1' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
     { value: 'gpt-4o', label: 'GPT-4o' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+    { value: 'o3-mini', label: 'o3 Mini' },
   ],
   anthropic: [
-    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
-    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
+    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+    { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
   ],
   google: [
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
     { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
   ],
 };
 
@@ -57,6 +65,20 @@ const colorOptions = [
   '#00F5FF', '#FF00FF', '#00FF88', '#FFD700', '#FF6B6B',
   '#4285F4', '#D97706', '#7C3AED', '#10B981', '#F472B6',
 ];
+
+const agentSchema = z.object({
+  name: z.string().min(1, 'Agent name is required').max(100, 'Name must be under 100 characters'),
+  slug: z.string().min(1, 'Slug is required').max(60, 'Slug must be under 60 characters')
+    .regex(/^[a-z0-9-]+$/, 'Slug can only contain lowercase letters, numbers, and hyphens'),
+  description: z.string().max(500, 'Description must be under 500 characters').optional().or(z.literal('')),
+  webhookUrl: z.string().optional().or(z.literal('')),
+  apiKey: z.string().optional().or(z.literal('')),
+  systemPrompt: z.string().max(4000, 'System prompt must be under 4000 characters').optional().or(z.literal('')),
+  personaName: z.string().max(100, 'Persona name must be under 100 characters').optional().or(z.literal('')),
+  personaDescription: z.string().max(300, 'Persona description must be under 300 characters').optional().or(z.literal('')),
+});
+
+type AgentFormData = z.infer<typeof agentSchema>;
 
 export function AgentForm() {
   const navigate = useNavigate();
@@ -69,47 +91,54 @@ export function AgentForm() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Form state
+  // Fields not managed by react-hook-form (complex UI controls)
   const [agentType, setAgentType] = useState<AgentType>('webhook');
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [description, setDescription] = useState('');
   const [color, setColor] = useState(colorOptions[0]);
   const [isPublic, setIsPublic] = useState(false);
-
-  // Webhook config
-  const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSecret, setWebhookSecret] = useState('');
-
-  // API Key config
   const [provider, setProvider] = useState('openrouter');
-  const [model, setModel] = useState('anthropic/claude-sonnet-4-20250514');
-  const [apiKey, setApiKey] = useState('');
-  const [systemPrompt, setSystemPrompt] = useState('');
-
-  // Persona & Strategy
-  const [personaName, setPersonaName] = useState('');
-  const [personaDescription, setPersonaDescription] = useState('');
+  const [model, setModel] = useState('anthropic/claude-opus-4-6');
   const [personaStyle, setPersonaStyle] = useState('');
   const [strategy, setStrategy] = useState('balanced');
+  const [submitError, setSubmitError] = useState('');
 
-  const [error, setError] = useState('');
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<AgentFormData>({
+    resolver: zodResolver(agentSchema),
+    defaultValues: {
+      name: '',
+      slug: '',
+      description: '',
+      webhookUrl: '',
+      apiKey: '',
+      systemPrompt: '',
+      personaName: '',
+      personaDescription: '',
+    },
+  });
+
+  const nameValue = watch('name');
 
   useEffect(() => {
     if (isEditing) {
       loadAgent();
     } else {
-      // Generate webhook secret for new agents
       setWebhookSecret(generateSecret());
     }
   }, [id]);
 
   useEffect(() => {
     // Auto-generate slug from name
-    if (!isEditing) {
-      setSlug(name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+    if (!isEditing && nameValue) {
+      setValue('slug', nameValue.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
     }
-  }, [name, isEditing]);
+  }, [nameValue, isEditing, setValue]);
 
   const loadAgent = async () => {
     const { data } = await supabase
@@ -120,20 +149,23 @@ export function AgentForm() {
 
     if (data) {
       setAgentType(data.agent_type);
-      setName(data.name);
-      setSlug(data.slug);
-      setDescription(data.description || '');
       setColor(data.color);
       setIsPublic(data.is_public);
-      setWebhookUrl(data.webhook_url || '');
       setWebhookSecret(data.webhook_secret || '');
       setProvider(data.provider || 'openrouter');
-      setModel(data.model || 'anthropic/claude-sonnet-4-20250514');
-      setSystemPrompt(data.system_prompt || '');
-      setPersonaName(data.persona_name || '');
-      setPersonaDescription(data.persona_description || '');
+      setModel(data.model || 'anthropic/claude-opus-4-6');
       setPersonaStyle(data.persona_style || '');
       setStrategy(data.strategy || 'balanced');
+      reset({
+        name: data.name,
+        slug: data.slug,
+        description: data.description || '',
+        webhookUrl: data.webhook_url || '',
+        apiKey: '',
+        systemPrompt: data.system_prompt || '',
+        personaName: data.persona_name || '',
+        personaDescription: data.persona_description || '',
+      });
     }
   };
 
@@ -148,6 +180,7 @@ export function AgentForm() {
     setTestResult(null);
 
     try {
+      const webhookUrl = watch('webhookUrl');
       const response = await fetch('/api/agents/test-webhook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,27 +202,38 @@ export function AgentForm() {
     setTesting(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const onSubmit = async (data: AgentFormData) => {
+    setSubmitError('');
     setLoading(true);
+
+    // Validate conditional fields
+    if (agentType === 'webhook' && !data.webhookUrl) {
+      setSubmitError('Webhook URL is required');
+      setLoading(false);
+      return;
+    }
+    if (agentType === 'api_key' && !isEditing && !data.apiKey) {
+      setSubmitError('API Key is required for new agents');
+      setLoading(false);
+      return;
+    }
 
     const agentData = {
       owner_id: profile!.id,
-      name,
-      slug,
-      description: description || null,
+      name: data.name,
+      slug: data.slug,
+      description: data.description || null,
       color,
       is_public: isPublic,
       agent_type: agentType,
-      webhook_url: agentType === 'webhook' ? webhookUrl : null,
+      webhook_url: agentType === 'webhook' ? data.webhookUrl : null,
       webhook_secret: agentType === 'webhook' ? webhookSecret : null,
       provider: agentType === 'api_key' ? provider : null,
       model: agentType === 'api_key' ? model : null,
-      api_key_encrypted: agentType === 'api_key' ? apiKey : null, // Should be encrypted server-side
-      system_prompt: agentType === 'api_key' ? systemPrompt : null,
-      persona_name: personaName || null,
-      persona_description: personaDescription || null,
+      api_key_encrypted: agentType === 'api_key' ? data.apiKey : null,
+      system_prompt: agentType === 'api_key' ? data.systemPrompt : null,
+      persona_name: data.personaName || null,
+      persona_description: data.personaDescription || null,
       persona_style: personaStyle || null,
       strategy: strategy || null,
     };
@@ -212,7 +256,7 @@ export function AgentForm() {
 
       navigate('/dashboard/agents');
     } catch (err: any) {
-      setError(err.message || 'Failed to save agent');
+      setSubmitError(err.message || 'Failed to save agent');
     }
 
     setLoading(false);
@@ -271,10 +315,10 @@ export function AgentForm() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {submitError && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-              {error}
+              {submitError}
             </div>
           )}
 
@@ -282,29 +326,29 @@ export function AgentForm() {
           <div className="space-y-4">
             <Input
               label="Agent Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
               placeholder="My Awesome Agent"
-              required
+              error={errors.name?.message}
+              {...register('name')}
             />
 
             <Input
               label="Slug (URL identifier)"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
               placeholder="my-awesome-agent"
-              required
+              error={errors.slug?.message}
+              {...register('slug')}
             />
 
             <div>
               <label className="block text-sm font-medium text-white/70 mb-1">Description</label>
               <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
                 placeholder="What makes your agent special?"
                 rows={3}
                 className="w-full px-4 py-2.5 bg-cyber-dark/50 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-neon-cyan/50"
+                {...register('description')}
               />
+              {errors.description && (
+                <p className="text-sm text-red-400 mt-1">{errors.description.message}</p>
+              )}
             </div>
 
             {/* Color Picker */}
@@ -351,11 +395,10 @@ export function AgentForm() {
 
               <Input
                 label="Webhook URL"
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
                 placeholder="https://your-server.com/api/agent"
-                required={agentType === 'webhook'}
                 icon={<Globe size={18} />}
+                error={errors.webhookUrl?.message}
+                {...register('webhookUrl')}
               />
 
               <div>
@@ -435,11 +478,10 @@ export function AgentForm() {
               <Input
                 label="API Key"
                 type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
                 placeholder="sk-..."
-                required={agentType === 'api_key' && !isEditing}
                 icon={<Key size={18} />}
+                error={errors.apiKey?.message}
+                {...register('apiKey')}
               />
               {isEditing && (
                 <p className="text-xs text-white/40 -mt-2">Leave blank to keep existing key</p>
@@ -450,12 +492,14 @@ export function AgentForm() {
                   System Prompt (Optional)
                 </label>
                 <textarea
-                  value={systemPrompt}
-                  onChange={(e) => setSystemPrompt(e.target.value)}
                   placeholder="Custom instructions for your agent..."
                   rows={4}
                   className="w-full px-4 py-2.5 bg-cyber-dark/50 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-neon-cyan/50 font-mono text-sm"
+                  {...register('systemPrompt')}
                 />
+                {errors.systemPrompt && (
+                  <p className="text-sm text-red-400 mt-1">{errors.systemPrompt.message}</p>
+                )}
               </div>
             </motion.div>
           )}
@@ -473,9 +517,9 @@ export function AgentForm() {
 
             <Input
               label="Persona Name"
-              value={personaName}
-              onChange={(e) => setPersonaName(e.target.value)}
               placeholder="e.g. The Strategist, Speed Demon"
+              error={errors.personaName?.message}
+              {...register('personaName')}
             />
 
             <div>
@@ -483,12 +527,14 @@ export function AgentForm() {
                 Persona Description
               </label>
               <textarea
-                value={personaDescription}
-                onChange={(e) => setPersonaDescription(e.target.value)}
                 placeholder="Describe your agent's personality and approach..."
                 rows={3}
                 className="w-full px-4 py-2.5 bg-cyber-dark/50 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-neon-cyan/50"
+                {...register('personaDescription')}
               />
+              {errors.personaDescription && (
+                <p className="text-sm text-red-400 mt-1">{errors.personaDescription.message}</p>
+              )}
             </div>
 
             <Select

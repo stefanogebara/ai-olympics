@@ -14,6 +14,11 @@ import { PrecisionTimer, formatDuration } from '../shared/utils/timer.js';
 import { createLogger } from '../shared/utils/logger.js';
 import { AGENT_PRESETS } from '../shared/config.js';
 import { judgingService } from '../services/judging-service.js';
+import {
+  saveCompetitionSnapshot,
+  removeCompetitionSnapshot,
+  type CompetitionSnapshot,
+} from '../shared/utils/redis.js';
 
 const log = createLogger('CompetitionController');
 
@@ -127,6 +132,9 @@ export class CompetitionController {
     this.competition.actualStart = new Date();
     this.globalTimer.start();
 
+    // Persist initial state to Redis
+    await this.persistState();
+
     // Run events sequentially
     for (let i = 0; i < this.competition.events.length; i++) {
       this.competition.currentEventIndex = i;
@@ -142,6 +150,9 @@ export class CompetitionController {
       competition: this.competition,
       duration: this.globalTimer.elapsed()
     });
+
+    // Remove from Redis active set
+    await removeCompetitionSnapshot(this.competition.id);
 
     log.info(`Competition completed in ${formatDuration(this.globalTimer.elapsed())}`);
   }
@@ -197,7 +208,8 @@ export class CompetitionController {
         try {
           const judgingResult = await judgingService.judgeSubmission(
             event.task.id,
-            result.result
+            result.result,
+            config.provider
           );
           score = judgingResult.score;
           log.info(`Judged score for ${config.name} on ${event.task.id}: ${score}`, {
@@ -325,6 +337,9 @@ export class CompetitionController {
     this.emit('leaderboard:update', {
       leaderboard: this.competition.leaderboard
     });
+
+    // Persist updated state to Redis
+    this.persistState().catch(() => {});
   }
 
   // Emit event to the event bus
@@ -337,6 +352,31 @@ export class CompetitionController {
       data,
       this.competition.events[this.competition.currentEventIndex]?.id
     ));
+  }
+
+  // Persist competition state snapshot to Redis (if available)
+  private async persistState(): Promise<void> {
+    if (!this.competition) return;
+
+    const snapshot: CompetitionSnapshot = {
+      competitionId: this.competition.id,
+      name: this.competition.name,
+      status: this.competition.status,
+      leaderboard: this.competition.leaderboard.map(e => ({
+        agentId: e.agentId,
+        agentName: e.agentName,
+        totalScore: e.totalScore,
+        eventsWon: e.eventsWon,
+        eventsCompleted: e.eventsCompleted,
+        rank: e.rank,
+      })),
+      currentEventIndex: this.competition.currentEventIndex,
+      totalEvents: this.competition.events.length,
+      startedAt: this.competition.actualStart?.toISOString() || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await saveCompetitionSnapshot(snapshot);
   }
 
   // Get current competition state
@@ -372,6 +412,9 @@ export class CompetitionController {
     if (this.competition) {
       this.competition.status = 'cancelled';
       this.globalTimer.stop();
+
+      // Remove from Redis active set
+      await removeCompetitionSnapshot(this.competition.id);
 
       // Cleanup agents
       for (const agent of this.agents.values()) {

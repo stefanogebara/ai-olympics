@@ -1,13 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { createUserClient, extractToken } from '../../shared/utils/supabase.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { competitionManager } from '../../orchestrator/competition-manager.js';
 
 const log = createLogger('CompetitionsAPI');
 
+// Concurrency limit: max simultaneous running competitions
+const MAX_CONCURRENT_COMPETITIONS = parseInt(process.env.MAX_CONCURRENT_COMPETITIONS || '10', 10);
+
 const router = Router();
 
 // Middleware to verify JWT token from Supabase
+// Sets req.user and req.userClient (RLS-scoped Supabase client)
 async function requireAuth(req: Request, res: Response, next: Function) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -22,6 +27,7 @@ async function requireAuth(req: Request, res: Response, next: Function) {
       return res.status(401).json({ error: 'Invalid token' });
     }
     (req as any).user = user;
+    (req as any).userClient = createUserClient(token);
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid token' });
@@ -127,6 +133,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const {
       name,
       domain_slug,
@@ -141,10 +148,30 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Competition name is required' });
     }
 
+    // Abuse detection: max 3 competitions per hour per user (RLS-scoped via userDb above)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await userDb
+      .from('aio_competitions')
+      .select('id', { count: 'exact', head: true })
+      .eq('created_by', user.id)
+      .gte('created_at', oneHourAgo);
+
+    if ((recentCount || 0) >= 3) {
+      return res.status(429).json({ error: 'Rate limit: maximum 3 competitions per hour. Please wait and try again.' });
+    }
+
+    // Feature flag: real-money competitions disabled until legal review
+    const REAL_MONEY_ENABLED = process.env.ENABLE_REAL_MONEY_TRADING === 'true';
+
     // M6: Validate stake_mode, entry_fee, max_participants
-    const ALLOWED_STAKE_MODES = ['sandbox', 'real', 'spectator'];
+    const ALLOWED_STAKE_MODES = REAL_MONEY_ENABLED
+      ? ['sandbox', 'real', 'spectator']
+      : ['sandbox', 'spectator'];
     if (!ALLOWED_STAKE_MODES.includes(stake_mode)) {
-      return res.status(400).json({ error: `Invalid stake_mode. Must be one of: ${ALLOWED_STAKE_MODES.join(', ')}` });
+      const msg = REAL_MONEY_ENABLED
+        ? `Invalid stake_mode. Must be one of: ${ALLOWED_STAKE_MODES.join(', ')}`
+        : 'Real-money competitions are currently disabled. Use sandbox mode.';
+      return res.status(400).json({ error: msg });
     }
     if (typeof entry_fee !== 'number' || entry_fee < 0 || entry_fee > 10000) {
       return res.status(400).json({ error: 'entry_fee must be a number between 0 and 10000' });
@@ -154,7 +181,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'max_participants must be an integer between 2 and 64' });
     }
 
-    // Get domain ID if provided
+    // Get domain ID if provided (public data, service client ok)
     let domain_id = null;
     if (domain_slug) {
       const { data: domain } = await supabase
@@ -170,7 +197,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       ? task_ids
       : null;
 
-    const { data, error } = await supabase
+    // Use user-scoped client for insert (respects RLS)
+    const { data, error } = await userDb
       .from('aio_competitions')
       .insert({
         name,
@@ -203,6 +231,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const { id } = req.params;
     const { agent_id } = req.body;
 
@@ -233,8 +262,8 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Competition is full' });
     }
 
-    // Verify agent ownership
-    const { data: agent } = await supabase
+    // Verify agent ownership (user-scoped query enforces RLS)
+    const { data: agent } = await userDb
       .from('aio_agents')
       .select('id, owner_id, is_active, verification_status, last_verified_at')
       .eq('id', agent_id)
@@ -260,8 +289,8 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    // Join competition
-    const { data, error } = await supabase
+    // Join competition (user-scoped insert)
+    const { data, error } = await userDb
       .from('aio_competition_participants')
       .insert({
         competition_id: id,
@@ -290,6 +319,7 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
 router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const { id } = req.params;
 
     // Verify competition is still in lobby
@@ -307,7 +337,7 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
       return res.status(400).json({ error: 'Cannot leave a competition that has started' });
     }
 
-    const { error } = await supabase
+    const { error } = await userDb
       .from('aio_competition_participants')
       .delete()
       .eq('competition_id', id)
@@ -329,8 +359,9 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
     const user = (req as any).user;
     const { id } = req.params;
 
-    // Verify ownership
-    const { data: competition } = await supabase
+    // Verify ownership (RLS-scoped - user can only see their competitions)
+    const userDb = (req as any).userClient;
+    const { data: competition } = await userDb
       .from('aio_competitions')
       .select('*, participant_count:aio_competition_participants(count)')
       .eq('id', id)
@@ -356,8 +387,21 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Need at least 2 participants to start' });
     }
 
-    // Update status
-    const { data, error } = await supabase
+    // Check concurrency limit
+    const activeCount = competitionManager.activeCount;
+    if (activeCount >= MAX_CONCURRENT_COMPETITIONS) {
+      log.warn('Competition start blocked by concurrency limit', {
+        activeCount,
+        limit: MAX_CONCURRENT_COMPETITIONS,
+        competitionId: id,
+      });
+      return res.status(429).json({
+        error: `Server is at capacity (${activeCount}/${MAX_CONCURRENT_COMPETITIONS} competitions running). Please try again later.`,
+      });
+    }
+
+    // Update status (RLS-scoped - user can only update their competitions)
+    const { data, error } = await userDb
       .from('aio_competitions')
       .update({
         status: 'running',
@@ -432,6 +476,7 @@ router.get('/:id/live', async (req: Request, res: Response) => {
 router.post('/:id/vote', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const { id } = req.params;
     const { agent_id, vote_type } = req.body;
 
@@ -443,7 +488,8 @@ router.post('/:id/vote', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'vote_type must be cheer, predict_win, or mvp' });
     }
 
-    const { data, error } = await supabase
+    // Use user-scoped client for vote insert
+    const { data, error } = await userDb
       .from('aio_spectator_votes')
       .insert({
         competition_id: id,
@@ -503,6 +549,7 @@ router.get('/:id/votes', async (req: Request, res: Response) => {
 router.delete('/:id/vote', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userDb = (req as any).userClient;
     const { id } = req.params;
     const { vote_type } = req.query;
 
@@ -510,7 +557,7 @@ router.delete('/:id/vote', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'vote_type query parameter is required' });
     }
 
-    const { error } = await supabase
+    const { error } = await userDb
       .from('aio_spectator_votes')
       .delete()
       .eq('competition_id', id)

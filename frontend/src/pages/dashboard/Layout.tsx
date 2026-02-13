@@ -7,13 +7,15 @@ import {
   Trophy,
   Settings,
   Wallet,
-  PieChart
+  PieChart,
+  FlaskConical
 } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Overview', end: true },
   { path: '/dashboard/portfolio', icon: PieChart, label: 'Portfolio' },
   { path: '/dashboard/agents', icon: Bot, label: 'My Agents' },
+  { path: '/dashboard/sandbox', icon: FlaskConical, label: 'Sandbox' },
   { path: '/dashboard/competitions', icon: Trophy, label: 'My Competitions' },
   { path: '/dashboard/wallet', icon: Wallet, label: 'Wallet' },
   { path: '/dashboard/settings', icon: Settings, label: 'Settings' },

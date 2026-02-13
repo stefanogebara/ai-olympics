@@ -115,7 +115,13 @@ export class OpenRouterAdapter extends BaseAgentAdapter {
         tools: toolCalls.map(t => t.name)
       });
 
-      return { thinking, toolCalls, done, result };
+      return {
+        thinking, toolCalls, done, result,
+        usage: response.usage ? {
+          inputTokens: response.usage.prompt_tokens,
+          outputTokens: response.usage.completion_tokens,
+        } : undefined,
+      };
 
     } catch (error) {
       log.error(`OpenRouter API error: ${error}`, { agentId: this.id, model: this.openRouterModel });

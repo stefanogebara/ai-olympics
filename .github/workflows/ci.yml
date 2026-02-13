@@ -34,12 +34,15 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Type check (backend)
-        # Allow pre-existing type errors; report but do not fail the build
-        run: npx tsc --noEmit || true
+        run: npx tsc --noEmit
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Type check (frontend)
+        working-directory: frontend
+        run: npx tsc --noEmit
 
       - name: Build frontend
         working-directory: frontend
@@ -53,7 +56,38 @@ jobs:
           retention-days: 1
 
   # ===========================================================================
-  # Job 2: E2E Tests (depends on build)
+  # Job 2: Unit Tests (runs in parallel with e2e)
+  # ===========================================================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: https://placeholder.supabase.co
+      SUPABASE_ANON_KEY: placeholder
+      SUPABASE_SERVICE_KEY: placeholder
+      API_KEY_ENCRYPTION_KEY: ci-test-encryption-key-placeholder!
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run vitest
+        run: npx vitest run --reporter=verbose
+
+  # ===========================================================================
+  # Job 3: E2E Tests (depends on build, runs in parallel with unit-tests)
   # ===========================================================================
   e2e:
     name: E2E Tests
@@ -138,7 +172,7 @@ jobs:
           retention-days: 7
 
   # ===========================================================================
-  # Job 3: Security Audit (runs in parallel with e2e)
+  # Job 4: Security Audit (runs in parallel with e2e)
   # ===========================================================================
   security:
     name: Security Audit

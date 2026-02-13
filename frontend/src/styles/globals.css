@@ -9,6 +9,26 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Focus visible styles for keyboard navigation */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-neon-cyan;
+  }
+
+  /* Remove default focus ring (replaced by focus-visible above) */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   /* Scrollbar styling */
   ::-webkit-scrollbar {
     width: 8px;

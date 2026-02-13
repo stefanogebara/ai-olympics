@@ -9,6 +9,156 @@ import { config } from '../shared/config.js';
 
 const log = createLogger('AgentRunner');
 
+// ============================================================================
+// SECURITY: Action allowlist & URL validation
+// ============================================================================
+
+/** Explicit set of allowed tool names. Any tool not in this set is rejected. */
+const ALLOWED_TOOLS = new Set([
+  'navigate', 'click', 'type', 'select', 'scroll',
+  'wait', 'submit', 'done', 'api_call',
+]);
+
+/** Max tool calls per single turn to prevent runaway loops */
+const MAX_TOOL_CALLS_PER_TURN = 10;
+
+/** Max actions per second per agent to prevent rapid-fire abuse */
+const MAX_ACTIONS_PER_SECOND = 3;
+
+/** Max API cost budget per agent per competition (in USD) */
+const MAX_API_COST_PER_COMPETITION = 5.0;
+
+// Approximate cost per 1K tokens by model family (USD)
+const TOKEN_COST_PER_1K: Record<string, { input: number; output: number }> = {
+  'claude-opus':    { input: 0.015, output: 0.075 },
+  'claude-sonnet':  { input: 0.003, output: 0.015 },
+  'claude-haiku':   { input: 0.0008, output: 0.004 },
+  'gpt-4':          { input: 0.01, output: 0.03 },
+  'gpt-4o':         { input: 0.005, output: 0.015 },
+  'gemini-pro':     { input: 0.00125, output: 0.005 },
+  'gemini-flash':   { input: 0.0001, output: 0.0004 },
+  'default':        { input: 0.005, output: 0.015 },
+};
+
+/**
+ * Validate a URL for the api_call tool to prevent SSRF attacks.
+ * Blocks: private IPs, loopback, link-local, metadata endpoints, non-http schemes.
+ */
+export function isUrlAllowed(rawUrl: string): { allowed: boolean; reason?: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return { allowed: false, reason: 'Invalid URL' };
+  }
+
+  // Only allow http/https
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { allowed: false, reason: `Blocked protocol: ${parsed.protocol}` };
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Block localhost and loopback variants
+  // Normalize IPv6 brackets: new URL('http://[::1]') gives hostname '[::1]'
+  const normalizedHost = hostname.replace(/^\[|\]$/g, '');
+
+  if (normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' || normalizedHost === '::1' || normalizedHost === '0.0.0.0') {
+    // Allow calls to our own API server (agents need this for competition endpoints)
+    const apiPort = String(config.port || 3003);
+    if (parsed.port === apiPort || (!parsed.port && parsed.protocol === 'http:')) {
+      // Allow localhost calls to our own API only
+      return { allowed: true };
+    }
+    return { allowed: false, reason: 'Blocked: localhost/loopback' };
+  }
+
+  // Block cloud metadata endpoints (AWS, GCP, Azure)
+  if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+    return { allowed: false, reason: 'Blocked: cloud metadata endpoint' };
+  }
+
+  // Block private IP ranges
+  const privateRanges = [
+    /^10\./,                              // 10.0.0.0/8
+    /^172\.(1[6-9]|2\d|3[01])\./,         // 172.16.0.0/12
+    /^192\.168\./,                         // 192.168.0.0/16
+    /^169\.254\./,                         // link-local
+    /^fc[0-9a-f]{2}:/i,                   // IPv6 unique-local
+    /^fe80:/i,                            // IPv6 link-local
+  ];
+
+  for (const range of privateRanges) {
+    if (range.test(hostname)) {
+      return { allowed: false, reason: 'Blocked: private IP range' };
+    }
+  }
+
+  return { allowed: true };
+}
+
+// ============================================================================
+// SECURITY: Tool argument validation
+// ============================================================================
+
+/** Max argument string length to prevent memory abuse */
+const MAX_ARG_LENGTH = 10000;
+
+/**
+ * Validate tool call arguments match expected types.
+ * Returns an error string if invalid, or null if valid.
+ */
+export function validateToolArgs(name: string, args: Record<string, unknown>): string | null {
+  // Ensure args is an object (not null, array, or primitive)
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return 'Arguments must be an object';
+  }
+
+  switch (name) {
+    case 'navigate':
+      if (typeof args.url !== 'string') return 'navigate requires a string "url"';
+      if (args.url.length > MAX_ARG_LENGTH) return 'URL too long';
+      break;
+    case 'click':
+      if (typeof args.element !== 'string') return 'click requires a string "element"';
+      if ((args.element as string).length > MAX_ARG_LENGTH) return 'Element selector too long';
+      break;
+    case 'type':
+      if (typeof args.element !== 'string') return 'type requires a string "element"';
+      if (typeof args.text !== 'string') return 'type requires a string "text"';
+      if ((args.text as string).length > MAX_ARG_LENGTH) return 'Text too long';
+      break;
+    case 'select':
+      if (typeof args.element !== 'string') return 'select requires a string "element"';
+      if (typeof args.option !== 'string') return 'select requires a string "option"';
+      break;
+    case 'scroll':
+      if (typeof args.direction !== 'string') return 'scroll requires a string "direction"';
+      if (!['up', 'down', 'left', 'right'].includes(args.direction as string)) return 'Invalid scroll direction';
+      if (args.amount !== undefined && typeof args.amount !== 'number') return 'scroll amount must be a number';
+      break;
+    case 'wait':
+      if (typeof args.condition !== 'string') return 'wait requires a string "condition"';
+      break;
+    case 'api_call':
+      if (typeof args.url !== 'string') return 'api_call requires a string "url"';
+      if (args.url.length > MAX_ARG_LENGTH) return 'URL too long';
+      if (args.method !== undefined && typeof args.method !== 'string') return 'method must be a string';
+      if (args.body !== undefined && typeof args.body !== 'string') return 'body must be a string';
+      if (args.body && (args.body as string).length > MAX_ARG_LENGTH) return 'Request body too long';
+      break;
+    case 'done':
+      // done is always valid - result data is logged but not executed
+      break;
+    case 'submit':
+      // form is optional
+      if (args.form !== undefined && typeof args.form !== 'string') return 'form must be a string';
+      break;
+  }
+
+  return null;
+}
+
 export interface AgentRunnerConfig {
   headless: boolean;
   viewport: { width: number; height: number };
@@ -36,6 +186,14 @@ export class AgentRunner {
   private state: AgentState;
   private competitionId: string = '';
   private eventId: string = '';
+
+  // Rate limiting: track action timestamps for per-second throttling
+  private actionTimestamps: number[] = [];
+
+  // Cost tracking: accumulated API cost in USD
+  private totalApiCost: number = 0;
+  private totalInputTokens: number = 0;
+  private totalOutputTokens: number = 0;
 
   constructor(agentConfig: AgentConfig, runnerConfig: Partial<AgentRunnerConfig> = {}) {
     this.agentConfig = agentConfig;
@@ -178,19 +336,41 @@ export class AgentRunner {
           throw new Error('Turn timeout');
         }
 
+        // SECURITY: Track token usage if the adapter reports it
+        if (turnResult.usage) {
+          this.trackTokenUsage(turnResult.usage.inputTokens || 0, turnResult.usage.outputTokens || 0);
+        }
+
+        // SECURITY: Check API cost budget
+        if (this.isBudgetExceeded()) {
+          const stats = this.getCostStats();
+          log.warn(`Agent ${this.id} exceeded API budget: $${stats.totalCost} (limit: $${MAX_API_COST_PER_COMPETITION})`);
+          error = `API cost budget exceeded ($${stats.totalCost})`;
+          this.state.status = 'failed';
+          break;
+        }
+
         // Emit thinking event
         if (turnResult.thinking) {
           this.emitAction('thinking', turnResult.thinking, true);
         }
 
-        // Execute tool calls and collect results
+        // Execute tool calls and collect results (with per-turn rate limit)
         const toolResults: Array<{ toolCallId: string; toolName: string; result: string; error?: string }> = [];
+        const toolCalls = turnResult.toolCalls.slice(0, MAX_TOOL_CALLS_PER_TURN);
 
-        for (const toolCall of turnResult.toolCalls) {
+        if (turnResult.toolCalls.length > MAX_TOOL_CALLS_PER_TURN) {
+          log.warn(`Agent ${this.id} sent ${turnResult.toolCalls.length} tool calls in one turn, capping at ${MAX_TOOL_CALLS_PER_TURN}`);
+        }
+
+        for (const toolCall of toolCalls) {
           // Check page validity before each tool call
           if (!this.isPageValid()) {
             throw new Error('Browser page was closed during tool execution');
           }
+
+          // SECURITY: Enforce per-second rate limit
+          await this.enforceRateLimit();
 
           const result = await this.executeToolCall(toolCall);
 
@@ -348,13 +528,25 @@ export class AgentRunner {
     }
   }
 
-  // Execute an API call (no browser needed)
+  // Execute an API call (no browser needed) with SSRF protection
   private async executeApiCall(args: Record<string, unknown>): Promise<string> {
     const method = (args.method as string) || 'GET';
     const url = args.url as string;
     const body = args.body as string | undefined;
 
     if (!url) return 'Error: url is required';
+
+    // SECURITY: Validate URL against SSRF
+    const urlCheck = isUrlAllowed(url);
+    if (!urlCheck.allowed) {
+      log.warn(`Agent ${this.id} SSRF blocked: ${urlCheck.reason}`, { url });
+      return `Error: URL not allowed - ${urlCheck.reason}`;
+    }
+
+    // Only allow GET and POST methods
+    if (method !== 'GET' && method !== 'POST') {
+      return `Error: HTTP method "${method}" is not allowed. Only GET and POST are permitted.`;
+    }
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -379,9 +571,87 @@ export class AgentRunner {
     return `HTTP ${response.status}: ${truncated}`;
   }
 
+  /** Resolve approximate token cost rates for this agent's model */
+  private getTokenCostRate(): { input: number; output: number } {
+    const model = (this.agentConfig.model || '').toLowerCase();
+    if (model.includes('opus'))   return TOKEN_COST_PER_1K['claude-opus'];
+    if (model.includes('sonnet')) return TOKEN_COST_PER_1K['claude-sonnet'];
+    if (model.includes('haiku'))  return TOKEN_COST_PER_1K['claude-haiku'];
+    if (model.includes('gpt-4o')) return TOKEN_COST_PER_1K['gpt-4o'];
+    if (model.includes('gpt-4'))  return TOKEN_COST_PER_1K['gpt-4'];
+    if (model.includes('gemini') && model.includes('flash')) return TOKEN_COST_PER_1K['gemini-flash'];
+    if (model.includes('gemini')) return TOKEN_COST_PER_1K['gemini-pro'];
+    return TOKEN_COST_PER_1K['default'];
+  }
+
+  /** Track token usage from an adapter turn and accumulate cost */
+  trackTokenUsage(inputTokens: number, outputTokens: number): void {
+    this.totalInputTokens += inputTokens;
+    this.totalOutputTokens += outputTokens;
+    const rate = this.getTokenCostRate();
+    this.totalApiCost += (inputTokens / 1000) * rate.input + (outputTokens / 1000) * rate.output;
+  }
+
+  /** Check if the agent has exceeded its cost budget */
+  isBudgetExceeded(): boolean {
+    return this.totalApiCost >= MAX_API_COST_PER_COMPETITION;
+  }
+
+  /** Get current cost tracking stats */
+  getCostStats(): { totalCost: number; inputTokens: number; outputTokens: number; budgetRemaining: number } {
+    return {
+      totalCost: Math.round(this.totalApiCost * 10000) / 10000,
+      inputTokens: this.totalInputTokens,
+      outputTokens: this.totalOutputTokens,
+      budgetRemaining: Math.round((MAX_API_COST_PER_COMPETITION - this.totalApiCost) * 10000) / 10000,
+    };
+  }
+
+  /** Enforce per-second action rate limit. Waits if necessary. */
+  private async enforceRateLimit(): Promise<void> {
+    const now = Date.now();
+    // Remove timestamps older than 1 second
+    this.actionTimestamps = this.actionTimestamps.filter(t => now - t < 1000);
+
+    if (this.actionTimestamps.length >= MAX_ACTIONS_PER_SECOND) {
+      // Wait until the oldest action in the window expires
+      const waitMs = 1000 - (now - this.actionTimestamps[0]);
+      if (waitMs > 0) {
+        log.agent(this.id, `Rate limited: waiting ${waitMs}ms`);
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+      }
+      // Clean up again after waiting
+      const afterWait = Date.now();
+      this.actionTimestamps = this.actionTimestamps.filter(t => afterWait - t < 1000);
+    }
+
+    this.actionTimestamps.push(Date.now());
+  }
+
+  // Execute a tool call (includes argument validation)
+  private validateToolArgs(name: string, args: Record<string, unknown>): string | null {
+    return validateToolArgs(name, args);
+  }
+
   // Execute a tool call
   private async executeToolCall(toolCall: ToolCall): Promise<string> {
     const { name, arguments: args } = toolCall;
+
+    // SECURITY: Reject tools not in the allowlist
+    if (!ALLOWED_TOOLS.has(name)) {
+      log.warn(`Agent ${this.id} attempted disallowed tool: ${name}`);
+      this.recordAction(name, JSON.stringify(args), false, 'Tool not allowed');
+      return `Error: Tool "${name}" is not allowed`;
+    }
+
+    // SECURITY: Validate tool arguments
+    const argError = this.validateToolArgs(name, args);
+    if (argError) {
+      log.warn(`Agent ${this.id} invalid args for ${name}: ${argError}`);
+      this.recordAction(name, JSON.stringify(args), false, argError);
+      return `Error: Invalid arguments - ${argError}`;
+    }
+
     log.agent(this.id, `Executing: ${name}`, args);
 
     // API calls don't need a browser page
@@ -479,7 +749,8 @@ export class AgentRunner {
           break;
 
         default:
-          result = `Unknown tool: ${name}`;
+          // Should never reach here due to allowlist check above
+          result = `Error: Unhandled tool "${name}"`;
       }
 
       this.recordAction(name, JSON.stringify(args), true);
@@ -557,6 +828,10 @@ export class AgentRunner {
     this.page = null;
     this.browser = null;
     this.actions = [];
+    this.actionTimestamps = [];
+    this.totalApiCost = 0;
+    this.totalInputTokens = 0;
+    this.totalOutputTokens = 0;
     this.state = this.createInitialState();
   }
 }

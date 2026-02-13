@@ -4,3 +4,4 @@ export { NeonText } from './NeonText';
 export { Input } from './Input';
 export { Select } from './Select';
 export { Badge } from './Badge';
+export { Skeleton, SkeletonCard, SkeletonTable, PageSkeleton } from './Skeleton';

@@ -103,7 +103,15 @@ export class GeminiAdapter extends BaseAgentAdapter {
         tools: toolCalls.map(t => t.name)
       });
 
-      return { thinking, toolCalls, done, result: taskResult };
+      // Extract token usage from Gemini metadata
+      const usageMeta = response.usageMetadata;
+      return {
+        thinking, toolCalls, done, result: taskResult,
+        usage: usageMeta ? {
+          inputTokens: usageMeta.promptTokenCount,
+          outputTokens: usageMeta.candidatesTokenCount,
+        } : undefined,
+      };
 
     } catch (error) {
       log.error(`Gemini API error: ${error}`, { agentId: this.id });

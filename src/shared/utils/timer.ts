@@ -32,10 +32,8 @@ export class PrecisionTimer {
   stop(): number {
     if (!this.isRunning) return this.finalElapsed;
 
-    // Calculate final elapsed BEFORE setting isRunning to false
-    if (this.isPaused) {
-      this.pausedDuration += performance.now() - this.pauseTime;
-    }
+    // If paused, use pauseTime as the end time (don't count time after pause).
+    // pausedDuration already accumulated from prior pause/resume cycles.
     const now = this.isPaused ? this.pauseTime : performance.now();
     this.finalElapsed = now - this.startTime - this.pausedDuration;
 

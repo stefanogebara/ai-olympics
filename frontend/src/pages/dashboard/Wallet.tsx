@@ -20,7 +20,11 @@ import {
   Clock,
   TrendingUp,
   TrendingDown,
+  AlertTriangle,
 } from 'lucide-react';
+
+// Feature flag: real-money features disabled until legal review + security hardening
+const REAL_MONEY_ENABLED = false;
 
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -94,6 +98,18 @@ export function WalletDashboard() {
 
   return (
     <div className="min-h-screen">
+      {/* Beta Disclaimer Banner */}
+      {!REAL_MONEY_ENABLED && (
+        <div className="bg-yellow-500/10 border-b border-yellow-500/20">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-center gap-3">
+            <AlertTriangle size={18} className="text-yellow-400 shrink-0" />
+            <p className="text-sm text-yellow-300">
+              <strong>Beta - Virtual Only.</strong> Real-money deposits, withdrawals, and trading are disabled during the beta period. All balances shown are for testing purposes only.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="relative py-12 lg:py-16 overflow-hidden">
         <div className="container mx-auto px-4">
@@ -192,16 +208,18 @@ export function WalletDashboard() {
                   onClick={() => setDepositOpen(true)}
                   icon={<ArrowDownLeft size={16} />}
                   size="lg"
+                  disabled={!REAL_MONEY_ENABLED}
                 >
-                  Deposit
+                  {REAL_MONEY_ENABLED ? 'Deposit' : 'Deposit (Disabled)'}
                 </NeonButton>
                 <NeonButton
                   onClick={() => setWithdrawOpen(true)}
                   icon={<ArrowUpRight size={16} />}
                   variant="secondary"
                   size="lg"
+                  disabled={!REAL_MONEY_ENABLED}
                 >
-                  Withdraw
+                  {REAL_MONEY_ENABLED ? 'Withdraw' : 'Withdraw (Disabled)'}
                 </NeonButton>
               </div>
             </div>

@@ -1,12 +1,19 @@
 /**
- * Judging Service - Uses Claude API to evaluate creative task submissions.
+ * Judging Service - Cross-provider AI evaluation for creative task submissions.
  *
  * Provides AI-based judging for tasks with scoringMethod: 'judged'.
  * Each task type has a specific rubric used to score submissions 0-1000.
+ *
+ * BIAS MITIGATION: When a competitor's provider is known, the judge is chosen
+ * from a DIFFERENT provider to prevent self-evaluation bias. For multi-provider
+ * competitions, a panel of 3 judges from different providers scores submissions
+ * and the median score is used.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { config } from '../shared/config.js';
 import { createLogger } from '../shared/utils/logger.js';
+import type { AgentProvider } from '../shared/types/index.js';
 
 const log = createLogger('JudgingService');
 
@@ -14,6 +21,7 @@ interface JudgingResult {
   score: number;          // 0-1000
   breakdown: Record<string, number>;
   feedback: string;
+  judgeModel?: string;    // Which model judged this submission
 }
 
 const RUBRICS: Record<string, string> = {
@@ -144,21 +152,127 @@ Return a JSON object with this exact format:
 }`
 };
 
-class JudgingService {
-  private client: Anthropic | null = null;
+// Cross-provider judge mapping: competitor provider -> judge model
+// Ensures no model family judges its own submissions
+const JUDGE_MAP: Record<string, { model: string; orModel: string }> = {
+  claude:  { model: 'gpt-4.1',                    orModel: 'openai/gpt-4.1' },
+  openai:  { model: 'claude-sonnet-4-5-20250929',  orModel: 'anthropic/claude-sonnet-4-5-20250929' },
+  gemini:  { model: 'claude-sonnet-4-5-20250929',  orModel: 'anthropic/claude-sonnet-4-5-20250929' },
+  llama:   { model: 'gpt-4.1',                    orModel: 'openai/gpt-4.1' },
+  mistral: { model: 'claude-sonnet-4-5-20250929',  orModel: 'anthropic/claude-sonnet-4-5-20250929' },
+};
 
-  private getClient(): Anthropic {
-    if (!this.client) {
-      this.client = new Anthropic();
+// Default judge when provider is unknown or for fallback
+const DEFAULT_JUDGE = { model: 'claude-sonnet-4-5-20250929', orModel: 'anthropic/claude-sonnet-4-5-20250929' };
+
+// Panel judges for multi-provider fairness (3 different models)
+const PANEL_JUDGES = [
+  { model: 'claude-sonnet-4-5-20250929', orModel: 'anthropic/claude-sonnet-4-5-20250929' },
+  { model: 'gpt-4.1',                    orModel: 'openai/gpt-4.1' },
+  { model: 'gemini-2.5-flash',           orModel: 'google/gemini-2.5-flash' },
+];
+
+class JudgingService {
+  private anthropicClient: Anthropic | null = null;
+
+  private getAnthropicClient(): Anthropic {
+    if (!this.anthropicClient) {
+      this.anthropicClient = new Anthropic();
     }
-    return this.client;
+    return this.anthropicClient;
   }
 
   /**
-   * Judge a creative task submission using Claude.
-   * Returns a score between 0-1000.
+   * Get the appropriate judge model for a competitor's provider.
+   * Returns a model from a DIFFERENT provider to prevent self-evaluation bias.
    */
-  async judgeSubmission(taskType: string, submission: unknown): Promise<JudgingResult> {
+  private getJudgeForCompetitor(competitorProvider?: AgentProvider): { model: string; orModel: string } {
+    if (!competitorProvider) return DEFAULT_JUDGE;
+    return JUDGE_MAP[competitorProvider] || DEFAULT_JUDGE;
+  }
+
+  /**
+   * Call a judge model via OpenRouter (supports all providers through one API).
+   */
+  private async callOpenRouterJudge(model: string, prompt: string): Promise<string> {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.openRouterApiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://ai-olympics.vercel.app',
+        'X-Title': 'AI Olympics Judging',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1024,
+        temperature: 0.3, // Low temperature for consistent scoring
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenRouter judge call failed (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json() as { choices: { message: { content: string } }[] };
+    return data.choices?.[0]?.message?.content || '';
+  }
+
+  /**
+   * Call a judge model via Anthropic directly (fallback when OpenRouter unavailable).
+   */
+  private async callAnthropicJudge(model: string, prompt: string): Promise<string> {
+    const client = this.getAnthropicClient();
+    const response = await client.messages.create({
+      model,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    return response.content[0]?.type === 'text' ? response.content[0].text : '';
+  }
+
+  /**
+   * Call a judge model, routing through OpenRouter if available, otherwise Anthropic direct.
+   */
+  private async callJudge(judge: { model: string; orModel: string }, prompt: string): Promise<string> {
+    if (config.openRouterApiKey) {
+      return this.callOpenRouterJudge(judge.orModel, prompt);
+    }
+    // Fallback: use Anthropic directly (only works for Claude models)
+    return this.callAnthropicJudge(judge.model, prompt);
+  }
+
+  /**
+   * Parse a judging response into a JudgingResult.
+   */
+  private parseJudgingResponse(text: string): JudgingResult | null {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    try {
+      const result = JSON.parse(jsonMatch[0]) as JudgingResult;
+      result.score = Math.max(0, Math.min(1000, Math.round(result.score)));
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Judge a creative task submission.
+   *
+   * @param taskType - The task type (must match a key in RUBRICS)
+   * @param submission - The agent's submission content
+   * @param competitorProvider - The provider of the agent being judged (for bias mitigation)
+   * @returns JudgingResult with score 0-1000
+   */
+  async judgeSubmission(
+    taskType: string,
+    submission: unknown,
+    competitorProvider?: AgentProvider
+  ): Promise<JudgingResult> {
     const rubric = RUBRICS[taskType];
 
     if (!rubric) {
@@ -174,49 +288,120 @@ class JudgingService {
       ? submission
       : JSON.stringify(submission, null, 2);
 
-    try {
-      const client = this.getClient();
+    const prompt = `${rubric}\n\n--- SUBMISSION ---\n${submissionText}\n--- END SUBMISSION ---\n\nReturn ONLY the JSON object, no other text.`;
 
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 1024,
-        messages: [{
-          role: 'user',
-          content: `${rubric}\n\n--- SUBMISSION ---\n${submissionText}\n--- END SUBMISSION ---\n\nReturn ONLY the JSON object, no other text.`
-        }]
+    const judge = this.getJudgeForCompetitor(competitorProvider);
+
+    try {
+      log.info('Judging submission', {
+        taskType,
+        competitorProvider: competitorProvider || 'unknown',
+        judgeModel: config.openRouterApiKey ? judge.orModel : judge.model,
       });
 
-      const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
+      const text = await this.callJudge(judge, prompt);
+      const result = this.parseJudgingResponse(text);
 
-      // Parse the JSON from the response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        log.error('Failed to parse judging response', { text });
+      if (!result) {
+        log.error('Failed to parse judging response', { text: text.substring(0, 200) });
         return { score: 500, breakdown: {}, feedback: 'Failed to parse judge response.' };
       }
 
-      const result = JSON.parse(jsonMatch[0]) as JudgingResult;
-
-      // Clamp score to valid range
-      result.score = Math.max(0, Math.min(1000, Math.round(result.score)));
-
-      log.info('Judging complete', { taskType, score: result.score });
+      result.judgeModel = config.openRouterApiKey ? judge.orModel : judge.model;
+      log.info('Judging complete', { taskType, score: result.score, judgeModel: result.judgeModel });
 
       return result;
 
     } catch (error) {
       log.error('Judging failed', {
         taskType,
+        judgeModel: config.openRouterApiKey ? judge.orModel : judge.model,
         error: error instanceof Error ? error.message : String(error)
       });
 
-      // Return a default score on failure rather than crashing
       return {
         score: 500,
         breakdown: {},
         feedback: 'Judging service encountered an error.'
       };
     }
+  }
+
+  /**
+   * Panel judging: 3 judges from different providers score the submission.
+   * Returns the median score for fairness. Use for high-stakes or multi-provider competitions.
+   */
+  async panelJudge(taskType: string, submission: unknown): Promise<JudgingResult> {
+    const rubric = RUBRICS[taskType];
+
+    if (!rubric) {
+      log.warn('No rubric found for task type, returning default score', { taskType });
+      return { score: 500, breakdown: {}, feedback: 'No rubric available for this task type.' };
+    }
+
+    if (!config.openRouterApiKey) {
+      log.warn('Panel judging requires OpenRouter API key, falling back to single judge');
+      return this.judgeSubmission(taskType, submission);
+    }
+
+    const submissionText = typeof submission === 'string'
+      ? submission
+      : JSON.stringify(submission, null, 2);
+
+    const prompt = `${rubric}\n\n--- SUBMISSION ---\n${submissionText}\n--- END SUBMISSION ---\n\nReturn ONLY the JSON object, no other text.`;
+
+    log.info('Panel judging submission', { taskType, panelSize: PANEL_JUDGES.length });
+
+    // Run all 3 judges in parallel
+    const results = await Promise.allSettled(
+      PANEL_JUDGES.map(judge => this.callOpenRouterJudge(judge.orModel, prompt))
+    );
+
+    const scores: number[] = [];
+    const parsedResults: JudgingResult[] = [];
+
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === 'fulfilled') {
+        const parsed = this.parseJudgingResponse(r.value);
+        if (parsed) {
+          scores.push(parsed.score);
+          parsedResults.push(parsed);
+          log.info('Panel judge scored', {
+            judge: PANEL_JUDGES[i].orModel,
+            score: parsed.score,
+          });
+        }
+      } else {
+        log.warn('Panel judge failed', {
+          judge: PANEL_JUDGES[i].orModel,
+          error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+        });
+      }
+    }
+
+    if (scores.length === 0) {
+      return { score: 500, breakdown: {}, feedback: 'All panel judges failed.' };
+    }
+
+    // Use median score for fairness
+    scores.sort((a, b) => a - b);
+    const medianScore = scores[Math.floor(scores.length / 2)];
+    const medianResult = parsedResults.find(r => r.score === medianScore) || parsedResults[0];
+
+    log.info('Panel judging complete', {
+      taskType,
+      scores,
+      medianScore,
+      judgeCount: scores.length,
+    });
+
+    return {
+      score: medianScore,
+      breakdown: medianResult.breakdown,
+      feedback: `Panel judged (${scores.length}/3 judges). Scores: ${scores.join(', ')}. ${medianResult.feedback}`,
+      judgeModel: `panel (${scores.length} judges)`,
+    };
   }
 }
 

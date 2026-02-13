@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import express from 'express';
-import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { serviceClient as supabase, createUserClient } from '../../shared/utils/supabase.js';
 import { walletService } from '../../services/wallet-service.js';
 import { stripeService } from '../../services/stripe-service.js';
 import { cryptoWalletService } from '../../services/crypto-wallet-service.js';
@@ -14,12 +14,26 @@ import { createLogger } from '../../shared/utils/logger.js';
 const router = Router();
 const log = createLogger('PaymentsAPI');
 
+// Feature flag: real-money features disabled until legal review + security hardening
+const REAL_MONEY_ENABLED = process.env.ENABLE_REAL_MONEY_TRADING === 'true';
+
+function requireRealMoneyEnabled(_req: Request, res: Response, next: Function) {
+  if (!REAL_MONEY_ENABLED) {
+    return res.status(503).json({
+      error: 'Real-money features are currently disabled',
+      message: 'Deposits and withdrawals are disabled during the beta period.',
+    });
+  }
+  next();
+}
+
 // ============================================================================
 // AUTH MIDDLEWARE
 // ============================================================================
 
 interface AuthenticatedRequest extends Request {
   userId?: string;
+  userClient?: ReturnType<typeof createUserClient>;
 }
 
 async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
@@ -37,6 +51,7 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Fu
     }
 
     req.userId = user.id;
+    req.userClient = createUserClient(token);
     next();
   } catch (error) {
     log.error('Auth middleware error', { error: String(error) });
@@ -88,7 +103,7 @@ router.post('/wallet', authMiddleware, async (req: AuthenticatedRequest, res: Re
  * POST /api/payments/deposit/stripe
  * Create Stripe checkout session for deposit
  */
-router.post('/deposit/stripe', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/deposit/stripe', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
     const amountCents = req.body.amountCents || req.body.amount_cents;
@@ -111,7 +126,7 @@ router.post('/deposit/stripe', authMiddleware, async (req: AuthenticatedRequest,
  * POST /api/payments/deposit/crypto
  * Get crypto deposit address
  */
-router.post('/deposit/crypto', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/deposit/crypto', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
     const address = await cryptoWalletService.getDepositAddress();
@@ -131,7 +146,7 @@ router.post('/deposit/crypto', authMiddleware, async (req: AuthenticatedRequest,
  * POST /api/payments/withdraw/stripe
  * Stripe Connect withdrawal (placeholder)
  */
-router.post('/withdraw/stripe', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/withdraw/stripe', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     res.json({ message: 'Stripe Connect withdrawal coming soon' });
   } catch (error) {
@@ -144,7 +159,7 @@ router.post('/withdraw/stripe', authMiddleware, async (req: AuthenticatedRequest
  * POST /api/payments/withdraw/crypto
  * Execute crypto withdrawal
  */
-router.post('/withdraw/crypto', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/withdraw/crypto', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
     const toAddress = req.body.toAddress || req.body.to_address;
@@ -272,13 +287,15 @@ router.get('/crypto-wallets', authMiddleware, async (req: AuthenticatedRequest, 
 router.post('/exchange-credentials', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
+    const userDb = req.userClient!;
     const { exchange, credentials } = req.body;
 
     if (!exchange || !credentials) {
       return res.status(400).json({ error: 'Missing required fields: exchange, credentials' });
     }
 
-    const { error } = await supabase
+    // Use user-scoped client for credential storage (respects RLS)
+    const { error } = await userDb
       .from('aio_exchange_credentials')
       .upsert({
         user_id: userId,

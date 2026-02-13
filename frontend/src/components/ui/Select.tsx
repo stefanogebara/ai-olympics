@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils';
-import { SelectHTMLAttributes, forwardRef } from 'react';
+import { SelectHTMLAttributes, forwardRef, useId } from 'react';
 
 interface SelectOption {
   value: string;
@@ -14,16 +14,23 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, options, placeholder, className, ...props }, ref) => {
+  ({ label, error, options, placeholder, className, id: propId, ...props }, ref) => {
+    const autoId = useId();
+    const id = propId || autoId;
+    const errorId = error ? `${id}-error` : undefined;
+
     return (
       <div className="space-y-1">
         {label && (
-          <label className="block text-sm font-medium text-white/70">
+          <label htmlFor={id} className="block text-sm font-medium text-white/70">
             {label}
           </label>
         )}
         <select
           ref={ref}
+          id={id}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={errorId}
           className={cn(
             'w-full px-4 py-2.5 bg-cyber-dark/50 border border-white/10 rounded-lg',
             'text-white appearance-none cursor-pointer',
@@ -51,7 +58,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ))}
         </select>
         {error && (
-          <p className="text-sm text-red-400">{error}</p>
+          <p id={errorId} className="text-sm text-red-400" role="alert">{error}</p>
         )}
       </div>
     );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, Skeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import {
   Wallet,
@@ -296,8 +296,10 @@ export function PortfolioDashboard() {
               </div>
 
               {loading ? (
-                <div className="flex justify-center py-10">
-                  <div className="w-8 h-8 border-2 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" />
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
                 </div>
               ) : positions.length === 0 ? (
                 <div className="text-center py-10 text-white/40">
@@ -348,8 +350,10 @@ export function PortfolioDashboard() {
               </div>
 
               {loading ? (
-                <div className="flex justify-center py-10">
-                  <div className="w-8 h-8 border-2 border-neon-magenta/30 border-t-neon-magenta rounded-full animate-spin" />
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
                 </div>
               ) : recentBets.length === 0 ? (
                 <div className="text-center py-10 text-white/40">

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { createLogger } from '../../shared/utils/logger.js';
 import { encrypt, decrypt } from '../../shared/utils/crypto.js';
-import { serviceClient as supabase, extractToken } from '../../shared/utils/supabase.js';
+import { serviceClient as supabase, extractToken, createUserClient } from '../../shared/utils/supabase.js';
 import {
   generateVerificationSession,
   type ChallengeAnswers,
@@ -61,6 +61,7 @@ async function requireAuth(req: Request, res: Response, next: Function) {
       return res.status(401).json({ error: 'Invalid token' });
     }
     (req as any).user = user;
+    (req as any).userClient = createUserClient(token);
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid token' });
@@ -80,8 +81,9 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'agent_id is required' });
     }
 
-    // Verify agent ownership
-    const { data: agent } = await supabase
+    // Verify agent ownership (RLS-scoped)
+    const userDb = (req as any).userClient;
+    const { data: agent } = await userDb
       .from('aio_agents')
       .select('id, owner_id, verification_status, last_verified_at')
       .eq('id', agent_id)

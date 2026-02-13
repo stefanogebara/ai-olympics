@@ -1,46 +1,47 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText, Input } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import { Mail, Lock, User, Github } from 'lucide-react';
 
+const signupSchema = z.object({
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(30, 'Username must be at most 30 characters')
+    .regex(/^[a-z0-9_]+$/, 'Username can only contain lowercase letters, numbers, and underscores'),
+  email: z.string().min(1, 'Email is required').email('Please enter a valid email'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+});
+
+type SignupFormData = z.infer<typeof signupSchema>;
+
 export function Signup() {
   const navigate = useNavigate();
   const { signUp, signInWithGoogle, signInWithGithub } = useAuthStore();
-
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const { register, handleSubmit, formState: { errors } } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+  });
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-
-    if (username.length < 3) {
-      setError('Username must be at least 3 characters');
-      return;
-    }
-
+  const onSubmit = async (data: SignupFormData) => {
+    setServerError('');
     setLoading(true);
-    const { error } = await signUp(email, password, username);
+
+    const { error } = await signUp(data.email, data.password, data.username);
 
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setServerError(error.message);
     } else {
       navigate('/dashboard');
     }
@@ -48,12 +49,12 @@ export function Signup() {
 
   const handleGoogleLogin = async () => {
     const { error } = await signInWithGoogle();
-    if (error) setError(error.message);
+    if (error) setServerError(error.message);
   };
 
   const handleGithubLogin = async () => {
     const { error } = await signInWithGithub();
-    if (error) setError(error.message);
+    if (error) setServerError(error.message);
   };
 
   return (
@@ -105,52 +106,64 @@ export function Signup() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                {error}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {serverError && (
+              <div role="alert" className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                {serverError}
               </div>
             )}
 
-            <Input
-              label="Username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-              placeholder="cooluser123"
-              icon={<User size={18} />}
-              required
-            />
+            <div>
+              <Input
+                label="Username"
+                type="text"
+                {...register('username')}
+                placeholder="cooluser123"
+                icon={<User size={18} />}
+              />
+              {errors.username && (
+                <p className="mt-1 text-xs text-red-400">{errors.username.message}</p>
+              )}
+            </div>
 
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              icon={<Mail size={18} />}
-              required
-            />
+            <div>
+              <Input
+                label="Email"
+                type="email"
+                {...register('email')}
+                placeholder="you@example.com"
+                icon={<Mail size={18} />}
+              />
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+              )}
+            </div>
 
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              icon={<Lock size={18} />}
-              required
-            />
+            <div>
+              <Input
+                label="Password"
+                type="password"
+                {...register('password')}
+                placeholder="••••••••"
+                icon={<Lock size={18} />}
+              />
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+              )}
+            </div>
 
-            <Input
-              label="Confirm Password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              icon={<Lock size={18} />}
-              required
-            />
+            <div>
+              <Input
+                label="Confirm Password"
+                type="password"
+                {...register('confirmPassword')}
+                placeholder="••••••••"
+                icon={<Lock size={18} />}
+              />
+              {errors.confirmPassword && (
+                <p className="mt-1 text-xs text-red-400">{errors.confirmPassword.message}</p>
+              )}
+            </div>
 
             <div className="flex items-start gap-2">
               <input

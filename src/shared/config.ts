@@ -40,6 +40,9 @@ export const config = {
   polymarketClobEnabled: process.env.POLYMARKET_CLOB_ENABLED === 'true',
   kalshiTradingEnabled: process.env.KALSHI_TRADING_ENABLED === 'true',
 
+  // Redis (optional - enables event resilience and crash recovery)
+  redisUrl: process.env.REDIS_URL || '',
+
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',
 
@@ -59,7 +62,7 @@ export const AGENT_PRESETS: Record<string, AgentConfig> = {
     id: 'claude-opus',
     name: 'Claude',
     provider: 'claude',
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-opus-4-6',
     color: '#D97706',  // Anthropic orange
     avatar: '🧠'
   },
@@ -67,7 +70,7 @@ export const AGENT_PRESETS: Record<string, AgentConfig> = {
     id: 'gpt-4o',
     name: 'GPT-4',
     provider: 'openai',
-    model: 'gpt-4o',
+    model: 'gpt-4.1',
     color: '#10B981',  // OpenAI green
     avatar: '🤖'
   },
@@ -75,15 +78,15 @@ export const AGENT_PRESETS: Record<string, AgentConfig> = {
     id: 'gemini-pro',
     name: 'Gemini',
     provider: 'gemini',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     color: '#4285F4',  // Google blue
     avatar: '💎'
   },
   llama: {
-    id: 'llama-3',
-    name: 'Llama 3',
+    id: 'llama-4',
+    name: 'Llama 4',
     provider: 'llama',
-    model: 'llama-3.3-70b',
+    model: 'llama-4-maverick',
     color: '#7C3AED',  // Purple
     avatar: '🦙'
   }
@@ -114,31 +117,108 @@ export function useOpenRouter(): boolean {
 }
 
 // Validate required configuration
-export function validateConfig(): { valid: boolean; errors: string[] } {
+export function validateConfig(): { valid: boolean; errors: string[]; warnings: string[] } {
   const errors: string[] = [];
+  const warnings: string[] = [];
 
-  // OpenRouter provides access to all models
-  if (config.openRouterApiKey) {
-    console.log('✓ OpenRouter API key configured - all models available');
-    return { valid: true, errors: [] };
+  // ========== CRITICAL: Required for operation ==========
+
+  // Supabase
+  if (!process.env.SUPABASE_URL) {
+    errors.push('SUPABASE_URL is required');
+  }
+  if (!process.env.SUPABASE_SERVICE_KEY) {
+    errors.push('SUPABASE_SERVICE_KEY is required');
+  }
+  if (!process.env.SUPABASE_ANON_KEY) {
+    errors.push('SUPABASE_ANON_KEY is required');
   }
 
-  // Fallback to individual API keys
-  if (!config.anthropicApiKey) {
+  // At least one AI provider
+  if (config.openRouterApiKey) {
+    console.log('  OpenRouter API key configured - all models available');
+  } else if (!config.anthropicApiKey) {
     errors.push('ANTHROPIC_API_KEY or OPENROUTER_API_KEY is required');
   }
 
-  // OpenAI and Google are optional but warn
-  if (!config.openaiApiKey) {
-    console.warn('Warning: OPENAI_API_KEY not set - GPT-4 agent will be unavailable');
+  // ========== HIGH: Security secrets ==========
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // JWT secret validation - required in production
+  const jwtSecret = process.env.JWT_SECRET || '';
+  if (!jwtSecret) {
+    if (isProduction) {
+      errors.push('JWT_SECRET is required in production');
+    } else {
+      warnings.push('JWT_SECRET not set - using insecure default');
+    }
+  } else if (jwtSecret.length < 32) {
+    if (isProduction) {
+      errors.push('JWT_SECRET is too short (< 32 chars) - minimum 32 chars required in production');
+    } else {
+      warnings.push('JWT_SECRET is too short (< 32 chars) - increase for production security');
+    }
   }
-  if (!config.googleAiApiKey) {
-    console.warn('Warning: GOOGLE_AI_API_KEY not set - Gemini agent will be unavailable');
+
+  // API key encryption - required in production (agents store encrypted API keys)
+  const encKey = process.env.API_KEY_ENCRYPTION_KEY || '';
+  if (!encKey && !process.env.SUPABASE_SERVICE_KEY) {
+    if (isProduction) {
+      errors.push('API_KEY_ENCRYPTION_KEY is required in production for agent API key storage');
+    } else {
+      warnings.push('API_KEY_ENCRYPTION_KEY not set - stored API keys will not be encrypted');
+    }
+  } else if (encKey && encKey.length < 32) {
+    warnings.push('API_KEY_ENCRYPTION_KEY is too short (< 32 chars)');
+  }
+
+  // ========== MEDIUM: Optional but warn ==========
+
+  if (!config.openaiApiKey && !config.openRouterApiKey) {
+    warnings.push('OPENAI_API_KEY not set - GPT-4 agent will be unavailable');
+  }
+  if (!config.googleAiApiKey && !config.openRouterApiKey) {
+    warnings.push('GOOGLE_AI_API_KEY not set - Gemini agent will be unavailable');
+  }
+
+  // Stripe (only warn if real money is enabled)
+  if (process.env.ENABLE_REAL_MONEY_TRADING === 'true') {
+    if (!config.stripeSecretKey) {
+      errors.push('STRIPE_SECRET_KEY is required when real-money trading is enabled');
+    }
+    if (!config.stripeWebhookSecret) {
+      errors.push('STRIPE_WEBHOOK_SECRET is required when real-money trading is enabled');
+    }
+    if (!config.platformWalletAddress) {
+      warnings.push('PLATFORM_WALLET_ADDRESS not set - crypto payments will be unavailable');
+    }
+    if (!config.platformWalletPrivateKey) {
+      errors.push('PLATFORM_WALLET_PRIVATE_KEY is required when real-money trading is enabled');
+    }
+  }
+
+  // Production-only: refuse to run without encryption keys
+  if (isProduction && !process.env.API_KEY_ENCRYPTION_KEY) {
+    errors.push('API_KEY_ENCRYPTION_KEY must be explicitly set in production (do not rely on SUPABASE_SERVICE_KEY fallback)');
+  }
+
+  // Print summary
+  if (errors.length > 0) {
+    console.error('\n  Configuration errors:');
+    errors.forEach(e => console.error(`    ${e}`));
+  }
+  if (warnings.length > 0) {
+    console.warn('\n  Configuration warnings:');
+    warnings.forEach(w => console.warn(`    ${w}`));
+  }
+  if (errors.length === 0 && warnings.length === 0) {
+    console.log('  All configuration checks passed');
   }
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
+    warnings,
   };
 }
 

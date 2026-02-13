@@ -4,12 +4,26 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { serviceClient as supabase, createUserClient } from '../../shared/utils/supabase.js';
 import { orderManager } from '../../services/order-manager.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const router = Router();
 const log = createLogger('TradingAPI');
+
+// Feature flag: real-money trading disabled until legal review + security hardening
+const REAL_MONEY_TRADING_ENABLED = process.env.ENABLE_REAL_MONEY_TRADING === 'true';
+
+// Middleware to gate real-money features
+function requireRealMoneyEnabled(_req: Request, res: Response, next: Function) {
+  if (!REAL_MONEY_TRADING_ENABLED) {
+    return res.status(503).json({
+      error: 'Real-money trading is currently disabled',
+      message: 'This feature is disabled during the beta period. Use sandbox mode for testing.',
+    });
+  }
+  next();
+}
 
 // ============================================================================
 // AUTH MIDDLEWARE
@@ -17,6 +31,7 @@ const log = createLogger('TradingAPI');
 
 interface AuthenticatedRequest extends Request {
   userId?: string;
+  userClient?: ReturnType<typeof createUserClient>;
 }
 
 async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
@@ -34,6 +49,7 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Fu
     }
 
     req.userId = user.id;
+    req.userClient = createUserClient(token);
     next();
   } catch (error) {
     log.error('Auth middleware error', { error: String(error) });
@@ -49,7 +65,7 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Fu
  * POST /api/trading/orders
  * Place an order
  */
-router.post('/orders', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/orders', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
     const { marketId, marketSource, outcome, amountCents } = req.body;
@@ -90,9 +106,11 @@ router.get('/orders', authMiddleware, async (req: AuthenticatedRequest, res: Res
 router.get('/orders/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
+    const userDb = req.userClient!;
     const orderId = req.params.id;
 
-    const { data: order, error } = await supabase
+    // Use user-scoped client (RLS ensures user can only see their own orders)
+    const { data: order, error } = await userDb
       .from('aio_real_bets')
       .select('*')
       .eq('id', orderId)
@@ -114,7 +132,7 @@ router.get('/orders/:id', authMiddleware, async (req: AuthenticatedRequest, res:
  * DELETE /api/trading/orders/:id
  * Cancel an order
  */
-router.delete('/orders/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/orders/:id', requireRealMoneyEnabled, authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
     const orderId = String(req.params.id);
@@ -166,7 +184,10 @@ router.get('/history', authMiddleware, async (req: AuthenticatedRequest, res: Re
     const limit = Math.min(parseInt(limitStr as string) || 50, 100);
     const offset = (page - 1) * limit;
 
-    const { data: trades, error } = await supabase
+    const userDb = req.userClient!;
+
+    // Use user-scoped client for trade history (RLS enforced)
+    const { data: trades, error } = await userDb
       .from('aio_real_bets')
       .select('*')
       .eq('user_id', userId)

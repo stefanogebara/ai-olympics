@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { serviceClient as supabase, createUserClient, extractToken } from '../../shared/utils/supabase.js';
 import { puzzleService, type GameType, type Difficulty } from '../../services/puzzle-service.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
@@ -267,9 +267,11 @@ router.post('/:type/submit', optionalAuthMiddleware, async (req: AuthenticatedRe
       });
     }
 
-    // Verify agent ownership if agentId provided with auth
+    // Verify agent ownership if agentId provided with auth (RLS-scoped)
     if (agentId && userId) {
-      const { data: agent } = await supabase
+      const token = extractToken(req.headers.authorization);
+      const userDb = token ? createUserClient(token) : supabase;
+      const { data: agent } = await userDb
         .from('aio_agents')
         .select('owner_id')
         .eq('id', agentId)

@@ -167,6 +167,72 @@ class OrderManager {
     }
   }
 
+  /**
+   * Settle a competition and distribute winnings with platform fee deduction.
+   * @param competitionId - The competition to settle
+   * @param rankings - Array of { userId, rank } ordered by placement
+   */
+  async settleCompetition(
+    competitionId: string,
+    rankings: { userId: string; rank: number }[]
+  ): Promise<{ payouts: { userId: string; amount: number }[] }> {
+    try {
+      log.info('Settling competition', { competitionId, rankings: rankings.length });
+
+      // Fetch competition details including platform fee
+      const { data: competition, error: compError } = await serviceClient
+        .from('aio_competitions')
+        .select('id, prize_pool, entry_fee, platform_fee_pct, stake_mode')
+        .eq('id', competitionId)
+        .single();
+
+      if (compError || !competition) {
+        throw new Error(`Competition not found: ${competitionId}`);
+      }
+
+      // Sandbox competitions have no payouts
+      if (competition.stake_mode === 'sandbox') {
+        log.info('Sandbox competition, no payouts', { competitionId });
+        return { payouts: [] };
+      }
+
+      const grossPool = competition.prize_pool || 0;
+      const feePct = competition.platform_fee_pct ?? 10;
+      const netPool = grossPool * (1 - feePct / 100);
+
+      log.info('Prize pool breakdown', { grossPool, feePct, netPool });
+
+      // Simple distribution: 1st gets 60%, 2nd gets 30%, 3rd gets 10%
+      const splits = [0.6, 0.3, 0.1];
+      const payouts: { userId: string; amount: number }[] = [];
+
+      for (let i = 0; i < Math.min(rankings.length, splits.length); i++) {
+        const amount = Math.floor(netPool * splits[i]);
+        if (amount > 0) {
+          const wallet = await walletService.getOrCreateWallet(rankings[i].userId);
+          // Credit wallet (negative lock = credit)
+          await serviceClient
+            .from('aio_wallet_transactions')
+            .insert({
+              wallet_id: wallet.id,
+              type: 'prize',
+              amount_cents: amount,
+              description: `Competition prize (rank #${rankings[i].rank})`,
+              reference_id: competitionId,
+            });
+
+          payouts.push({ userId: rankings[i].userId, amount });
+        }
+      }
+
+      log.info('Competition settled', { competitionId, payouts });
+      return { payouts };
+    } catch (error) {
+      log.error('Failed to settle competition', { competitionId, error: String(error) });
+      throw error;
+    }
+  }
+
   async getUserPositions(userId: string): Promise<Record<string, unknown>[]> {
     try {
       const { data, error } = await serviceClient

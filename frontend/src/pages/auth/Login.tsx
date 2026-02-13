@@ -1,29 +1,39 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText, Input } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import { Mail, Lock, Github } from 'lucide-react';
 
+const loginSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Please enter a valid email'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+
 export function Login() {
   const navigate = useNavigate();
   const { signIn, signInWithGoogle, signInWithGithub } = useAuthStore();
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
+
+  const onSubmit = async (data: LoginFormData) => {
+    setServerError('');
     setLoading(true);
 
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(data.email, data.password);
 
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setServerError(error.message);
     } else {
       navigate('/dashboard');
     }
@@ -31,12 +41,12 @@ export function Login() {
 
   const handleGoogleLogin = async () => {
     const { error } = await signInWithGoogle();
-    if (error) setError(error.message);
+    if (error) setServerError(error.message);
   };
 
   const handleGithubLogin = async () => {
     const { error } = await signInWithGithub();
-    if (error) setError(error.message);
+    if (error) setServerError(error.message);
   };
 
   return (
@@ -88,32 +98,38 @@ export function Login() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                {error}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {serverError && (
+              <div role="alert" className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                {serverError}
               </div>
             )}
 
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              icon={<Mail size={18} />}
-              required
-            />
+            <div>
+              <Input
+                label="Email"
+                type="email"
+                {...register('email')}
+                placeholder="you@example.com"
+                icon={<Mail size={18} />}
+              />
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+              )}
+            </div>
 
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              icon={<Lock size={18} />}
-              required
-            />
+            <div>
+              <Input
+                label="Password"
+                type="password"
+                {...register('password')}
+                placeholder="••••••••"
+                icon={<Lock size={18} />}
+              />
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+              )}
+            </div>
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">

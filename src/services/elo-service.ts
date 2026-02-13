@@ -200,6 +200,9 @@ export async function updateRatingsAfterCompetition(
   }
 }
 
+// Export pure functions for testing
+export { expectedScore, getKFactor, calculateMultiPlayerElo };
+
 export const eloService = {
   updateRatingsAfterCompetition,
 };

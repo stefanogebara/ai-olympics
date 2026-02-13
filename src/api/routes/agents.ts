@@ -4,6 +4,8 @@ import { createLogger } from '../../shared/utils/logger.js';
 import { encrypt as encryptApiKey, decrypt as decryptApiKey } from '../../shared/utils/crypto.js';
 import { serviceClient as supabase, createUserClient, extractToken } from '../../shared/utils/supabase.js';
 import { verifyWebhookSignature } from '../../agents/adapters/webhook.js';
+import { getAllTasks, getTask } from '../../orchestrator/task-registry.js';
+import { BROWSER_TOOLS } from '../../agents/adapters/base.js';
 
 const log = createLogger('AgentsAPI');
 
@@ -210,6 +212,16 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     // Validate required fields
     if (!name || !slug || !agent_type) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Abuse detection: max 5 agents per user (RLS-scoped via userDb above)
+    const { count: agentCount } = await userDb
+      .from('aio_agents')
+      .select('id', { count: 'exact', head: true })
+      .eq('owner_id', user.id);
+
+    if ((agentCount || 0) >= 5) {
+      return res.status(429).json({ error: 'Maximum 5 agents per account. Delete an existing agent first.' });
     }
 
     // H1: SSRF protection - validate webhook URL at creation time
@@ -528,6 +540,169 @@ router.get('/:id/domain-ratings', async (req: Request, res: Response) => {
   } catch (error) {
     log.error('Failed to get domain ratings', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({ error: 'Failed to get domain ratings' });
+  }
+});
+
+// ============================================================================
+// SANDBOX / TESTING ENDPOINTS
+// ============================================================================
+
+// List available tasks (public, for sandbox UI)
+router.get('/sandbox/tasks', (_req: Request, res: Response) => {
+  try {
+    const tasks = getAllTasks().map(t => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      category: t.category,
+      difficulty: t.difficulty,
+      timeLimit: t.timeLimit,
+      scoringMethod: t.scoringMethod,
+      maxScore: t.maxScore,
+    }));
+    res.json(tasks);
+  } catch (error) {
+    log.error('Failed to list tasks', { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: 'Failed to list tasks' });
+  }
+});
+
+// Run sandbox test: send a sample task payload to the agent and return the response
+router.post('/:id/sandbox', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    const { taskId } = req.body;
+
+    if (!taskId) {
+      return res.status(400).json({ error: 'Missing taskId' });
+    }
+
+    // Look up the task
+    const task = getTask(taskId);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Look up the agent (must be owned by the user) - use RLS-scoped client
+    const userDb = (req as any).userClient;
+    const { data: agent, error: agentErr } = await userDb
+      .from('aio_agents')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (agentErr || !agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    if (agent.owner_id !== user.id) {
+      return res.status(403).json({ error: 'Not authorized to test this agent' });
+    }
+
+    // Build the sample payload (matches WebhookRequest format)
+    const samplePayload = {
+      version: '1.0',
+      timestamp: Date.now(),
+      agentId: agent.id,
+      agentName: agent.name,
+      competitionId: 'sandbox-test',
+      task: {
+        systemPrompt: task.systemPrompt,
+        taskPrompt: task.taskPrompt,
+      },
+      pageState: {
+        url: task.startUrl,
+        title: `${task.name} - Sandbox Test`,
+        accessibilityTree: '[sandbox] button "Start" | input "answer" | heading "' + task.name + '"',
+      },
+      previousActions: [],
+      turnNumber: 1,
+      availableTools: BROWSER_TOOLS,
+    };
+
+    // For webhook agents: send the payload to their endpoint
+    if (agent.agent_type === 'webhook' && agent.webhook_url) {
+      // SSRF protection
+      if (isPrivateUrl(agent.webhook_url)) {
+        return res.status(400).json({
+          error: 'Webhook URL points to a private address. Update your agent with a public URL.',
+        });
+      }
+
+      const body = JSON.stringify(samplePayload);
+      const signature = agent.webhook_secret
+        ? 'sha256=' + crypto.createHmac('sha256', agent.webhook_secret).update(body).digest('hex')
+        : 'none';
+
+      const startTime = Date.now();
+      const response = await fetch(agent.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AI-Olympics-Signature': signature,
+          'X-AI-Olympics-Test': 'true',
+        },
+        body,
+        signal: AbortSignal.timeout(15000),
+      });
+
+      const elapsed = Date.now() - startTime;
+
+      if (!response.ok) {
+        return res.json({
+          success: false,
+          agentType: 'webhook',
+          task: { id: task.id, name: task.name },
+          error: `Webhook returned HTTP ${response.status}`,
+          responseTime: elapsed,
+          requestPayload: samplePayload,
+        });
+      }
+
+      const responseData = await response.json();
+      return res.json({
+        success: true,
+        agentType: 'webhook',
+        task: { id: task.id, name: task.name },
+        responseTime: elapsed,
+        requestPayload: samplePayload,
+        agentResponse: {
+          thinking: responseData?.thinking || null,
+          actions: Array.isArray(responseData?.actions) ? responseData.actions : [],
+          done: responseData?.done || false,
+        },
+      });
+    }
+
+    // For API key agents: verify connectivity by checking the provider
+    if (agent.agent_type === 'api_key') {
+      const provider = agent.provider || 'unknown';
+      const model = agent.model || 'unknown';
+
+      // We can't run a full agent turn without Playwright, but we can verify the config
+      return res.json({
+        success: true,
+        agentType: 'api_key',
+        task: { id: task.id, name: task.name },
+        provider,
+        model,
+        message: `API key agent configured with ${provider}/${model}. In a real competition, the platform runs the model and browser on your behalf.`,
+        requestPayload: samplePayload,
+        note: 'API key agents are executed server-side during competitions. This sandbox shows the payload your agent would receive.',
+      });
+    }
+
+    return res.status(400).json({
+      error: `Unknown agent type: ${agent.agent_type}. Supported: webhook, api_key`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error('Sandbox test failed', { error: message });
+    res.status(500).json({
+      success: false,
+      error: message.includes('timeout') ? 'Webhook timed out (15s limit)' : 'Sandbox test failed',
+    });
   }
 });
 

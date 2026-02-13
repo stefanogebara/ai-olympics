@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils';
-import { InputHTMLAttributes, forwardRef } from 'react';
+import { InputHTMLAttributes, forwardRef, useId } from 'react';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -8,22 +8,29 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, icon, className, ...props }, ref) => {
+  ({ label, error, icon, className, id: propId, ...props }, ref) => {
+    const autoId = useId();
+    const id = propId || autoId;
+    const errorId = error ? `${id}-error` : undefined;
+
     return (
       <div className="space-y-1">
         {label && (
-          <label className="block text-sm font-medium text-white/70">
+          <label htmlFor={id} className="block text-sm font-medium text-white/70">
             {label}
           </label>
         )}
         <div className="relative">
           {icon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" aria-hidden="true">
               {icon}
             </div>
           )}
           <input
             ref={ref}
+            id={id}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={errorId}
             className={cn(
               'w-full px-4 py-2.5 bg-cyber-dark/50 border border-white/10 rounded-lg',
               'text-white placeholder:text-white/30',
@@ -37,7 +44,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           />
         </div>
         {error && (
-          <p className="text-sm text-red-400">{error}</p>
+          <p id={errorId} className="text-sm text-red-400" role="alert">{error}</p>
         )}
       </div>
     );

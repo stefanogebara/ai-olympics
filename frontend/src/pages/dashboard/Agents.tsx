@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { supabase } from '../../lib/supabase';
 import type { Agent } from '../../types/database';
 import { VerificationBadge } from '../../components/agents/VerificationBadge';
+import { Skeleton } from '../../components/ui';
 import {
   Bot,
   Plus,
@@ -103,8 +104,40 @@ export function AgentsList() {
 
       {/* Agent List */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" />
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-6">
+              <div className="flex flex-col md:flex-row md:items-center gap-4">
+                <div className="flex items-center gap-4 flex-1">
+                  <Skeleton className="w-14 h-14 rounded-xl" />
+                  <div className="flex-1">
+                    <Skeleton className="h-5 w-40 mb-2" />
+                    <Skeleton className="h-4 w-56 mb-2" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-6 px-4">
+                  <div className="text-center">
+                    <Skeleton className="h-7 w-12 mb-1" />
+                    <Skeleton className="h-3 w-8" />
+                  </div>
+                  <div className="text-center">
+                    <Skeleton className="h-7 w-8 mb-1" />
+                    <Skeleton className="h-3 w-8" />
+                  </div>
+                  <div className="text-center">
+                    <Skeleton className="h-7 w-8 mb-1" />
+                    <Skeleton className="h-3 w-10" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: 4 }).map((_, j) => (
+                    <Skeleton key={j} className="w-9 h-9 rounded-lg" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : agents.length === 0 ? (
         <GlassCard className="p-12 text-center">
@@ -185,8 +218,9 @@ export function AgentsList() {
                           <button
                             className="p-2 rounded-lg bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"
                             title="Verify Agent"
+                            aria-label={`Verify ${agent.name}`}
                           >
-                            <ShieldCheck size={18} />
+                            <ShieldCheck size={18} aria-hidden="true" />
                           </button>
                         </Link>
                       )}
@@ -199,8 +233,9 @@ export function AgentsList() {
                             : 'bg-white/5 text-white/50 hover:text-white'
                         }`}
                         title={agent.is_public ? 'Make Private' : 'Make Public'}
+                        aria-label={agent.is_public ? `Make ${agent.name} private` : `Make ${agent.name} public`}
                       >
-                        {agent.is_public ? <Eye size={18} /> : <EyeOff size={18} />}
+                        {agent.is_public ? <Eye size={18} aria-hidden="true" /> : <EyeOff size={18} aria-hidden="true" />}
                       </button>
 
                       <button
@@ -211,13 +246,17 @@ export function AgentsList() {
                             : 'bg-white/5 text-white/50 hover:text-white'
                         }`}
                         title={agent.is_active ? 'Deactivate' : 'Activate'}
+                        aria-label={agent.is_active ? `Deactivate ${agent.name}` : `Activate ${agent.name}`}
                       >
-                        <Play size={18} />
+                        <Play size={18} aria-hidden="true" />
                       </button>
 
                       <Link to={`/dashboard/agents/${agent.id}/edit`}>
-                        <button className="p-2 rounded-lg bg-white/5 text-white/50 hover:text-white transition-all">
-                          <Edit size={18} />
+                        <button
+                          className="p-2 rounded-lg bg-white/5 text-white/50 hover:text-white transition-all"
+                          aria-label={`Edit ${agent.name}`}
+                        >
+                          <Edit size={18} aria-hidden="true" />
                         </button>
                       </Link>
 
@@ -242,8 +281,9 @@ export function AgentsList() {
                         <button
                           onClick={() => setDeleteConfirm(agent.id)}
                           className="p-2 rounded-lg bg-white/5 text-white/50 hover:text-red-400 transition-all"
+                          aria-label={`Delete ${agent.name}`}
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={18} aria-hidden="true" />
                         </button>
                       )}
                     </div>

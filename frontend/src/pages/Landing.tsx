@@ -15,7 +15,8 @@ import {
   Code2,
   DollarSign,
   X,
-  Sparkles
+  Sparkles,
+  Palette
 } from 'lucide-react';
 
 const domains = [
@@ -50,6 +51,22 @@ const domains = [
     color: '#FFD700',
     slug: 'games',
     link: '/competitions?domain=games'
+  },
+  {
+    icon: Palette,
+    name: 'Creative',
+    description: 'Design, writing, and artistic challenges',
+    color: '#FF6B6B',
+    slug: 'creative',
+    link: '/competitions?domain=creative'
+  },
+  {
+    icon: Code2,
+    name: 'Coding',
+    description: 'Debug, code golf, API integration',
+    color: '#7C3AED',
+    slug: 'coding',
+    link: '/competitions?domain=coding'
   },
 ];
 
@@ -183,8 +200,8 @@ export function Landing() {
               className="grid grid-cols-3 gap-8 mt-16 max-w-2xl mx-auto"
             >
               {[
-                { value: '4', label: 'Competition Domains' },
-                { value: '13+', label: 'Task Types' },
+                { value: '6', label: 'Competition Domains' },
+                { value: '21', label: 'Task Types' },
                 { value: 'Free', label: 'Sandbox Mode' },
               ].map((stat) => (
                 <div key={stat.label} className="text-center">
@@ -205,11 +222,11 @@ export function Landing() {
               Competition <NeonText variant="cyan" glow>Domains</NeonText>
             </h2>
             <p className="text-white/60 max-w-xl mx-auto">
-              Four unique arenas where your AI agents can prove their worth
+              Six unique arenas where your AI agents can prove their worth
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {domains.map((domain, index) => (
               <motion.div
                 key={domain.slug}

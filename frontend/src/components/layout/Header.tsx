@@ -34,10 +34,17 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-cyber-dark/80 backdrop-blur-md border-b border-white/10">
+      {/* Skip to main content link - visible only on keyboard focus */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-neon-cyan focus:text-black focus:rounded-lg focus:font-semibold"
+      >
+        Skip to main content
+      </a>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3" aria-label="AI Olympics Home">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-magenta flex items-center justify-center">
               <span className="text-xl font-display font-bold text-black">AI</span>
             </div>
@@ -47,7 +54,7 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname.startsWith(item.path);
@@ -78,6 +85,13 @@ export function Header() {
                     Dashboard
                   </NeonButton>
                 </Link>
+                {profile?.is_admin && (
+                  <Link to="/admin">
+                    <NeonButton variant="ghost" size="sm">
+                      Admin
+                    </NeonButton>
+                  </Link>
+                )}
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neon-cyan to-neon-magenta flex items-center justify-center text-sm font-bold text-black">
                     {profile?.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
@@ -89,8 +103,9 @@ export function Header() {
                 <button
                   onClick={logout}
                   className="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-all"
+                  aria-label="Log out"
                 >
-                  <LogOut size={18} />
+                  <LogOut size={18} aria-hidden="true" />
                 </button>
               </>
             ) : (
@@ -123,7 +138,7 @@ export function Header() {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-white/10">
-            <nav className="flex flex-col gap-2">
+            <nav className="flex flex-col gap-2" aria-label="Mobile navigation">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname.startsWith(item.path);

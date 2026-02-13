@@ -3,6 +3,71 @@ import { createLogger } from '../../shared/utils/logger.js';
 
 const log = createLogger('BaseAdapter');
 
+// ============================================================================
+// AGENT INPUT SANITIZATION
+// ============================================================================
+
+const PERSONA_NAME_MAX_LENGTH = 100;
+const PERSONA_DESC_MAX_LENGTH = 300;
+const PERSONA_STYLE_MAX_LENGTH = 100;
+
+// Characters allowed in persona fields: alphanumeric, common punctuation, spaces
+const SAFE_CHARS_RE = /[^a-zA-Z0-9\s.,!?;:'"()\-–—&@#%+=/\[\]{}]/g;
+
+// Patterns that indicate prompt injection attempts (case-insensitive, word-boundary-aware)
+const INJECTION_PATTERNS = [
+  /\bignore\s+(all\s+)?(previous|prior|above|earlier)\b/i,
+  /\bdisregard\s+(all\s+)?(previous|prior|above|earlier)\b/i,
+  /\bforget\s+(all\s+)?(previous|prior|above|earlier)\b/i,
+  /\boverride\s+(system|instruction|prompt|rule)/i,
+  /\bnew\s+instruction/i,
+  /\byou\s+are\s+now\b/i,
+  /\bact\s+as\s+(if|though)?\s*(you\s+are|a)\b/i,
+  /\bsystem\s*:\s*/i,
+  /\bassistant\s*:\s*/i,
+  /\buser\s*:\s*/i,
+  /\bhuman\s*:\s*/i,
+  /\b(jailbreak|DAN|bypass|hack)\b/i,
+  /```/,                              // code fences (often used in injection)
+  /<\/?[a-z]+/i,                      // HTML/XML tags
+  /\{[{%]/,                           // template syntax
+];
+
+/**
+ * Sanitize a persona field value.
+ * 1. Strip control characters and non-safe characters
+ * 2. Collapse whitespace
+ * 3. Check for injection patterns
+ * 4. Enforce length limit
+ * Returns the sanitized string, or empty string if injection detected.
+ */
+export function sanitizePersonaField(raw: string, maxLength: number): string {
+  if (!raw || typeof raw !== 'string') return '';
+
+  // Strip control characters (U+0000-U+001F, U+007F-U+009F)
+  let clean = raw.replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+
+  // Replace non-safe characters
+  clean = clean.replace(SAFE_CHARS_RE, '');
+
+  // Collapse whitespace
+  clean = clean.replace(/\s+/g, ' ').trim();
+
+  // Check for injection patterns - reject entire field if detected
+  for (const pattern of INJECTION_PATTERNS) {
+    if (pattern.test(clean)) {
+      log.warn('Prompt injection attempt detected in persona field', {
+        pattern: pattern.source,
+        fieldPreview: clean.slice(0, 50),
+      });
+      return '';
+    }
+  }
+
+  // Enforce length limit
+  return clean.slice(0, maxLength);
+}
+
 // Browser tool definitions that agents can use
 export interface BrowserTool {
   name: string;
@@ -136,6 +201,11 @@ export interface AgentTurnResult {
   toolCalls: ToolCall[];
   done: boolean;
   result?: unknown;
+  /** Token usage reported by the model API (for cost tracking) */
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+  };
 }
 
 export interface ToolCall {
@@ -180,18 +250,23 @@ export abstract class BaseAgentAdapter {
   initialize(systemPrompt: string, taskPrompt: string): void {
     let finalSystemPrompt = systemPrompt;
 
-    // Inject persona into system prompt (H4: sanitize to prevent prompt injection)
+    // Inject persona into system prompt with robust sanitization
     if (this.config.personaName) {
-      // Strip any prompt-injection attempts: remove instruction-like patterns
-      const sanitize = (s: string) => s
-        .replace(/[\x00-\x1f]/g, '')          // control chars
-        .replace(/\b(ignore|disregard|forget|override|system|instruction|prompt)\b/gi, '') // injection keywords
-        .slice(0, 200);                         // hard length cap
-      const safeName = sanitize(this.config.personaName);
-      const safeDesc = this.config.personaDescription ? sanitize(this.config.personaDescription) : '';
-      const safeStyle = this.config.personaStyle || '';
-      const personaPrefix = `You are ${safeName}.${safeDesc ? ` ${safeDesc}.` : ''}${safeStyle ? ` Your communication style is ${safeStyle}.` : ''}\n\n`;
-      finalSystemPrompt = personaPrefix + finalSystemPrompt;
+      const safeName = sanitizePersonaField(this.config.personaName, PERSONA_NAME_MAX_LENGTH);
+      const safeDesc = this.config.personaDescription
+        ? sanitizePersonaField(this.config.personaDescription, PERSONA_DESC_MAX_LENGTH)
+        : '';
+      const safeStyle = this.config.personaStyle
+        ? sanitizePersonaField(this.config.personaStyle, PERSONA_STYLE_MAX_LENGTH)
+        : '';
+
+      // Only inject if the name survived sanitization
+      if (safeName) {
+        const personaPrefix = `You are ${safeName}.${safeDesc ? ` ${safeDesc}.` : ''}${safeStyle ? ` Your communication style is ${safeStyle}.` : ''}\n\n`;
+        finalSystemPrompt = personaPrefix + finalSystemPrompt;
+      } else {
+        log.warn('Persona name was rejected by sanitization, using default prompt', { agentId: this.id });
+      }
     }
 
     // Inject strategy modifier

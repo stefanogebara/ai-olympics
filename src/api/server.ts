@@ -5,9 +5,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
+import YAML from 'yamljs';
 import { config } from '../shared/config.js';
 import { eventBus } from '../shared/utils/events.js';
 import { createLogger } from '../shared/utils/logger.js';
+import { initRedis, getInterruptedCompetitions, closeRedis } from '../shared/utils/redis.js';
 import type { Competition, StreamEvent, Tournament } from '../shared/types/index.js';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
@@ -25,6 +28,7 @@ import paymentsRouter from './routes/payments.js';
 import tradingRouter from './routes/trading.js';
 import tournamentsRouter from './routes/tournaments.js';
 import championshipsRouter from './routes/championships.js';
+import adminRouter from './routes/admin.js';
 
 // Competition orchestrator
 import { competitionManager } from '../orchestrator/competition-manager.js';
@@ -296,6 +300,19 @@ export function createAPIServer() {
     });
   });
 
+  // OpenAPI / Swagger UI
+  const openapiPath = path.join(__dirname, 'openapi.yaml');
+  if (fs.existsSync(openapiPath)) {
+    const swaggerDocument = YAML.load(openapiPath);
+    app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'AI Olympics API Docs',
+    }));
+    app.get('/api/openapi.yaml', (_req, res) => {
+      res.sendFile(openapiPath);
+    });
+  }
+
   // ============================================================================
   // MARKETPLACE API ROUTES
   // ============================================================================
@@ -335,6 +352,9 @@ export function createAPIServer() {
 
   // Championships
   app.use('/api/championships', championshipsRouter);
+
+  // Admin
+  app.use('/api/admin', adminRouter);
 
   // State
   let currentCompetition: Competition | null = null;
@@ -437,6 +457,8 @@ export function createAPIServer() {
   };
 
   // WebSocket authentication middleware
+  // Connections are always allowed (for spectating), but userId is set only if token is valid.
+  // Mutation actions (vote:cast, subscribe:market) require authentication.
   io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token || socket.handshake.query?.token;
     if (token && typeof token === 'string') {
@@ -444,34 +466,86 @@ export function createAPIServer() {
         const { data: { user } } = await wsSupabase.auth.getUser(token);
         if (user) {
           (socket as any).userId = user.id;
+          (socket as any).authenticated = true;
         }
       } catch (error) {
         log.debug('WebSocket auth failed', { error: error instanceof Error ? error.message : String(error) });
+        (socket as any).authenticated = false;
       }
+    } else {
+      (socket as any).authenticated = false;
     }
     next(); // Allow connection but track auth status
   });
 
   io.on('connection', (socket) => {
-    log.info(`Client connected: ${socket.id}`, { authenticated: !!(socket as any).userId });
+    const isAuthenticated = !!(socket as any).authenticated;
+    const userId = (socket as any).userId;
+    log.info(`Client connected: ${socket.id}`, { authenticated: isAuthenticated });
+
+    // Notify client of their auth status so UI can react
+    socket.emit('auth:status', {
+      authenticated: isAuthenticated,
+      userId: userId || null,
+    });
+
+    // Helper: reject unauthenticated mutation attempts
+    function requireSocketAuth(eventName: string): boolean {
+      if (!userId) {
+        socket.emit(`${eventName}:error`, { error: 'Authentication required' });
+        return false;
+      }
+      return true;
+    }
 
     // Initialize subscription tracking for this socket
     socketMarketSubscriptions.set(socket.id, new Set());
 
-    // Send current state on connect
+    // Send current state on connect (public spectating - no auth required)
     if (currentCompetition) {
       socket.emit('competition:state', currentCompetition);
     }
 
-    // Subscribe to competition updates
+    // Subscribe to competition updates (public - spectating is allowed without auth)
     const handleEvent = (event: StreamEvent) => {
       socket.emit(event.type, event);
     };
 
     eventBus.on('*', handleEvent);
 
-    // Handle market subscriptions for live price updates
+    // Join a competition room (auth required for targeted interactions)
+    socket.on('join:competition', (competitionId: string) => {
+      if (!requireSocketAuth('join')) return;
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(competitionId)) {
+        socket.emit('join:error', { error: 'Invalid competition ID' });
+        return;
+      }
+      socket.join(`competition:${competitionId}`);
+      log.debug(`Socket ${socket.id} joined competition room ${competitionId}`);
+    });
+
+    // Chat messages (auth required)
+    socket.on('chat:message', (data: { competition_id: string; message: string }) => {
+      if (!requireSocketAuth('chat')) return;
+      const { competition_id, message } = data;
+      if (!competition_id || !message || typeof message !== 'string') {
+        socket.emit('chat:error', { error: 'Invalid chat data' });
+        return;
+      }
+      // Sanitize and truncate message
+      const sanitized = message.trim().slice(0, 500);
+      if (!sanitized) return;
+      io.to(`competition:${competition_id}`).emit('chat:message', {
+        userId,
+        message: sanitized,
+        timestamp: Date.now(),
+      });
+    });
+
+    // Handle market subscriptions for live price updates (requires auth)
     socket.on('subscribe:market', (marketId: string) => {
+      if (!requireSocketAuth('subscribe:market')) return;
       socket.join(`market:${marketId}`);
 
       const subs = socketMarketSubscriptions.get(socket.id);
@@ -505,11 +579,7 @@ export function createAPIServer() {
     const VOTE_RATE_WINDOW = 10_000; // 10 seconds
 
     socket.on('vote:cast', async (data: { competition_id: string; agent_id: string; vote_type: string }) => {
-      const userId = (socket as any).userId;
-      if (!userId) {
-        socket.emit('vote:error', { error: 'Authentication required' });
-        return;
-      }
+      if (!requireSocketAuth('vote')) return;
 
       // H5: Per-socket rate limiting
       const now = Date.now();
@@ -642,7 +712,19 @@ export function createAPIServer() {
   // SERVER LIFECYCLE
   // ============================================================================
 
-  const start = (port: number = config.port): Promise<void> => {
+  const start = async (port: number = config.port): Promise<void> => {
+    // Initialize Redis (optional - gracefully degrades)
+    await initRedis();
+
+    // Check for interrupted competitions from a previous server crash
+    const interrupted = await getInterruptedCompetitions();
+    if (interrupted.length > 0) {
+      log.warn(`Found ${interrupted.length} interrupted competition(s) from previous session`, {
+        competitions: interrupted.map(c => ({ id: c.competitionId, name: c.name, status: c.status })),
+      });
+      // For now, log them. Future: resume or mark as cancelled in DB.
+    }
+
     return new Promise((resolve) => {
       server.listen(port, () => {
         log.info(`API server running on http://localhost:${port}`);
@@ -674,6 +756,9 @@ export function createAPIServer() {
     }
 
     marketSyncService.stop();
+
+    // Close Redis connection
+    await closeRedis();
 
     return new Promise((resolve) => {
       io.close();

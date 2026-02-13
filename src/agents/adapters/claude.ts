@@ -84,7 +84,13 @@ export class ClaudeAdapter extends BaseAgentAdapter {
         tools: toolCalls.map(t => t.name)
       });
 
-      return { thinking, toolCalls, done, result };
+      return {
+        thinking, toolCalls, done, result,
+        usage: response.usage ? {
+          inputTokens: response.usage.input_tokens,
+          outputTokens: response.usage.output_tokens,
+        } : undefined,
+      };
 
     } catch (error) {
       log.error(`Claude API error: ${error}`, { agentId: this.id });
