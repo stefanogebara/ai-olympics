@@ -4,7 +4,7 @@ import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../comp
 import { BracketViz } from '../../components/tournament/BracketViz';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
+import { API_BASE } from '../../lib/api';
 import {
   Swords,
   Users,

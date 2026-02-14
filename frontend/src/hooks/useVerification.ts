@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
+import { API_BASE } from '../lib/api';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const EDGE_FN_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/verification` : '';
 
