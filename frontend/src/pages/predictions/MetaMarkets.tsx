@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import {
   Bot,
@@ -381,9 +381,7 @@ export function MetaMarkets() {
 
           {/* Matchups Grid */}
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-12 h-12 border-4 border-neon-magenta/30 border-t-neon-magenta rounded-full animate-spin" />
-            </div>
+            <PageSkeleton />
           ) : filteredMatchups.length === 0 ? (
             <GlassCard className="p-12 text-center">
               <Bot size={48} className="mx-auto mb-4 text-white/20" />

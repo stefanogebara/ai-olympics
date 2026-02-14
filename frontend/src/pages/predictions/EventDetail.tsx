@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GlassCard, NeonText, NeonButton, Badge } from '../../components/ui';
+import { GlassCard, NeonText, NeonButton, Badge, PageSkeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import {
   ArrowLeft,
@@ -426,11 +426,7 @@ export function EventDetail() {
   };
 
   if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-20 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-neon-magenta/30 border-t-neon-magenta rounded-full animate-spin" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (error || !event) {
