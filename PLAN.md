@@ -774,41 +774,42 @@ ELO is simple, well-understood, and "good enough" for entertainment purposes. Re
 ## Execution Timeline
 
 ### Week 1: Foundation
-- [ ] P0-L4: Disable real-money features, add disclaimers (Day 1, 2 hours)
-- [ ] P1-S1: Fix RLS bypass - create user-scoped client pattern (Days 1-3)
-- [ ] P1-S5: WebSocket authentication enforcement (Day 2)
-- [ ] P2-C1: Set up GitHub Actions CI pipeline (Day 2)
-- [ ] P2-T2: Pre-commit hooks (Day 2, 30 min)
-- [ ] P4-F1: Error boundaries (Day 3)
-- [ ] P4-F5: Extract static pages from App.tsx (Day 3, 30 min)
-- [ ] P1-S2a: Agent input sanitization overhaul (Day 4)
-- [ ] P1-S2b: Action allowlist and rate limiting (Day 4)
-- [ ] P1-S3: Secret management (env var validation) (Day 5)
-- [ ] P7-I1: Add concurrency limit for competitions (Day 5, 30 min)
+- [x] P0-L4: Disable real-money features, add disclaimers
+- [x] P1-S1: Fix RLS bypass - create user-scoped client pattern
+- [x] P1-S5: WebSocket authentication enforcement
+- [x] P2-C1: Set up GitHub Actions CI pipeline
+- [x] P2-T2: Pre-commit hooks
+- [x] P4-F1: Error boundaries
+- [x] P4-F5: Extract static pages from App.tsx
+- [x] P1-S2a: Agent input sanitization overhaul (Unicode NFKC + homoglyph defense)
+- [ ] P1-S2b: Action allowlist and rate limiting (backend-only, deferred)
+- [x] P1-S3: Secret management (validateConfig() with entropy checks)
+- [x] P7-I1: Concurrency limit for competitions (MAX_CONCURRENT=10)
 
 ### Week 2: Testing + DX
-- [ ] P2-T1: Write critical path tests (wallet, auth, competitions) (Days 1-3)
-- [ ] P2-C2: Backend deployment automation (Day 1)
-- [ ] P3-D2: Webhook specification document (Day 2)
-- [ ] P3-D3: Example agent implementations (Days 2-3)
-- [ ] P4-F2: Loading skeletons (Day 4)
-- [ ] P4-F3: Form validation (React Hook Form + Zod) (Day 4-5)
-- [ ] P4-F4: Code splitting (Day 5, half day)
+- [x] P2-T1: Critical path tests (254 unit tests across 13 files)
+- [ ] P2-C2: Backend deployment automation (needs platform decision)
+- [x] P3-D2: Webhook specification document (docs/webhook-spec.md)
+- [x] P3-D3: Example agent implementations (Python + Node examples)
+- [x] P4-F2: Loading skeletons (SkeletonCard on all browse pages)
+- [x] P4-F3: Form validation (React Hook Form + Zod)
+- [x] P4-F4: Code splitting (25+ lazy-loaded routes)
 
 ### Week 3: Admin + Polish
-- [ ] P5-A1: Admin dashboard (Days 1-3)
-- [ ] P5-A2: Agent approval workflow (Day 3-4)
-- [ ] P5-A3: Abuse detection (Day 4)
-- [ ] P3-D1: OpenAPI specification (Day 4-5)
-- [ ] P4-F6: Accessibility basics (Day 5)
-- [ ] AI judging bias fix (Day 5)
+- [x] P5-A1: Admin dashboard (3 admin pages)
+- [x] P5-A2: Agent approval workflow (approval_status column + admin review)
+- [x] P5-A3: Abuse detection (DB rate limit triggers: agents, competitions, tournaments, championships)
+- [x] P3-D1: OpenAPI specification (2500+ line spec, Swagger UI at /api/docs)
+- [x] P4-F6: Accessibility basics (ARIA labels, skip-to-content, keyboard nav)
+- [x] AI judging bias fix (JUDGE_MAP cross-provider judging)
 
 ### Week 4: Launch Prep
-- [ ] P0-L1/L2/L3: Legal review results (external - should have started Week 1)
-- [ ] P6-R1: Competitive analysis (Day 1-2)
-- [ ] P3-D4: Interactive docs page (Day 2)
-- [ ] P3-D5: Agent testing sandbox (Days 3-4)
-- [ ] P1-S4: Redis for event resilience (Day 5)
+- [ ] P0-L1/L2/L3: Legal review results (external - needs lawyer)
+- [ ] P6-R1: Competitive analysis
+- [x] P3-D4: Interactive docs page (6-tab docs with API reference)
+- [ ] P3-D5: Agent testing sandbox
+- [x] P1-S4: Event bus resilience (Redis snapshots, auto-cancel interrupted)
+- [x] RLS performance: 52 policies optimized with (select auth.uid()) initplan caching
 - [ ] Final QA pass and launch checklist
 
 ---
