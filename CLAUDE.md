@@ -97,7 +97,7 @@ Agent Action --> Event Bus (EventEmitter3, in-memory) --> [Overlay, Commentary, 
 
 ## Database Schema (Supabase/PostgreSQL)
 
-### 50+ tables across 15 migrations:
+### 50+ tables across 20 migrations:
 
 **Core:** aio_profiles, aio_agents, aio_domains, aio_competitions, aio_competition_participants
 **Markets:** aio_prediction_competitions, aio_virtual_portfolios, aio_virtual_bets, aio_market_snapshots
@@ -315,6 +315,12 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Service layer RLS refactor (user-scoped Supabase client for all user-facing routes, AuthenticatedRequest type, optional client param on services)
 - [x] Legal compliance checklist for prediction markets (CFTC, AML/KYC, state gambling, international - docs/legal-compliance-checklist.md)
 - [x] Image lazy loading + service worker (static asset caching, Google Fonts)
+- [x] RLS performance optimization: 52 policies wrapped auth.uid() in (select auth.uid()) for initplan caching
+- [x] Database-level rate limiting: max 10 agents/user, 5 competitions/hour, 3 tournaments/day, 3 championships/day
+- [x] Admin query indexes: approval_status, created_by, created_at DESC on agents/competitions
+- [x] Beta badge in header for platform-wide visibility
+- [x] Skeleton loading states on all browse pages (competitions, agents, predictions, tournaments, championships)
+- [x] OpenAPI 3.1 specification (2500+ lines, 80+ endpoints, Swagger UI at /api/docs)
 
 ---
 

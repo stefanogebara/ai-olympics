@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
-import { GlassCard, NeonButton, NeonText } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, SkeletonCard } from '../../components/ui';
 import {
   TrendingUp,
   RefreshCw,
@@ -345,8 +345,10 @@ export function PredictionBrowse() {
 
       {/* Event Cards */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-12 h-12 border-4 border-neon-magenta/30 border-t-neon-magenta rounded-full animate-spin" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : events.length === 0 ? (
         <GlassCard className="p-12 text-center">

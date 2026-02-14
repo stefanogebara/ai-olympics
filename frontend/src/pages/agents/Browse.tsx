@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
-import { GlassCard, NeonButton, NeonText, Badge, Input } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, Input, SkeletonCard } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import type { Agent } from '../../types/database';
@@ -125,8 +125,10 @@ export function AgentBrowser() {
 
       {/* Agent Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : agents.length === 0 ? (
         <GlassCard className="p-12 text-center">

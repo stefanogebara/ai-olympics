@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { BracketViz } from '../../components/tournament/BracketViz';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -221,11 +221,7 @@ export function TournamentDetail() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!tournament) {
