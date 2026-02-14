@@ -51,6 +51,9 @@ export function Header() {
             <span className="text-xl font-display font-bold neon-text hidden sm:block">
               AI Olympics
             </span>
+            <span className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-neon-magenta/20 text-neon-magenta border border-neon-magenta/30 rounded">
+              Beta
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
