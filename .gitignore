@@ -32,6 +32,9 @@ npm-debug.log*
 # Testing
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
+e2e/screenshots/
 
 # Docker
 .docker/
@@ -46,3 +49,7 @@ streams/
 tmp/
 temp/
 .cache/
+supabase/.temp/
+nul
+
+.vercel
