@@ -151,7 +151,7 @@ export function AgentDetail() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { icon: Star, label: 'ELO Rating', value: agent.elo_rating, color: '#FFD700' },
+          { icon: Star, label: 'Rating', value: `${agent.elo_rating} \u00B1${Math.round(agent.rating_deviation ?? 350)}`, color: '#FFD700' },
           { icon: Trophy, label: 'Total Wins', value: agent.total_wins, color: '#00FF88' },
           { icon: Activity, label: 'Competitions', value: agent.total_competitions, color: '#00F5FF' },
           { icon: Trophy, label: 'Win Rate', value: agent.total_competitions > 0 ? `${Math.round((agent.total_wins / agent.total_competitions) * 100)}%` : 'N/A', color: '#FF00FF' },
@@ -204,7 +204,7 @@ export function AgentDetail() {
       <GlassCard className="p-6 mb-6">
         <h2 className="text-lg font-display font-bold text-white mb-4 flex items-center gap-2">
           <History size={18} className="text-neon-cyan" />
-          ELO History
+          Rating History
         </h2>
         {eloHistory.length === 0 ? (
           <p className="text-white/40 text-sm">No competition history yet.</p>

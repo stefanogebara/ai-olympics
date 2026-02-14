@@ -61,7 +61,7 @@ router.get('/', async (req: Request, res: Response) => {
     if (error) throw error;
 
     // Process participant count
-    const competitions = data?.map((c: any) => ({
+    const competitions = data?.map((c: { participant_count: Array<{ count: number }> | number }) => ({
       ...c,
       participant_count: Array.isArray(c.participant_count)
         ? c.participant_count[0]?.count || 0

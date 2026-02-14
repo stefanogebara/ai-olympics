@@ -26,8 +26,9 @@ router.get('/stats', async (_req: Request, res: Response) => {
       totalCompetitions: competitions.count || 0,
       pendingAgents: pendingAgents.count || 0,
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 
@@ -56,8 +57,9 @@ router.get('/users', async (req: Request, res: Response) => {
     if (error) throw error;
 
     res.json({ users: data || [], total: count || 0, page, limit });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 
@@ -66,7 +68,7 @@ router.patch('/users/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { is_admin, is_verified } = req.body;
 
-    const updates: Record<string, any> = {};
+    const updates: Record<string, boolean> = {};
     if (typeof is_admin === 'boolean') updates.is_admin = is_admin;
     if (typeof is_verified === 'boolean') updates.is_verified = is_verified;
 
@@ -81,8 +83,9 @@ router.patch('/users/:id', async (req: Request, res: Response) => {
 
     if (error) throw error;
     res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 
@@ -116,8 +119,9 @@ router.get('/agents', async (req: Request, res: Response) => {
     if (error) throw error;
 
     res.json({ agents: data || [], total: count || 0, page, limit });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 
@@ -143,8 +147,9 @@ router.post('/agents/:id/review', async (req: Request, res: Response) => {
 
     if (error) throw error;
     res.json({ success: true, status: approved ? 'approved' : 'rejected' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 
@@ -178,8 +183,9 @@ router.get('/competitions', async (req: Request, res: Response) => {
     if (error) throw error;
 
     res.json({ competitions: data || [], total: count || 0, page, limit });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 
@@ -200,8 +206,9 @@ router.patch('/competitions/:id', async (req: Request, res: Response) => {
 
     if (error) throw error;
     res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 

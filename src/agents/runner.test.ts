@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { isUrlAllowed, AgentRunner, validateToolArgs } from './runner.js';
+import { isUrlAllowed, isNavigateUrlAllowed, AgentRunner, validateToolArgs } from './runner.js';
 
 describe('isUrlAllowed - SSRF Protection', () => {
   describe('allowed URLs', () => {
@@ -124,6 +124,108 @@ describe('isUrlAllowed - SSRF Protection', () => {
 
     it('rejects empty string', () => {
       const result = isUrlAllowed('');
+      expect(result.allowed).toBe(false);
+    });
+  });
+});
+
+describe('isNavigateUrlAllowed - Navigate URL Validation', () => {
+  describe('allowed URLs', () => {
+    it('allows regular HTTPS URLs', () => {
+      expect(isNavigateUrlAllowed('https://example.com/page')).toEqual({ allowed: true });
+    });
+
+    it('allows regular HTTP URLs', () => {
+      expect(isNavigateUrlAllowed('http://example.com/page')).toEqual({ allowed: true });
+    });
+
+    it('allows localhost (tasks are served locally)', () => {
+      expect(isNavigateUrlAllowed('http://localhost:3002/tasks/my-task')).toEqual({ allowed: true });
+    });
+
+    it('allows localhost on any port', () => {
+      expect(isNavigateUrlAllowed('http://localhost:8080/app')).toEqual({ allowed: true });
+    });
+
+    it('allows 127.0.0.1 (loopback for local tasks)', () => {
+      expect(isNavigateUrlAllowed('http://127.0.0.1:3002/tasks')).toEqual({ allowed: true });
+    });
+  });
+
+  describe('blocked protocols', () => {
+    it('blocks file:// protocol', () => {
+      const result = isNavigateUrlAllowed('file:///etc/passwd');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('protocol');
+    });
+
+    it('blocks javascript: protocol', () => {
+      const result = isNavigateUrlAllowed('javascript:alert(1)');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('protocol');
+    });
+
+    it('blocks data: protocol', () => {
+      const result = isNavigateUrlAllowed('data:text/html,<h1>hi</h1>');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('protocol');
+    });
+
+    it('blocks ftp:// protocol', () => {
+      const result = isNavigateUrlAllowed('ftp://internal-server/data');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('protocol');
+    });
+  });
+
+  describe('blocked private IPs', () => {
+    it('blocks 10.x.x.x (Class A private)', () => {
+      const result = isNavigateUrlAllowed('http://10.0.0.1/internal');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('private');
+    });
+
+    it('blocks 172.16-31.x.x (Class B private)', () => {
+      expect(isNavigateUrlAllowed('http://172.16.0.1/api').allowed).toBe(false);
+      expect(isNavigateUrlAllowed('http://172.31.255.255/api').allowed).toBe(false);
+    });
+
+    it('blocks 192.168.x.x (Class C private)', () => {
+      const result = isNavigateUrlAllowed('http://192.168.1.1/router');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('private');
+    });
+
+    it('blocks 169.254.x.x (link-local)', () => {
+      const result = isNavigateUrlAllowed('http://169.254.1.1/');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('private');
+    });
+  });
+
+  describe('blocked cloud metadata endpoints', () => {
+    it('blocks AWS metadata endpoint (169.254.169.254)', () => {
+      const result = isNavigateUrlAllowed('http://169.254.169.254/latest/meta-data/');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('metadata');
+    });
+
+    it('blocks GCP metadata endpoint', () => {
+      const result = isNavigateUrlAllowed('http://metadata.google.internal/computeMetadata/v1/');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('metadata');
+    });
+  });
+
+  describe('invalid URLs', () => {
+    it('rejects completely invalid URLs', () => {
+      const result = isNavigateUrlAllowed('not-a-url');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('Invalid');
+    });
+
+    it('rejects empty string', () => {
+      const result = isNavigateUrlAllowed('');
       expect(result.allowed).toBe(false);
     });
   });

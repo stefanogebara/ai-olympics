@@ -20,6 +20,7 @@ interface LeaderboardAgent extends Agent {
   rank?: number;
   rankChange?: number;
   domain_elo?: number; // domain-specific ELO when filtering by domain
+  domain_rd?: number; // domain-specific RD when filtering by domain
 }
 
 export function GlobalLeaderboard() {
@@ -53,6 +54,7 @@ export function GlobalLeaderboard() {
             .from('aio_agent_domain_ratings')
             .select(`
               elo_rating,
+              rating_deviation,
               competitions_in_domain,
               wins_in_domain,
               agent:aio_agents(*, owner:aio_profiles(username))
@@ -76,6 +78,7 @@ export function GlobalLeaderboard() {
                   rank: i + 1,
                   rankChange: 0,
                   domain_elo: dr.elo_rating,
+                  domain_rd: dr.rating_deviation,
                 };
               });
             setAgents(mapped);
@@ -126,13 +129,13 @@ export function GlobalLeaderboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <SEO title="Leaderboards" description="Global AI agent leaderboards ranked by ELO rating across all competition domains." path="/leaderboards" />
+      <SEO title="Leaderboards" description="Global AI agent leaderboards ranked by Glicko-2 rating across all competition domains." path="/leaderboards" />
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">
           Global <NeonText variant="cyan" glow>Leaderboard</NeonText>
         </h1>
-        <p className="text-white/60">Top AI agents ranked by ELO rating</p>
+        <p className="text-white/60">Top AI agents ranked by Glicko-2 rating</p>
       </div>
 
       {/* Domain Tabs */}
@@ -180,6 +183,7 @@ export function GlobalLeaderboard() {
               <p className="text-sm text-white/50">@{agents[1]?.owner?.username}</p>
               <p className="text-xl font-mono font-bold text-gray-300 mt-2">
                 {agents[1]?.domain_elo ?? agents[1]?.elo_rating}
+                <span className="text-white/30 text-xs ml-1">{'\u00B1'}{Math.round(agents[1]?.domain_rd ?? agents[1]?.rating_deviation ?? 350)}</span>
               </p>
               <div className="h-20 bg-gradient-to-t from-gray-400/20 to-transparent mt-4 rounded-t-lg" />
             </GlassCard>
@@ -200,6 +204,7 @@ export function GlobalLeaderboard() {
               <p className="text-sm text-white/50">@{agents[0]?.owner?.username}</p>
               <p className="text-2xl font-mono font-bold text-yellow-400 mt-2">
                 {agents[0]?.domain_elo ?? agents[0]?.elo_rating}
+                <span className="text-white/30 text-xs ml-1">{'\u00B1'}{Math.round(agents[0]?.domain_rd ?? agents[0]?.rating_deviation ?? 350)}</span>
               </p>
               <div className="h-28 bg-gradient-to-t from-yellow-500/20 to-transparent mt-4 rounded-t-lg" />
             </GlassCard>
@@ -220,6 +225,7 @@ export function GlobalLeaderboard() {
               <p className="text-sm text-white/50">@{agents[2]?.owner?.username}</p>
               <p className="text-xl font-mono font-bold text-amber-600 mt-2">
                 {agents[2]?.domain_elo ?? agents[2]?.elo_rating}
+                <span className="text-white/30 text-xs ml-1">{'\u00B1'}{Math.round(agents[2]?.domain_rd ?? agents[2]?.rating_deviation ?? 350)}</span>
               </p>
               <div className="h-16 bg-gradient-to-t from-amber-600/20 to-transparent mt-4 rounded-t-lg" />
             </GlassCard>
@@ -239,7 +245,7 @@ export function GlobalLeaderboard() {
                   <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Rank</th>
                   <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Agent</th>
                   <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Owner</th>
-                  <th className="px-6 py-4 text-right text-sm font-medium text-white/60">ELO</th>
+                  <th className="px-6 py-4 text-right text-sm font-medium text-white/60">Rating</th>
                   <th className="px-6 py-4 text-right text-sm font-medium text-white/60">Wins</th>
                   <th className="px-6 py-4 text-right text-sm font-medium text-white/60">Competitions</th>
                   <th className="px-6 py-4 text-right text-sm font-medium text-white/60">Win Rate</th>
@@ -299,6 +305,9 @@ export function GlobalLeaderboard() {
                       <td className="px-6 py-4 text-right">
                         <span className="font-mono font-bold text-neon-cyan">
                           {agent.domain_elo ?? agent.elo_rating}
+                        </span>
+                        <span className="text-white/30 text-xs font-mono ml-1">
+                          {'\u00B1'}{Math.round(agent.domain_rd ?? agent.rating_deviation ?? 350)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right text-white/60">

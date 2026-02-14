@@ -111,17 +111,18 @@ function generateNestedJson(): { objects: SpeedJsonParseChallenge['objects']; an
     const depth = randomInt(3, 6);
 
     // Build nested object with random keys
-    let obj: any = {};
-    let current = obj;
+    let obj: Record<string, unknown> = {};
+    let current: Record<string, unknown> = obj;
     const pathParts: string[] = [];
 
     for (let d = 0; d < depth - 1; d++) {
       const key = `key_${crypto.randomBytes(3).toString('hex')}`;
       pathParts.push(key);
-      current[key] = {};
+      const child: Record<string, unknown> = {};
+      current[key] = child;
       // Add some noise sibling keys
       current[`noise_${crypto.randomBytes(2).toString('hex')}`] = randomInt(1, 1000);
-      current = current[key];
+      current = child;
     }
 
     // Set the target value

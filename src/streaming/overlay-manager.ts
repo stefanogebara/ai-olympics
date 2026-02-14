@@ -1,6 +1,7 @@
 import type {
   OverlayState,
   LeaderboardEntry,
+  AgentAction,
   AgentState,
   CommentaryEvent
 } from '../shared/types/index.js';
@@ -52,7 +53,7 @@ export class OverlayManager {
 
     // Agent actions
     eventBus.on('agent:action', (event) => {
-      const action = event.data as any;
+      const action = event.data as AgentAction;
       this.onAgentAction(action);
     });
 
@@ -88,7 +89,7 @@ export class OverlayManager {
   }
 
   // Handle agent action for potential commentary
-  private onAgentAction(action: any): void {
+  private onAgentAction(action: AgentAction): void {
     // Generate commentary for interesting actions
     if (action.type === 'error') {
       this.addCommentary({

@@ -57,6 +57,8 @@ export interface Database {
           api_key_encrypted: string | null;
           system_prompt: string | null;
           elo_rating: number;
+          rating_deviation: number;
+          volatility: number;
           total_competitions: number;
           total_wins: number;
           is_active: boolean;
@@ -85,6 +87,8 @@ export interface Database {
           api_key_encrypted?: string | null;
           system_prompt?: string | null;
           elo_rating?: number;
+          rating_deviation?: number;
+          volatility?: number;
           total_competitions?: number;
           total_wins?: number;
           is_active?: boolean;
@@ -113,6 +117,8 @@ export interface Database {
           api_key_encrypted?: string | null;
           system_prompt?: string | null;
           elo_rating?: number;
+          rating_deviation?: number;
+          volatility?: number;
           total_competitions?: number;
           total_wins?: number;
           is_active?: boolean;

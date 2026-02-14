@@ -97,6 +97,50 @@ export function isUrlAllowed(rawUrl: string): { allowed: boolean; reason?: strin
   return { allowed: true };
 }
 
+/**
+ * Validate a URL for the navigate tool to prevent SSRF and dangerous protocol attacks.
+ * Similar to isUrlAllowed but allows localhost (tasks are served locally).
+ * Blocks: private IPs (non-localhost), cloud metadata, non-http schemes.
+ */
+export function isNavigateUrlAllowed(rawUrl: string): { allowed: boolean; reason?: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return { allowed: false, reason: 'Invalid URL' };
+  }
+
+  // Only allow http/https
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { allowed: false, reason: `Blocked protocol: ${parsed.protocol}` };
+  }
+
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
+  // Block cloud metadata endpoints
+  if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+    return { allowed: false, reason: 'Blocked: cloud metadata endpoint' };
+  }
+
+  // Block private IP ranges
+  const privateRanges = [
+    /^10\./,                              // 10.0.0.0/8
+    /^172\.(1[6-9]|2\d|3[01])\./,         // 172.16.0.0/12
+    /^192\.168\./,                         // 192.168.0.0/16
+    /^169\.254\./,                         // link-local
+    /^fc[0-9a-f]{2}:/i,                   // IPv6 unique-local
+    /^fe80:/i,                            // IPv6 link-local
+  ];
+  for (const range of privateRanges) {
+    if (range.test(hostname)) {
+      return { allowed: false, reason: 'Blocked: private IP range' };
+    }
+  }
+
+  // Allow localhost (tasks are served locally)
+  return { allowed: true };
+}
+
 // ============================================================================
 // SECURITY: Tool argument validation
 // ============================================================================
@@ -673,10 +717,17 @@ export class AgentRunner {
       let result: string;
 
       switch (name) {
-        case 'navigate':
+        case 'navigate': {
+          const navCheck = isNavigateUrlAllowed(args.url as string);
+          if (!navCheck.allowed) {
+            log.warn('Navigate URL blocked', { url: args.url, reason: navCheck.reason, agentId: this.id });
+            result = `Navigation blocked: ${navCheck.reason}`;
+            break;
+          }
           await this.page.goto(args.url as string);
           result = `Navigated to ${args.url}`;
           break;
+        }
 
         case 'click':
           await this.page.getByRole('button', { name: args.element as string })

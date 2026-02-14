@@ -20,6 +20,7 @@ import { commentator } from '../streaming/commentary.js';
 import { config, AGENT_PRESETS, validateConfig } from '../shared/config.js';
 import { eventBus } from '../shared/utils/events.js';
 import { formatDuration } from '../shared/utils/timer.js';
+import type { LeaderboardEntry } from '../shared/types/index.js';
 import { createLogger } from '../shared/utils/logger.js';
 
 const _log = createLogger('RunCompetition');
@@ -144,7 +145,7 @@ async function runCompetition() {
   eventBus.on('leaderboard:update', (event) => {
     const data = event.data as any;
     console.log(chalk.cyan('\n📊 Leaderboard Update:'));
-    data.leaderboard.forEach((entry: any) => {
+    data.leaderboard.forEach((entry: LeaderboardEntry) => {
       console.log(`  #${entry.rank} ${entry.agentName}: ${entry.totalScore} pts`);
     });
   });

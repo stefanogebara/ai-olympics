@@ -1,3 +1,4 @@
+# Required GitHub secret: FLY_API_TOKEN (from 'fly tokens create deploy')
 # Fly.io deployment configuration for AI Olympics backend API
 # Deploy: fly launch / fly deploy
 # Docs: https://fly.io/docs/reference/configuration/
@@ -23,6 +24,9 @@ primary_region = "iad"
     type = "connections"
     hard_limit = 250
     soft_limit = 200
+
+  [http_service.http_options]
+    h2_backend = false
 
 [[http_service.checks]]
   grace_period = "10s"

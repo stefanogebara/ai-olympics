@@ -16,13 +16,68 @@ import { createLogger } from '../../shared/utils/logger.js';
 const router = Router();
 const log = createLogger('PredictionMarketsAPI');
 
+/** Shape of a row from the aio_markets table */
+interface DbMarketRow {
+  id: string;
+  source: string;
+  question: string;
+  description?: string | null;
+  category?: string | null;
+  outcomes?: Array<{ id: string; name: string; probability: number; price: number; previousPrice?: number; priceChange24h?: number }> | null;
+  volume_24h?: string | null;
+  total_volume?: string | null;
+  liquidity?: string | null;
+  close_time?: string | number | null;
+  status?: string | null;
+  url?: string | null;
+  image?: string | null;
+}
+
+/** Outcome shape used in event sub-markets */
+interface DbOutcome {
+  id?: string;
+  name?: string;
+  probability?: number;
+}
+
+/** Shape of a sub-market inside an event row */
+interface DbEventSubMarket {
+  id: string;
+  question: string;
+  outcomes?: DbOutcome[] | null;
+  total_volume?: string | null;
+  volume_24h?: string | null;
+  liquidity?: string | null;
+  close_time?: string | number | null;
+}
+
+/** Shape of an event row returned by get_market_events RPC */
+interface DbEventRow {
+  event_url: string;
+  source: string;
+  category: string;
+  image?: string | null;
+  total_volume?: string | null;
+  volume_24h?: string | null;
+  liquidity?: string | null;
+  close_time?: string | number | null;
+  market_count?: string | number | null;
+  markets?: DbEventSubMarket[] | null;
+}
+
+interface EventMarketWithProb extends DbEventSubMarket {
+  probability: number;
+  yesOutcome?: DbOutcome;
+  firstOutcome?: DbOutcome;
+}
+
 // Auth middleware that accepts either Supabase user auth OR agent competition headers
 async function requireAuthOrAgent(req: Request, res: Response, next: NextFunction) {
   // Check for agent auth headers first (X-Agent-Id + X-Competition-Id)
   const agentId = req.headers['x-agent-id'] as string;
   const competitionId = req.headers['x-competition-id'] as string;
   if (agentId && competitionId) {
-    (req as any).agentAuth = { agentId, competitionId };
+    (req as Request & { agentAuth: { agentId: string; competitionId: string } }).agentAuth = { agentId, competitionId };
     return next();
   }
 
@@ -40,19 +95,19 @@ type SortOption = typeof VALID_SORTS[number];
 /**
  * Convert a Supabase DB row to a UnifiedMarket object
  */
-function mapDbToUnified(row: any): UnifiedMarket {
+function mapDbToUnified(row: DbMarketRow): UnifiedMarket {
   return {
     id: row.id,
-    source: row.source,
+    source: row.source as UnifiedMarket['source'],
     question: row.question,
     description: row.description || undefined,
     category: row.category || 'other',
     outcomes: row.outcomes || [],
-    volume24h: parseFloat(row.volume_24h) || 0,
-    totalVolume: parseFloat(row.total_volume) || 0,
-    liquidity: parseFloat(row.liquidity) || 0,
+    volume24h: parseFloat(row.volume_24h || '0') || 0,
+    totalVolume: parseFloat(row.total_volume || '0') || 0,
+    liquidity: parseFloat(row.liquidity || '0') || 0,
     closeTime: row.close_time ? Number(row.close_time) : 0,
-    status: row.status || 'open',
+    status: (row.status || 'open') as UnifiedMarket['status'],
     url: row.url || '',
     image: row.image || undefined,
   };
@@ -309,7 +364,7 @@ router.get('/events', async (req: Request, res: Response) => {
     const total = countError ? 0 : (countData || 0);
 
     // Transform events for the frontend
-    const events = (data || []).map((ev: any) => {
+    const events = (data || []).map((ev: DbEventRow) => {
       // Derive event title from URL slug
       const slug = ev.event_url
         ?.replace(/.*\/event\//, '')
@@ -320,17 +375,17 @@ router.get('/events', async (req: Request, res: Response) => {
         : '';
 
       // Sort sub-markets by Yes probability desc (most likely first)
-      const markets = (ev.markets || []).map((m: any) => {
-        const yesOutcome = m.outcomes?.find((o: any) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
+      const markets: EventMarketWithProb[] = (ev.markets || []).map((m) => {
+        const yesOutcome = m.outcomes?.find((o) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
         const firstOutcome = m.outcomes?.[0];
         const probability = yesOutcome
-          ? yesOutcome.probability
+          ? yesOutcome.probability ?? 0.5
           : firstOutcome
-            ? firstOutcome.probability
+            ? firstOutcome.probability ?? 0.5
             : 0.5;
         return { ...m, probability, yesOutcome, firstOutcome };
       });
-      markets.sort((a: any, b: any) => b.probability - a.probability);
+      markets.sort((a, b) => b.probability - a.probability);
 
       return {
         eventUrl: ev.event_url,
@@ -338,9 +393,9 @@ router.get('/events', async (req: Request, res: Response) => {
         source: ev.source,
         category: ev.category,
         image: ev.image,
-        totalVolume: parseFloat(ev.total_volume) || 0,
-        volume24h: parseFloat(ev.volume_24h) || 0,
-        liquidity: parseFloat(ev.liquidity) || 0,
+        totalVolume: parseFloat(ev.total_volume || '0') || 0,
+        volume24h: parseFloat(ev.volume_24h || '0') || 0,
+        liquidity: parseFloat(ev.liquidity || '0') || 0,
         closeTime: ev.close_time ? Number(ev.close_time) : 0,
         marketCount: Number(ev.market_count),
         markets,
@@ -385,15 +440,15 @@ router.get('/events/:slug', async (req: Request, res: Response) => {
     }
 
     // Group by (url, source) - there should be one group for the slug
-    const groups = new Map<string, any[]>();
-    for (const row of data) {
+    const groups = new Map<string, DbMarketRow[]>();
+    for (const row of data as DbMarketRow[]) {
       const key = `${row.url}|||${row.source}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(row);
     }
 
     // Take the largest group (most markets = best match)
-    let bestGroup: any[] = [];
+    let bestGroup: DbMarketRow[] = [];
     let bestUrl = '';
     let bestSource = '';
     for (const [key, rows] of groups) {
@@ -414,7 +469,7 @@ router.get('/events/:slug', async (req: Request, res: Response) => {
     // Build sub-markets with probabilities
     const markets = bestGroup.map(row => {
       const outcomes = row.outcomes || [];
-      const yesOutcome = outcomes.find((o: any) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
+      const yesOutcome = outcomes.find((o) => o.id === 'yes' || o.name?.toLowerCase() === 'yes');
       const firstOutcome = outcomes[0];
       const probability = yesOutcome
         ? yesOutcome.probability
@@ -426,9 +481,9 @@ router.get('/events/:slug', async (req: Request, res: Response) => {
         question: row.question,
         description: row.description || '',
         outcomes,
-        total_volume: parseFloat(row.total_volume) || 0,
-        volume_24h: parseFloat(row.volume_24h) || 0,
-        liquidity: parseFloat(row.liquidity) || 0,
+        total_volume: parseFloat(row.total_volume || '0') || 0,
+        volume_24h: parseFloat(row.volume_24h || '0') || 0,
+        liquidity: parseFloat(row.liquidity || '0') || 0,
         close_time: row.close_time ? Number(row.close_time) : 0,
         probability,
       };

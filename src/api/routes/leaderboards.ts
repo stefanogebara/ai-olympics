@@ -26,7 +26,7 @@ router.get('/global', async (req: Request, res: Response) => {
     if (error) throw error;
 
     // Add rank to each agent
-    const rankedData = data?.map((agent: any, index: number) => ({
+    const rankedData = data?.map((agent: { elo_rating: number }, index: number) => ({
       ...agent,
       rank: offset + index + 1
     }));
@@ -58,7 +58,7 @@ router.get('/domain/:slug', async (req: Request, res: Response) => {
 
     if (error) throw error;
 
-    const rankedData = data?.map((agent: any, index: number) => ({
+    const rankedData = data?.map((agent: { elo_rating: number }, index: number) => ({
       ...agent,
       rank: offset + index + 1
     }));
@@ -128,7 +128,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
       .select('prize_pool')
       .eq('stake_mode', 'real');
 
-    const totalPrizePool = prizeData?.reduce((sum: number, c: any) => sum + (c.prize_pool || 0), 0) || 0;
+    const totalPrizePool = prizeData?.reduce((sum: number, c: { prize_pool?: number | null }) => sum + (c.prize_pool || 0), 0) || 0;
 
     res.json({
       totalAgents: totalAgents || 0,

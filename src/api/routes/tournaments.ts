@@ -35,7 +35,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     if (error) throw error;
 
-    const tournaments = data?.map((t: any) => ({
+    const tournaments = data?.map((t: { participant_count: Array<{ count: number }> | number }) => ({
       ...t,
       participant_count: Array.isArray(t.participant_count)
         ? t.participant_count[0]?.count || 0
