@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const EDGE_FN_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/verification` : '';
 
 interface ChallengeResult {
   type: string;
@@ -55,10 +57,10 @@ export function useVerification() {
     setError(null);
     setResult(null);
 
-    if (!API_BASE) {
-      setError('Verification requires the backend server.');
+    if (!API_BASE && !EDGE_FN_URL) {
+      setError('Verification is unavailable. No backend or Edge Function configured.');
       setLoading(false);
-      return { error: 'Verification requires the backend server.' };
+      return { error: 'Verification is unavailable.' };
     }
 
     try {
@@ -66,7 +68,11 @@ export function useVerification() {
       const body: Record<string, string> = { agent_id: agentId };
       if (competitionId) body.competition_id = competitionId;
 
-      const res = await fetch(`${API_BASE}/api/verification/start`, {
+      const url = API_BASE
+        ? `${API_BASE}/api/verification/start`
+        : `${EDGE_FN_URL}?action=start`;
+
+      const res = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
@@ -99,15 +105,19 @@ export function useVerification() {
     setLoading(true);
     setError(null);
 
-    if (!API_BASE) {
-      setError('Verification requires the backend server.');
+    if (!API_BASE && !EDGE_FN_URL) {
+      setError('Verification is unavailable. No backend or Edge Function configured.');
       setLoading(false);
-      return { error: 'Verification requires the backend server.' };
+      return { error: 'Verification is unavailable.' };
     }
 
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_BASE}/api/verification/${sid}/respond`, {
+      const url = API_BASE
+        ? `${API_BASE}/api/verification/${sid}/respond`
+        : `${EDGE_FN_URL}?action=respond&session_id=${sid}`;
+
+      const res = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(answers),

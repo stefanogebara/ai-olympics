@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
+
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 
 interface Wallet {
@@ -57,50 +59,54 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchWallet: async (token: string) => {
-    if (!API_BASE) {
-      set({ error: 'Wallet features require the backend server.', isLoading: false });
-      return;
-    }
+  fetchWallet: async (_token: string) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/payments/wallet`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        if (res.status === 404) {
-          // Wallet doesn't exist yet, create one
-          await get().createWallet(token);
-          return;
-        }
-        throw new Error('Failed to fetch wallet');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('aio_wallets')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code === 'PGRST116') {
+        // No wallet found, create one
+        await get().createWallet(_token);
+        return;
       }
-      const data = await res.json();
-      set({ wallet: data.wallet || data, isLoading: false });
+      if (error) throw error;
+      set({ wallet: data as Wallet, isLoading: false });
     } catch (err) {
       set({ error: (err as Error).message, isLoading: false });
     }
   },
 
-  createWallet: async (token: string) => {
+  createWallet: async (_token: string) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/payments/wallet`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!res.ok) throw new Error('Failed to create wallet');
-      const data = await res.json();
-      set({ wallet: data.wallet || data, isLoading: false });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('aio_wallets')
+        .insert({ user_id: user.id })
+        .select()
+        .single();
+
+      if (error) throw error;
+      set({ wallet: data as Wallet, isLoading: false });
     } catch (err) {
       set({ error: (err as Error).message, isLoading: false });
     }
   },
 
   depositStripe: async (token: string, amountCents: number, email: string) => {
+    if (!API_BASE) {
+      set({ error: 'Stripe deposits require the backend server.', isLoading: false });
+      return null;
+    }
     set({ isLoading: true, error: null });
     try {
       const res = await fetch(`${API_BASE}/api/payments/deposit/stripe`, {
@@ -122,6 +128,10 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
   },
 
   depositCrypto: async (token: string) => {
+    if (!API_BASE) {
+      set({ error: 'Crypto deposits require the backend server.', isLoading: false });
+      return null;
+    }
     set({ isLoading: true, error: null });
     try {
       const res = await fetch(`${API_BASE}/api/payments/deposit/crypto`, {
@@ -142,6 +152,10 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
   },
 
   withdrawCrypto: async (token: string, toAddress: string, amountCents: number) => {
+    if (!API_BASE) {
+      set({ error: 'Crypto withdrawals require the backend server.', isLoading: false });
+      return false;
+    }
     set({ isLoading: true, error: null });
     try {
       const res = await fetch(`${API_BASE}/api/payments/withdraw/crypto`, {
@@ -161,15 +175,26 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
     }
   },
 
-  fetchTransactions: async (token: string, page = 1) => {
+  fetchTransactions: async (_token: string, page = 1) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/payments/transactions?page=${page}&limit=20`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch transactions');
-      const data = await res.json();
-      const txns = data.transactions || data || [];
+      const wallet = get().wallet;
+      if (!wallet) {
+        set({ transactions: [], isLoading: false });
+        return;
+      }
+
+      const limit = 20;
+      const offset = (page - 1) * limit;
+      const { data, error } = await supabase
+        .from('aio_transactions')
+        .select('*')
+        .eq('wallet_id', wallet.id)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) throw error;
+      const txns = (data || []) as Transaction[];
       if (page === 1) {
         set({ transactions: txns, isLoading: false });
       } else {
@@ -180,20 +205,19 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
     }
   },
 
-  linkCryptoWallet: async (token: string, walletAddress: string) => {
+  linkCryptoWallet: async (_token: string, walletAddress: string) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/payments/crypto-wallets`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ wallet_address: walletAddress }),
-      });
-      if (!res.ok) throw new Error('Failed to link crypto wallet');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('aio_crypto_wallets')
+        .insert({ user_id: user.id, wallet_address: walletAddress });
+
+      if (error) throw error;
       set({ isLoading: false });
-      await get().fetchCryptoWallets(token);
+      await get().fetchCryptoWallets(_token);
       return true;
     } catch (err) {
       set({ error: (err as Error).message, isLoading: false });
@@ -201,21 +225,30 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
     }
   },
 
-  fetchCryptoWallets: async (token: string) => {
+  fetchCryptoWallets: async (_token: string) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/payments/crypto-wallets`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch crypto wallets');
-      const data = await res.json();
-      set({ cryptoWallets: data.wallets || data || [], isLoading: false });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('aio_crypto_wallets')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      set({ cryptoWallets: (data || []) as CryptoWallet[], isLoading: false });
     } catch (err) {
       set({ error: (err as Error).message, isLoading: false });
     }
   },
 
   storeExchangeCredentials: async (token: string, exchange: string, credentials: Record<string, string>) => {
+    if (!API_BASE) {
+      set({ error: 'Exchange credential storage requires the backend server.', isLoading: false });
+      return false;
+    }
     set({ isLoading: true, error: null });
     try {
       const res = await fetch(`${API_BASE}/api/payments/exchange-credentials`, {
