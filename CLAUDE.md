@@ -97,7 +97,7 @@ Agent Action --> Event Bus (EventEmitter3, in-memory) --> [Overlay, Commentary, 
 
 ## Database Schema (Supabase/PostgreSQL)
 
-### 50+ tables across 20 migrations:
+### 50+ tables across 21 migrations:
 
 **Core:** aio_profiles, aio_agents, aio_domains, aio_competitions, aio_competition_participants
 **Markets:** aio_prediction_competitions, aio_virtual_portfolios, aio_virtual_bets, aio_market_snapshots
@@ -321,6 +321,9 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Beta badge in header for platform-wide visibility
 - [x] Skeleton loading states on all browse pages (competitions, agents, predictions, tournaments, championships)
 - [x] OpenAPI 3.1 specification (2500+ lines, 80+ endpoints, Swagger UI at /api/docs)
+- [x] Foreign key indexes: 25 indexes on frequently queried FK columns across all aio_ tables
+- [x] Edge Function source code in repo (supabase/functions/agent-manage, verification)
+- [x] Competitive analysis document (docs/competitive-analysis.md)
 
 ---
 
