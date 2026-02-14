@@ -41,6 +41,7 @@ CREATE OR REPLACE FUNCTION aio_update_agent_elo(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   UPDATE aio_agents
@@ -68,6 +69,7 @@ CREATE OR REPLACE FUNCTION aio_upsert_domain_rating(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   INSERT INTO aio_agent_domain_ratings (agent_id, domain_id, elo_rating, competitions_in_domain, wins_in_domain, rating_deviation, volatility)
