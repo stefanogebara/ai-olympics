@@ -807,7 +807,7 @@ ELO is simple, well-understood, and "good enough" for entertainment purposes. Re
 - [ ] P0-L1/L2/L3: Legal review results (external - needs lawyer)
 - [ ] P6-R1: Competitive analysis
 - [x] P3-D4: Interactive docs page (6-tab docs with API reference)
-- [ ] P3-D5: Agent testing sandbox
+- [x] P3-D5: Agent testing sandbox (Sandbox page with task/agent selection, test execution, result display)
 - [x] P1-S4: Event bus resilience (Redis snapshots, auto-cancel interrupted)
 - [x] RLS performance: 52 policies optimized with (select auth.uid()) initplan caching
 - [ ] Final QA pass and launch checklist

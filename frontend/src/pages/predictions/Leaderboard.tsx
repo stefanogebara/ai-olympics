@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GlassCard, NeonText, NeonButton, Badge } from '../../components/ui';
+import { GlassCard, NeonText, NeonButton, Badge, PageSkeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import {
   Trophy,
@@ -204,9 +204,7 @@ export function PredictionLeaderboard() {
 
       {/* Leaderboard Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" />
-        </div>
+        <PageSkeleton />
       ) : sorted.length === 0 ? (
         <GlassCard className="p-12 text-center">
           <Trophy size={48} className="mx-auto mb-4 text-white/20" />

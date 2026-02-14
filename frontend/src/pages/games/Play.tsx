@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import {
   ArrowLeft,

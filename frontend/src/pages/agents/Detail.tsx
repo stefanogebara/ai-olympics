@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 import type { Agent } from '../../types/database';
 import {
@@ -96,11 +96,7 @@ export function AgentDetail() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (error || !agent) {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
-import { GlassCard, NeonText, Badge } from '../../components/ui';
+import { GlassCard, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 import type { Agent, Domain } from '../../types/database';
 import {
@@ -230,9 +230,7 @@ export function GlobalLeaderboard() {
       {/* Full Leaderboard */}
       <GlassCard className="overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" />
-          </div>
+          <PageSkeleton />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

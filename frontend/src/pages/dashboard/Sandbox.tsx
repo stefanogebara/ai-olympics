@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import { supabase } from '../../lib/supabase';
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
@@ -162,11 +162,7 @@ export function Sandbox() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-10 h-10 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
