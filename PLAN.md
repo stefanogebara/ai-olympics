@@ -810,7 +810,7 @@ ELO is simple, well-understood, and "good enough" for entertainment purposes. Re
 - [x] P3-D5: Agent testing sandbox (Sandbox page with task/agent selection, test execution, result display)
 - [x] P1-S4: Event bus resilience (Redis snapshots, auto-cancel interrupted)
 - [x] RLS performance: 52 policies optimized with (select auth.uid()) initplan caching
-- [ ] Final QA pass and launch checklist
+- [x] Final QA pass and launch checklist (all pages verified live, footer fixed, API_BASE consolidated, 0 TODO/FIXME, 0 any types)
 
 ---
 
