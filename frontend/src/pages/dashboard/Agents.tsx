@@ -48,7 +48,7 @@ export function AgentsList() {
       if (error) throw error;
       if (data) setAgents(data);
     } catch (err) {
-      console.error('Failed to load agents:', err);
+      if (import.meta.env.DEV) console.error('Failed to load agents:', err);
     }
     setLoading(false);
   };

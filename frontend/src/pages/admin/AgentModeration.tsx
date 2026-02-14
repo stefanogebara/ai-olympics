@@ -82,7 +82,7 @@ export function AgentModeration() {
       })
       .eq('id', id);
 
-    if (error) console.error('Failed to review agent:', error);
+    if (error && import.meta.env.DEV) console.error('Failed to review agent:', error);
     setReviewingId(null);
     setReviewNote('');
     fetchAgents();

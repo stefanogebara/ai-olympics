@@ -66,7 +66,7 @@ export function CompetitionManagement() {
       .update({ status: 'cancelled' })
       .eq('id', id);
 
-    if (error) console.error('Failed to cancel competition:', error);
+    if (error && import.meta.env.DEV) console.error('Failed to cancel competition:', error);
     fetchCompetitions();
   };
 

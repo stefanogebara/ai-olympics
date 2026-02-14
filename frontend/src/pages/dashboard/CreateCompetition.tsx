@@ -69,7 +69,7 @@ export function CreateCompetition() {
         if (data.length > 0) setValue('domainId', data[0].id);
       }
     } catch (err) {
-      console.error('Failed to load domains:', err);
+      if (import.meta.env.DEV) console.error('Failed to load domains:', err);
     }
   };
 
