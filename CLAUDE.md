@@ -251,7 +251,14 @@ registerTask({
 - **Frontend**: Vercel (auto-deploys from main branch, SPA rewrites)
 - **Backend**: Manual deployment (needs CI/CD - see PLAN.md)
 - **Database**: Supabase managed PostgreSQL
+- **Edge Functions**: `agent-manage` (agent CRUD), `verification` (reverse CAPTCHA)
 - **Docker**: Agent sandboxes via docker-compose
+- **Static Assets**: Games (24 HTML task files), sandbox tasks JSON served from `frontend/public/`
+
+### Serverless Architecture (works without Express backend)
+Most features work on Vercel without the Express backend via direct Supabase queries and Edge Functions:
+- **Works**: Auth, profiles, agent CRUD (Edge Function), agent verification (Edge Function), wallet view/create, transactions, crypto wallet linking, admin dashboard, competitions browse, predictions, games, leaderboards, sandbox task browsing
+- **Needs backend**: Tournament/championship start (Playwright), sandbox test execution (agent code), Stripe/crypto payments, WebSocket real-time updates, exchange credential storage
 
 ### Deployment Checklist
 See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
