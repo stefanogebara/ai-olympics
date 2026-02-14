@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GlassCard, NeonButton, Input, Badge, Skeleton } from '../../components/ui';
-import { useAuthStore } from '../../store/authStore';
+import { supabase } from '../../lib/supabase';
 import { Search, Shield, ShieldOff, Check } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 
 interface UserRow {
   id: string;
@@ -17,7 +15,6 @@ interface UserRow {
 }
 
 export function UserManagement() {
-  const { session } = useAuthStore();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -30,43 +27,40 @@ export function UserManagement() {
   }, [page, search]);
 
   const fetchUsers = async () => {
-    if (!API_BASE) {
-      setError('Admin dashboard requires the backend API server.');
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams({ page: String(page), limit: '25' });
-      if (search) params.set('search', search);
+      const limit = 25;
+      const offset = (page - 1) * limit;
 
-      const res = await fetch(`${API_BASE}/api/admin/users?${params}`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setUsers(data.users || []);
-      setTotal(data.total || 0);
+      let query = supabase
+        .from('aio_profiles')
+        .select('id, username, display_name, avatar_url, is_verified, is_admin, wallet_balance, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (search) {
+        query = query.or(`username.ilike.%${search}%,display_name.ilike.%${search}%`);
+      }
+
+      const { data, count, error: dbErr } = await query;
+      if (dbErr) throw dbErr;
+      setUsers((data as UserRow[]) || []);
+      setTotal(count || 0);
     } catch (err) {
       if (import.meta.env.DEV) console.error('Failed to fetch users:', err);
-      setError('Failed to load users. Check that the API is running.');
+      setError('Failed to load users.');
     }
     setLoading(false);
   };
 
   const updateUser = async (id: string, updates: Record<string, boolean>) => {
-    if (!API_BASE) return;
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { error: dbErr } = await supabase
+        .from('aio_profiles')
+        .update(updates)
+        .eq('id', id);
+      if (dbErr) throw dbErr;
       fetchUsers();
     } catch (err) {
       console.error('Failed to update user:', err);

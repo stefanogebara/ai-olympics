@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GlassCard, NeonText, Skeleton } from '../../components/ui';
-import { useAuthStore } from '../../store/authStore';
+import { supabase } from '../../lib/supabase';
 import { Users, Bot, Trophy, AlertCircle } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 
 interface AdminStats {
   totalUsers: number;
@@ -13,7 +11,6 @@ interface AdminStats {
 }
 
 export function AdminOverview() {
-  const { session } = useAuthStore();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [error, setError] = useState('');
 
@@ -22,18 +19,21 @@ export function AdminOverview() {
   }, []);
 
   const fetchStats = async () => {
-    if (!API_BASE) {
-      setError('Admin dashboard requires the backend API server.');
-      return;
-    }
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stats`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
+      const [usersRes, agentsRes, compsRes, pendingRes] = await Promise.all([
+        supabase.from('aio_profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('aio_agents').select('id', { count: 'exact', head: true }),
+        supabase.from('aio_competitions').select('id', { count: 'exact', head: true }),
+        supabase.from('aio_agents').select('id', { count: 'exact', head: true }).eq('approval_status', 'pending_review'),
+      ]);
+      setStats({
+        totalUsers: usersRes.count || 0,
+        totalAgents: agentsRes.count || 0,
+        totalCompetitions: compsRes.count || 0,
+        pendingAgents: pendingRes.count || 0,
       });
-      if (!res.ok) throw new Error('Failed to fetch stats');
-      setStats(await res.json());
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Failed to load stats');
     }
   };
 

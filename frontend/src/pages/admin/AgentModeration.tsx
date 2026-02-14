@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { GlassCard, NeonButton, Badge, Skeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
+import { supabase } from '../../lib/supabase';
 import { Check, X, Globe, Key, ExternalLink } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 
 interface AgentRow {
   id: string;
@@ -29,7 +28,7 @@ const statusFilters = [
 ];
 
 export function AgentModeration() {
-  const { session } = useAuthStore();
+  const { profile } = useAuthStore();
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -43,16 +42,29 @@ export function AgentModeration() {
   }, [page, statusFilter]);
 
   const fetchAgents = async () => {
-    if (!API_BASE) { setLoading(false); return; }
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: '25', status: statusFilter });
-      const res = await fetch(`${API_BASE}/api/admin/agents?${params}`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      const data = await res.json();
-      setAgents(data.agents || []);
-      setTotal(data.total || 0);
+      const limit = 25;
+      const offset = (page - 1) * limit;
+
+      let query = supabase
+        .from('aio_agents')
+        .select(`
+          id, name, slug, description, agent_type, provider, model,
+          webhook_url, color, approval_status, approval_note, created_at,
+          owner:aio_profiles!owner_id(id, username, display_name)
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (statusFilter !== 'all') {
+        query = query.eq('approval_status', statusFilter);
+      }
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+      setAgents((data as unknown as AgentRow[]) || []);
+      setTotal(count || 0);
     } catch {
       // ignore
     }
@@ -60,15 +72,17 @@ export function AgentModeration() {
   };
 
   const reviewAgent = async (id: string, approved: boolean) => {
-    if (!API_BASE) return;
-    await fetch(`${API_BASE}/api/admin/agents/${id}/review`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({ approved, note: reviewNote }),
-    });
+    const { error } = await supabase
+      .from('aio_agents')
+      .update({
+        approval_status: approved ? 'approved' : 'rejected',
+        approval_note: reviewNote || null,
+        reviewed_by: profile?.id || null,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    if (error) console.error('Failed to review agent:', error);
     setReviewingId(null);
     setReviewNote('');
     fetchAgents();

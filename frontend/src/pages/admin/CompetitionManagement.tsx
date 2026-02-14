@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GlassCard, NeonButton, Badge, Skeleton } from '../../components/ui';
-import { useAuthStore } from '../../store/authStore';
+import { supabase } from '../../lib/supabase';
 import { XCircle } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 
 interface CompetitionRow {
   id: string;
@@ -21,7 +19,6 @@ interface CompetitionRow {
 const statusFilters = ['all', 'lobby', 'starting', 'running', 'completed', 'cancelled'];
 
 export function CompetitionManagement() {
-  const { session } = useAuthStore();
   const [competitions, setCompetitions] = useState<CompetitionRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -33,18 +30,30 @@ export function CompetitionManagement() {
   }, [page, statusFilter]);
 
   const fetchCompetitions = async () => {
-    if (!API_BASE) { setLoading(false); return; }
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: '25' });
-      if (statusFilter !== 'all') params.set('status', statusFilter);
+      const limit = 25;
+      const offset = (page - 1) * limit;
 
-      const res = await fetch(`${API_BASE}/api/admin/competitions?${params}`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      const data = await res.json();
-      setCompetitions(data.competitions || []);
-      setTotal(data.total || 0);
+      let query = supabase
+        .from('aio_competitions')
+        .select(`
+          id, name, status, stake_mode, entry_fee, max_participants,
+          scheduled_start, created_at,
+          domain:aio_domains(name, slug),
+          creator:aio_profiles!created_by(username, display_name)
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+      setCompetitions((data as unknown as CompetitionRow[]) || []);
+      setTotal(count || 0);
     } catch {
       // ignore
     }
@@ -52,15 +61,12 @@ export function CompetitionManagement() {
   };
 
   const cancelCompetition = async (id: string) => {
-    if (!API_BASE) return;
-    await fetch(`${API_BASE}/api/admin/competitions/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({ status: 'cancelled' }),
-    });
+    const { error } = await supabase
+      .from('aio_competitions')
+      .update({ status: 'cancelled' })
+      .eq('id', id);
+
+    if (error) console.error('Failed to cancel competition:', error);
     fetchCompetitions();
   };
 
