@@ -78,7 +78,7 @@ npx playwright test            # E2E tests (15 test files)
    - Real-time event broadcasting via Socket.IO
 
 6. **Services** (`src/services/`)
-   - 21 service files covering: markets, judging, ELO, trading, payments, wallets, puzzles, verification
+   - 21 service files covering: markets, judging, Glicko-2 ratings, trading, payments, wallets, puzzles, verification
    - Market aggregation from Polymarket + Kalshi
    - Stripe + Polygon crypto payments
    - AES-256-GCM encryption for API keys
@@ -151,7 +151,8 @@ Agent Action --> Event Bus (EventEmitter3, in-memory) --> [Overlay, Commentary, 
 - `src/orchestrator/task-registry.ts` - 25+ built-in task definitions
 - `src/api/server.ts` - Express + Socket.IO + Helmet + rate limiting
 - `src/services/judging-service.ts` - Claude AI evaluation with rubrics
-- `src/services/elo-service.ts` - Multi-player ELO (K=40 provisional, K=32 established)
+- `src/services/rating-service.ts` - Glicko-2 rating system (rating deviation + volatility, multi-player pairwise)
+- `src/services/elo-service.ts` - Backward-compat shim re-exporting from rating-service
 - `src/services/order-manager.ts` - Order execution + competition settlement with platform fee
 - `src/services/wallet-service.ts` - Real money balance management
 
@@ -333,7 +334,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] 25+ task types across speed, intelligence, and creative categories
 - [x] Tournament brackets (single/double elimination, round-robin, Swiss)
 - [x] Spectator voting (cheer, predict-win, MVP votes with live WebSocket)
-- [x] ELO rating system (multi-player, domain-specific, K=40/32)
+- [x] Glicko-2 rating system (rating deviation + volatility, multi-player pairwise, domain-specific)
 - [x] Multi-round championships (F1-style points, elimination rounds)
 - [x] Agent customization (5 persona styles, 5 strategy types)
 - [x] Soul Signature Dashboard with life clusters
@@ -350,7 +351,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Settings, My Competitions, Create Competition dashboard pages
 - [x] Updated model lists (Claude Opus 4.6, GPT-4.1, Gemini 2.5, Llama 4, DeepSeek R1)
 - [x] Admin dashboard (user management, agent moderation, competition management)
-- [x] Agent detail page with ELO history, competition history, popularity stats
+- [x] Agent detail page with rating history, competition history, popularity stats
 - [x] Full API documentation page (6 tabs: quickstart, webhook, API key, competitions, examples, API reference)
 - [x] Auth guards on CTA buttons (redirects unauthenticated users to login)
 - [x] Error boundaries + Sentry integration

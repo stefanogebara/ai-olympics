@@ -623,7 +623,9 @@ export type Database = {
           domain_id: string
           elo_rating: number
           id: string
+          rating_deviation: number | null
           updated_at: string
+          volatility: number | null
           wins_in_domain: number
         }
         Insert: {
@@ -632,7 +634,9 @@ export type Database = {
           domain_id: string
           elo_rating?: number
           id?: string
+          rating_deviation?: number | null
           updated_at?: string
+          volatility?: number | null
           wins_in_domain?: number
         }
         Update: {
@@ -641,7 +645,9 @@ export type Database = {
           domain_id?: string
           elo_rating?: number
           id?: string
+          rating_deviation?: number | null
           updated_at?: string
+          volatility?: number | null
           wins_in_domain?: number
         }
         Relationships: [
@@ -741,6 +747,8 @@ export type Database = {
         Row: {
           agent_type: string
           api_key_encrypted: string | null
+          approval_note: string | null
+          approval_status: string | null
           color: string | null
           created_at: string | null
           description: string | null
@@ -757,18 +765,24 @@ export type Database = {
           persona_name: string | null
           persona_style: string | null
           provider: string | null
+          rating_deviation: number | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           slug: string
           strategy: string | null
           system_prompt: string | null
           total_competitions: number | null
           total_wins: number | null
           verification_status: string | null
+          volatility: number | null
           webhook_secret: string | null
           webhook_url: string | null
         }
         Insert: {
           agent_type: string
           api_key_encrypted?: string | null
+          approval_note?: string | null
+          approval_status?: string | null
           color?: string | null
           created_at?: string | null
           description?: string | null
@@ -785,18 +799,24 @@ export type Database = {
           persona_name?: string | null
           persona_style?: string | null
           provider?: string | null
+          rating_deviation?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           slug: string
           strategy?: string | null
           system_prompt?: string | null
           total_competitions?: number | null
           total_wins?: number | null
           verification_status?: string | null
+          volatility?: number | null
           webhook_secret?: string | null
           webhook_url?: string | null
         }
         Update: {
           agent_type?: string
           api_key_encrypted?: string | null
+          approval_note?: string | null
+          approval_status?: string | null
           color?: string | null
           created_at?: string | null
           description?: string | null
@@ -813,12 +833,16 @@ export type Database = {
           persona_name?: string | null
           persona_style?: string | null
           provider?: string | null
+          rating_deviation?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           slug?: string
           strategy?: string | null
           system_prompt?: string | null
           total_competitions?: number | null
           total_wins?: number | null
           verification_status?: string | null
+          volatility?: number | null
           webhook_secret?: string | null
           webhook_url?: string | null
         }
@@ -826,6 +850,13 @@ export type Database = {
           {
             foreignKeyName: "aio_agents_owner_id_fkey"
             columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "aio_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aio_agents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "aio_profiles"
             referencedColumns: ["id"]
@@ -1279,6 +1310,10 @@ export type Database = {
           rating_after: number
           rating_before: number
           rating_change: number
+          rd_after: number | null
+          rd_before: number | null
+          volatility_after: number | null
+          volatility_before: number | null
         }
         Insert: {
           agent_id: string
@@ -1291,6 +1326,10 @@ export type Database = {
           rating_after: number
           rating_before: number
           rating_change: number
+          rd_after?: number | null
+          rd_before?: number | null
+          volatility_after?: number | null
+          volatility_before?: number | null
         }
         Update: {
           agent_id?: string
@@ -1303,6 +1342,10 @@ export type Database = {
           rating_after?: number
           rating_before?: number
           rating_change?: number
+          rd_after?: number | null
+          rd_before?: number | null
+          volatility_after?: number | null
+          volatility_before?: number | null
         }
         Relationships: [
           {
@@ -1672,6 +1715,60 @@ export type Database = {
         }
         Relationships: []
       }
+      aio_markets: {
+        Row: {
+          category: string | null
+          close_time: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          image: string | null
+          liquidity: number | null
+          outcomes: Json | null
+          question: string
+          source: string
+          status: string | null
+          synced_at: string | null
+          total_volume: number | null
+          url: string | null
+          volume_24h: number | null
+        }
+        Insert: {
+          category?: string | null
+          close_time?: number | null
+          created_at?: string | null
+          description?: string | null
+          id: string
+          image?: string | null
+          liquidity?: number | null
+          outcomes?: Json | null
+          question: string
+          source?: string
+          status?: string | null
+          synced_at?: string | null
+          total_volume?: number | null
+          url?: string | null
+          volume_24h?: number | null
+        }
+        Update: {
+          category?: string | null
+          close_time?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image?: string | null
+          liquidity?: number | null
+          outcomes?: Json | null
+          question?: string
+          source?: string
+          status?: string | null
+          synced_at?: string | null
+          total_volume?: number | null
+          url?: string | null
+          volume_24h?: number | null
+        }
+        Relationships: []
+      }
       aio_meta_market_bets: {
         Row: {
           actual_payout: number | null
@@ -1896,6 +1993,7 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           id: string
+          is_admin: boolean | null
           is_verified: boolean | null
           username: string
           wallet_balance: number | null
@@ -1905,6 +2003,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           id: string
+          is_admin?: boolean | null
           is_verified?: boolean | null
           username: string
           wallet_balance?: number | null
@@ -1914,6 +2013,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           id?: string
+          is_admin?: boolean | null
           is_verified?: boolean | null
           username?: string
           wallet_balance?: number | null
@@ -2234,6 +2334,36 @@ export type Database = {
           created_at?: string
           stripe_customer_id?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      aio_sync_status: {
+        Row: {
+          error: string | null
+          id: string
+          last_full_sync: string | null
+          last_incremental_sync: string | null
+          sync_duration_ms: number | null
+          total_markets: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          error?: string | null
+          id: string
+          last_full_sync?: string | null
+          last_incremental_sync?: string | null
+          sync_duration_ms?: number | null
+          total_markets?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          error?: string | null
+          id?: string
+          last_full_sync?: string | null
+          last_incremental_sync?: string | null
+          sync_duration_ms?: number | null
+          total_markets?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -5478,6 +5608,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ingestion_health_log: {
+        Row: {
+          created_at: string | null
+          duration_ms: number | null
+          error_details: Json | null
+          errors: number | null
+          id: string
+          observations_stored: number | null
+          reflections_triggered: number | null
+          run_at: string
+          users_processed: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration_ms?: number | null
+          error_details?: Json | null
+          errors?: number | null
+          id?: string
+          observations_stored?: number | null
+          reflections_triggered?: number | null
+          run_at?: string
+          users_processed?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          duration_ms?: number | null
+          error_details?: Json | null
+          errors?: number | null
+          id?: string
+          observations_stored?: number | null
+          reflections_triggered?: number | null
+          run_at?: string
+          users_processed?: number | null
+        }
+        Relationships: []
+      }
       instagram_posts: {
         Row: {
           caption: string | null
@@ -8366,6 +8532,47 @@ export type Database = {
         }
         Relationships: []
       }
+      proactive_insights: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          delivered: boolean | null
+          delivered_at: string | null
+          id: string
+          insight: string
+          urgency: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          delivered?: boolean | null
+          delivered_at?: string | null
+          id?: string
+          insight: string
+          urgency?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          delivered?: boolean | null
+          delivered_at?: string | null
+          id?: string
+          insight?: string
+          urgency?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_insights_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proactive_triggers: {
         Row: {
           actions: Json
@@ -10013,6 +10220,36 @@ export type Database = {
           },
         ]
       }
+      twin_summaries: {
+        Row: {
+          core_traits: string | null
+          current_focus: string | null
+          generated_at: string | null
+          id: string
+          recent_feelings: string | null
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          core_traits?: string | null
+          current_focus?: string | null
+          generated_at?: string | null
+          id?: string
+          recent_feelings?: string | null
+          summary: string
+          user_id: string
+        }
+        Update: {
+          core_traits?: string | null
+          current_focus?: string | null
+          generated_at?: string | null
+          id?: string
+          recent_feelings?: string | null
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       twitter_interests: {
         Row: {
           confidence_score: number
@@ -10293,6 +10530,56 @@ export type Database = {
           },
         ]
       }
+      user_consents: {
+        Row: {
+          consent_type: string
+          consent_version: string
+          created_at: string | null
+          granted: boolean
+          granted_at: string | null
+          id: string
+          ip_address: string | null
+          platform: string | null
+          revoked_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          consent_type: string
+          consent_version?: string
+          created_at?: string | null
+          granted?: boolean
+          granted_at?: string | null
+          id?: string
+          ip_address?: string | null
+          platform?: string | null
+          revoked_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          consent_type?: string
+          consent_version?: string
+          created_at?: string | null
+          granted?: boolean
+          granted_at?: string | null
+          id?: string
+          ip_address?: string | null
+          platform?: string | null
+          revoked_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_consents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_data_raw: {
         Row: {
           connector_id: string | null
@@ -10408,7 +10695,10 @@ export type Database = {
         Row: {
           content: string
           created_at: string | null
+          embedding: string | null
           id: string
+          importance_score: number | null
+          last_accessed_at: string | null
           memory_type: string
           metadata: Json | null
           response: string | null
@@ -10418,7 +10708,10 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string | null
+          embedding?: string | null
           id?: string
+          importance_score?: number | null
+          last_accessed_at?: string | null
           memory_type: string
           metadata?: Json | null
           response?: string | null
@@ -10428,7 +10721,10 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string | null
+          embedding?: string | null
           id?: string
+          importance_score?: number | null
+          last_accessed_at?: string | null
           memory_type?: string
           metadata?: Json | null
           response?: string | null
@@ -11399,6 +11695,26 @@ export type Database = {
       }
     }
     Functions: {
+      aio_update_agent_elo: {
+        Args: {
+          p_agent_id: string
+          p_new_rating: number
+          p_new_rd?: number
+          p_new_volatility?: number
+        }
+        Returns: undefined
+      }
+      aio_upsert_domain_rating: {
+        Args: {
+          p_agent_id: string
+          p_domain_id: string
+          p_elo_rating: number
+          p_is_win: boolean
+          p_rd?: number
+          p_volatility?: number
+        }
+        Returns: undefined
+      }
       calculate_aio_elo_change: {
         Args: { k_factor?: number; loser_elo: number; winner_elo: number }
         Returns: number
@@ -11565,6 +11881,10 @@ export type Database = {
       }
       get_platform_stats: { Args: { target_user_id: string }; Returns: Json }
       get_public_user_id: { Args: { auth_user_id: string }; Returns: string }
+      get_recent_importance_sum: {
+        Args: { p_hours_ago?: number; p_user_id: string }
+        Returns: number
+      }
       get_style_summary: { Args: { target_user_id: string }; Returns: Json }
       increment_pattern_occurrence: {
         Args: { p_observation_time: string; p_pattern_id: string }
@@ -11584,6 +11904,24 @@ export type Database = {
       }
       mark_oauth_state_as_used: { Args: { state_param: string }; Returns: Json }
       odds_to_probability: { Args: { odds: number }; Returns: number }
+      search_memory_stream: {
+        Args: {
+          p_decay_factor?: number
+          p_limit?: number
+          p_query_embedding: string
+          p_user_id: string
+        }
+        Returns: {
+          content: string
+          created_at: string
+          id: string
+          importance_score: number
+          memory_type: string
+          metadata: Json
+          score: number
+          source: string
+        }[]
+      }
       search_research_papers: {
         Args: {
           match_count?: number
@@ -11636,6 +11974,7 @@ export type Database = {
         Args: { p_bet_id: string; p_payout_cents: number }
         Returns: undefined
       }
+      touch_memories: { Args: { p_memory_ids: string[] }; Returns: undefined }
       update_pattern_confidence: {
         Args: { p_pattern_id: string }
         Returns: number
