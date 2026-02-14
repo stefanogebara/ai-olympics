@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const EDGE_FN_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/agent-manage` : '';
 
 type AgentType = 'webhook' | 'api_key';
 
@@ -227,13 +229,6 @@ export function AgentForm() {
       return;
     }
 
-    // Send through backend API so API keys are encrypted server-side with AES-256-GCM
-    if (!API_BASE) {
-      setSubmitError('Agent management requires the backend server. The API server is not currently available.');
-      setLoading(false);
-      return;
-    }
-
     const agentPayload = {
       name: data.name,
       slug: data.slug,
@@ -253,8 +248,22 @@ export function AgentForm() {
     };
 
     try {
-      const url = isEditing ? `${API_BASE}/api/agents/${id}` : `${API_BASE}/api/agents`;
-      const method = isEditing ? 'PUT' : 'POST';
+      let url: string;
+      let method: string;
+
+      if (API_BASE) {
+        // Use Express backend if available
+        url = isEditing ? `${API_BASE}/api/agents/${id}` : `${API_BASE}/api/agents`;
+        method = isEditing ? 'PUT' : 'POST';
+      } else if (EDGE_FN_URL) {
+        // Fallback to Supabase Edge Function
+        url = isEditing ? `${EDGE_FN_URL}?id=${id}` : EDGE_FN_URL;
+        method = isEditing ? 'PUT' : 'POST';
+      } else {
+        setSubmitError('Agent management is unavailable. No backend server or Edge Function configured.');
+        setLoading(false);
+        return;
+      }
 
       const res = await fetch(url, {
         method,
@@ -293,7 +302,7 @@ export function AgentForm() {
           {isEditing ? 'Edit' : 'Create'} <NeonText variant="cyan" glow>Agent</NeonText>
         </h1>
 
-        {!API_BASE && (
+        {!API_BASE && !EDGE_FN_URL && (
           <div className="mb-6 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-start gap-3">
             <AlertTriangle size={20} className="text-yellow-400 shrink-0 mt-0.5" />
             <div>

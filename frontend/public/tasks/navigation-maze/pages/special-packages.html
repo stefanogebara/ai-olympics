@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Special Packages - MazeWorld</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    .nav-header { background: rgba(0, 0, 0, 0.4); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+    .logo { font-size: 1.5rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .nav-links { display: flex; gap: 30px; }
+    .nav-links a { color: #a0aec0; text-decoration: none; padding: 8px 16px; border-radius: 8px; }
+    .timer { position: fixed; top: 80px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 15px 25px; border-radius: 10px; font-family: monospace; font-size: 1.5rem; color: #00d4ff; z-index: 100; }
+    .click-counter { position: fixed; top: 140px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 10px 20px; border-radius: 10px; font-size: 1rem; color: #7c3aed; }
+    .main-content { padding: 40px; max-width: 1000px; margin: 0 auto; }
+    .page-title { font-size: 2rem; margin-bottom: 30px; color: #00d4ff; }
+    .clue-box { background: rgba(124, 58, 237, 0.2); border: 2px solid #7c3aed; border-radius: 16px; padding: 20px; margin-bottom: 30px; }
+    .clue-box h3 { color: #7c3aed; margin-bottom: 10px; }
+    .packages-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; }
+    .package-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 25px; text-align: center; }
+    .package-card h3 { color: #e2e8f0; margin-bottom: 10px; font-size: 1.5rem; }
+    .package-price { color: #00d4ff; font-size: 2rem; font-weight: bold; margin-bottom: 15px; }
+    .package-features { list-style: none; margin-bottom: 20px; color: #a0aec0; }
+    .package-features li { padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .package-link { display: inline-block; padding: 12px 25px; background: linear-gradient(90deg, #7c3aed, #00d4ff); border-radius: 8px; color: white; text-decoration: none; font-weight: 600; }
+    .gold-package { background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1)); border: 2px solid #ffd700 !important; }
+    .gold-package h3 { color: #ffd700; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+  <div class="click-counter" id="clickCounter">Clicks: 0</div>
+
+  <nav class="nav-header">
+    <div class="logo">MazeWorld</div>
+    <div class="nav-links">
+      <a href="../index.html">Home</a>
+      <a href="products.html">Products</a>
+      <a href="services.html">Services</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <h1 class="page-title">Special Packages</h1>
+
+    <div class="clue-box">
+      <h3>Getting Warmer!</h3>
+      <p>You're on the right track! The golden treasure lies within our most prestigious tier. Only enterprises dare to seek the ultimate prize. Look for the path to greatness!</p>
+    </div>
+
+    <div class="packages-grid">
+      <div class="package-card">
+        <h3>Starter</h3>
+        <div class="package-price">$99/mo</div>
+        <ul class="package-features">
+          <li>5 User Seats</li>
+          <li>Basic Support</li>
+          <li>Standard Features</li>
+        </ul>
+        <a href="package-starter.html" class="package-link" aria-label="Select Starter">Select</a>
+      </div>
+
+      <div class="package-card">
+        <h3>Professional</h3>
+        <div class="package-price">$299/mo</div>
+        <ul class="package-features">
+          <li>25 User Seats</li>
+          <li>Priority Support</li>
+          <li>Advanced Features</li>
+        </ul>
+        <a href="package-pro.html" class="package-link" aria-label="Select Professional">Select</a>
+      </div>
+
+      <div class="package-card gold-package">
+        <h3>Enterprise</h3>
+        <div class="package-price">Custom</div>
+        <ul class="package-features">
+          <li>Unlimited Users</li>
+          <li>24/7 Dedicated Support</li>
+          <li>All Premium Features</li>
+          <li>Golden Benefits Included</li>
+        </ul>
+        <a href="enterprise.html" class="package-link" aria-label="Contact for Enterprise">Contact Us</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let startTime = parseInt(sessionStorage.getItem('mazeStartTime') || String(Date.now()), 10);
+    let clickCount = parseInt(sessionStorage.getItem('mazeClickCount') || '0', 10);
+    const timerEl = document.getElementById('timer');
+    const clickCounterEl = document.getElementById('clickCounter');
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      const minutes = Math.floor(elapsed / 60000);
+      const seconds = Math.floor((elapsed % 60000) / 1000);
+      const millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+    clickCounterEl.textContent = 'Clicks: ' + clickCount;
+    document.addEventListener('click', function(e) {
+      const link = e.target.closest('a');
+      if (link && link.href) {
+        clickCount++;
+        sessionStorage.setItem('mazeClickCount', String(clickCount));
+      }
+    });
+  </script>
+</body>
+</html>

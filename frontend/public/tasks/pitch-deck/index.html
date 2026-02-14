@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Pitch Deck Challenge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .timer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 1.5rem;
+      color: #00d4ff;
+      z-index: 100;
+    }
+
+    .top-bar {
+      background: rgba(0,0,0,0.4);
+      padding: 20px 40px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .top-bar h1 {
+      font-size: 1.5rem;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .slide-nav {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .slide-nav button {
+      padding: 8px 20px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .slide-nav button:hover { background: rgba(255,255,255,0.1); }
+
+    .slide-indicator {
+      color: #a0aec0;
+      font-size: 0.9rem;
+    }
+
+    .main {
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 0 30px;
+    }
+
+    .brief {
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid #7c3aed;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .brief h3 { color: #7c3aed; margin-bottom: 8px; }
+    .brief p { color: #cbd5e0; line-height: 1.6; }
+
+    .slide {
+      display: none;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 35px;
+    }
+
+    .slide.active { display: block; }
+
+    .slide h2 {
+      color: #00d4ff;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #a0aec0;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+
+    .form-group textarea {
+      min-height: 120px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    .form-group input:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    }
+
+    .form-group input::placeholder, .form-group textarea::placeholder { color: #4a5568; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(90deg, #48bb78, #38a169);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: transform 0.2s;
+    }
+
+    .submit-btn:hover { transform: translateY(-2px); }
+
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 60px 40px;
+    }
+
+    .success-message.show { display: block; }
+    .success-message h2 { color: #48bb78; margin-bottom: 15px; }
+    .success-message p { color: #a0aec0; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+
+  <div class="top-bar">
+    <h1>Pitch Deck Challenge</h1>
+    <div class="slide-nav">
+      <button id="prevBtn" aria-label="Previous Slide">Previous</button>
+      <span class="slide-indicator" id="slideIndicator">Slide 1 / 6</span>
+      <button id="nextBtn" aria-label="Next Slide">Next</button>
+    </div>
+  </div>
+
+  <div class="main" id="mainContent">
+    <div class="brief">
+      <h3>Your Mission</h3>
+      <p>Create a compelling pitch deck for a startup of your choosing. Fill out all 6 slides with persuasive, well-structured content. You will be judged on clarity, persuasiveness, completeness, and creativity.</p>
+    </div>
+
+    <div class="slide active" data-slide="1">
+      <h2>Slide 1: Title & Vision</h2>
+      <div class="form-group">
+        <label for="companyName">Company / Product Name</label>
+        <input type="text" id="companyName" name="companyName" placeholder="e.g., NeuralChef" aria-label="Company Name">
+      </div>
+      <div class="form-group">
+        <label for="tagline">Tagline / One-liner</label>
+        <input type="text" id="tagline" name="tagline" placeholder="e.g., AI that cooks so you don't have to" aria-label="Tagline">
+      </div>
+      <div class="form-group">
+        <label for="vision">Vision Statement (2-3 sentences)</label>
+        <textarea id="vision" name="vision" placeholder="Describe the future your company is building..." aria-label="Vision Statement"></textarea>
+      </div>
+    </div>
+
+    <div class="slide" data-slide="2">
+      <h2>Slide 2: The Problem</h2>
+      <div class="form-group">
+        <label for="problemStatement">Problem Statement</label>
+        <textarea id="problemStatement" name="problemStatement" placeholder="What problem are you solving? Why does it matter?" aria-label="Problem Statement"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="painPoints">Key Pain Points (one per line)</label>
+        <textarea id="painPoints" name="painPoints" placeholder="1. Pain point one&#10;2. Pain point two&#10;3. Pain point three" aria-label="Pain Points"></textarea>
+      </div>
+    </div>
+
+    <div class="slide" data-slide="3">
+      <h2>Slide 3: The Solution</h2>
+      <div class="form-group">
+        <label for="solution">Your Solution</label>
+        <textarea id="solution" name="solution" placeholder="How does your product solve the problem?" aria-label="Solution Description"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="keyFeatures">Key Features (one per line)</label>
+        <textarea id="keyFeatures" name="keyFeatures" placeholder="1. Feature one&#10;2. Feature two&#10;3. Feature three" aria-label="Key Features"></textarea>
+      </div>
+    </div>
+
+    <div class="slide" data-slide="4">
+      <h2>Slide 4: Market Opportunity</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="tam">Total Addressable Market (TAM)</label>
+          <input type="text" id="tam" name="tam" placeholder="e.g., $50B globally" aria-label="TAM">
+        </div>
+        <div class="form-group">
+          <label for="sam">Serviceable Market (SAM)</label>
+          <input type="text" id="sam" name="sam" placeholder="e.g., $12B in North America" aria-label="SAM">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="marketTrends">Market Trends & Tailwinds</label>
+        <textarea id="marketTrends" name="marketTrends" placeholder="What trends support your business?" aria-label="Market Trends"></textarea>
+      </div>
+    </div>
+
+    <div class="slide" data-slide="5">
+      <h2>Slide 5: Business Model</h2>
+      <div class="form-group">
+        <label for="revenueModel">Revenue Model</label>
+        <textarea id="revenueModel" name="revenueModel" placeholder="How do you make money? (e.g., SaaS subscription, marketplace fee, freemium)" aria-label="Revenue Model"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="pricing">Pricing</label>
+          <input type="text" id="pricing" name="pricing" placeholder="e.g., $29/mo Pro, $99/mo Enterprise" aria-label="Pricing">
+        </div>
+        <div class="form-group">
+          <label for="unitEconomics">Key Unit Economics</label>
+          <input type="text" id="unitEconomics" name="unitEconomics" placeholder="e.g., CAC: $50, LTV: $600" aria-label="Unit Economics">
+        </div>
+      </div>
+    </div>
+
+    <div class="slide" data-slide="6">
+      <h2>Slide 6: Team & Ask</h2>
+      <div class="form-group">
+        <label for="team">Founding Team</label>
+        <textarea id="team" name="team" placeholder="Who is on the team and what are their relevant backgrounds?" aria-label="Team Description"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="fundingAsk">Funding Ask</label>
+          <input type="text" id="fundingAsk" name="fundingAsk" placeholder="e.g., $2M Seed Round" aria-label="Funding Ask">
+        </div>
+        <div class="form-group">
+          <label for="useOfFunds">Use of Funds</label>
+          <input type="text" id="useOfFunds" name="useOfFunds" placeholder="e.g., 60% Engineering, 25% GTM, 15% Ops" aria-label="Use of Funds">
+        </div>
+      </div>
+
+      <button class="submit-btn" id="submitBtn" aria-label="Submit Pitch Deck">Submit Pitch Deck</button>
+    </div>
+  </div>
+
+  <div class="success-message" id="successMessage">
+    <h2>Pitch Deck Submitted!</h2>
+    <p>Your pitch has been submitted for judging.</p>
+    <p>Completed in <span id="completionTime">0.00</span> seconds</p>
+    <p style="margin-top:15px;font-size:0.9rem;">Submission ID: <code id="submissionId"></code></p>
+  </div>
+
+  <script>
+    var startTime = Date.now();
+    var timerEl = document.getElementById('timer');
+
+    function updateTimer() {
+      var elapsed = Date.now() - startTime;
+      var minutes = Math.floor(elapsed / 60000);
+      var seconds = Math.floor((elapsed % 60000) / 1000);
+      var millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    var currentSlide = 1;
+    var totalSlides = 6;
+
+    function showSlide(n) {
+      var slides = document.querySelectorAll('.slide');
+      slides.forEach(function(s) { s.classList.remove('active'); });
+      var target = document.querySelector('.slide[data-slide="' + n + '"]');
+      if (target) target.classList.add('active');
+      document.getElementById('slideIndicator').textContent = 'Slide ' + n + ' / ' + totalSlides;
+    }
+
+    document.getElementById('prevBtn').addEventListener('click', function() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        showSlide(currentSlide);
+      }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', function() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        showSlide(currentSlide);
+      }
+    });
+
+    document.getElementById('submitBtn').addEventListener('click', function() {
+      var fields = ['companyName', 'tagline', 'vision', 'problemStatement', 'painPoints',
+                    'solution', 'keyFeatures', 'tam', 'sam', 'marketTrends',
+                    'revenueModel', 'pricing', 'unitEconomics', 'team', 'fundingAsk', 'useOfFunds'];
+
+      var submission = {};
+      var filledCount = 0;
+
+      fields.forEach(function(f) {
+        var el = document.getElementById(f);
+        var val = el ? el.value.trim() : '';
+        submission[f] = val;
+        if (val.length > 0) filledCount++;
+      });
+
+      if (filledCount < 6) {
+        alert('Please fill out at least 6 fields across your slides before submitting.');
+        return;
+      }
+
+      var completionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      document.getElementById('mainContent').style.display = 'none';
+      document.querySelector('.top-bar').style.display = 'none';
+      var success = document.getElementById('successMessage');
+      success.classList.add('show');
+      document.getElementById('completionTime').textContent = completionTime;
+      document.getElementById('submissionId').textContent = 'PCH-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+      console.log('PITCH_DECK_COMPLETE', {
+        completionTime: parseFloat(completionTime),
+        timestamp: Date.now(),
+        submission: submission,
+        fieldsCompleted: filledCount,
+        totalFields: fields.length
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Trivia Challenge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      padding: 30px;
+      color: #fff;
+    }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { font-size: 2.2rem; background: linear-gradient(90deg, #00d4ff, #7c3aed, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+    .timer { position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 15px 25px; border-radius: 10px; font-family: monospace; font-size: 1.5rem; color: #00d4ff; z-index: 100; }
+    .timer.warning { color: #ff6b6b; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .progress-bar { max-width: 600px; margin: 0 auto 30px; background: rgba(255, 255, 255, 0.1); height: 10px; border-radius: 5px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #00d4ff); transition: width 0.3s; }
+    .stats-bar { display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; }
+    .stat { text-align: center; }
+    .stat-value { font-size: 1.5rem; font-weight: bold; color: #00d4ff; }
+    .stat-label { font-size: 0.8rem; color: #a0aec0; }
+    .question-container { max-width: 700px; margin: 0 auto; }
+    .question-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 30px; margin-bottom: 20px; }
+    .question-number { color: #7c3aed; font-size: 0.9rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .question-timer { background: rgba(255, 255, 255, 0.1); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
+    .question-timer.warning { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+    .question-text { color: #e2e8f0; line-height: 1.6; font-size: 1.2rem; margin-bottom: 25px; }
+    .options-list { list-style: none; display: grid; gap: 12px; }
+    .option-btn { width: 100%; padding: 16px 20px; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: white; font-size: 1rem; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; align-items: center; gap: 15px; }
+    .option-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); border-color: rgba(124, 58, 237, 0.5); transform: translateX(5px); }
+    .option-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+    .option-btn.selected { background: rgba(124, 58, 237, 0.2); border-color: #7c3aed; }
+    .option-btn.correct { background: rgba(72, 187, 120, 0.2); border-color: #48bb78; }
+    .option-btn.incorrect { background: rgba(252, 129, 129, 0.2); border-color: #fc8181; }
+    .option-letter { width: 32px; height: 32px; background: rgba(255, 255, 255, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #7c3aed; }
+    .option-btn.correct .option-letter { background: rgba(72, 187, 120, 0.3); color: #48bb78; }
+    .option-btn.incorrect .option-letter { background: rgba(252, 129, 129, 0.3); color: #fc8181; }
+    .hidden { display: none; }
+    .loading { text-align: center; padding: 50px; }
+    .loading-spinner { width: 50px; height: 50px; border: 4px solid rgba(255, 255, 255, 0.1); border-top-color: #7c3aed; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .success-screen { text-align: center; padding: 40px; max-width: 600px; margin: 0 auto; }
+    .success-icon { font-size: 4rem; margin-bottom: 20px; }
+    .success-screen h2 { color: #48bb78; font-size: 2rem; margin-bottom: 15px; }
+    .score-display { font-size: 3rem; font-weight: bold; color: #00d4ff; margin: 20px 0; }
+    .results-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 25px 0; }
+    .result-item { background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 10px; }
+    .result-item-value { font-size: 1.5rem; font-weight: bold; color: #00d4ff; }
+    .result-item-label { font-size: 0.85rem; color: #a0aec0; }
+    .results-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
+    .result-box { padding: 15px 10px; border-radius: 8px; text-align: center; }
+    .result-box.correct { background: rgba(72, 187, 120, 0.2); color: #48bb78; }
+    .result-box.incorrect { background: rgba(252, 129, 129, 0.2); color: #fc8181; }
+    .error-screen { text-align: center; padding: 50px; }
+    .error-screen h2 { color: #fc8181; margin-bottom: 15px; }
+    .retry-btn { padding: 12px 30px; background: linear-gradient(90deg, #7c3aed, #00d4ff); border: none; border-radius: 10px; color: white; font-size: 1rem; cursor: pointer; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">30</div>
+
+  <div class="header">
+    <h1>Trivia Challenge</h1>
+    <p style="color: #a0aec0;">Answer 10 multiple choice questions!</p>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-value" id="scoreDisplay">0</div>
+      <div class="stat-label">Score</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="correctDisplay">0</div>
+      <div class="stat-label">Correct</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="questionNum">1/10</div>
+      <div class="stat-label">Question</div>
+    </div>
+  </div>
+
+  <div class="loading" id="loadingScreen">
+    <div class="loading-spinner"></div>
+    <p>Loading trivia questions...</p>
+  </div>
+
+  <div class="question-container hidden" id="questionContainer"></div>
+
+  <div class="success-screen hidden" id="successScreen">
+    <div class="success-icon">TROPHY</div>
+    <h2>Challenge Complete!</h2>
+    <div class="score-display">Score: <span id="finalScore">0</span>/1000</div>
+    <div class="results-summary">
+      <div class="result-item">
+        <div class="result-item-value" id="finalCorrect">0</div>
+        <div class="result-item-label">Correct Answers</div>
+      </div>
+      <div class="result-item">
+        <div class="result-item-value" id="finalTime">0s</div>
+        <div class="result-item-label">Total Time</div>
+      </div>
+      <div class="result-item">
+        <div class="result-item-value" id="timeBonus">0</div>
+        <div class="result-item-label">Time Bonus</div>
+      </div>
+      <div class="result-item">
+        <div class="result-item-value" id="accuracy">0%</div>
+        <div class="result-item-label">Accuracy</div>
+      </div>
+    </div>
+    <div class="results-grid" id="resultsGrid"></div>
+  </div>
+
+  <div class="error-screen hidden" id="errorScreen">
+    <h2>Failed to load questions</h2>
+    <p id="errorMessage">Please try again later.</p>
+    <button class="retry-btn" onclick="location.reload()">Retry</button>
+  </div>
+
+  <script>
+    // State
+    let questions = [];
+    let currentQuestion = 0;
+    let answers = [];
+    let score = 0;
+    let correctCount = 0;
+    let startTime = Date.now();
+    let questionStartTime = Date.now();
+    let questionTimer = null;
+    let questionTimeLeft = 30;
+
+    // DOM Elements
+    const timerEl = document.getElementById('timer');
+    const progressFill = document.getElementById('progressFill');
+    const loadingScreen = document.getElementById('loadingScreen');
+    const questionContainer = document.getElementById('questionContainer');
+    const successScreen = document.getElementById('successScreen');
+    const errorScreen = document.getElementById('errorScreen');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const correctDisplay = document.getElementById('correctDisplay');
+    const questionNum = document.getElementById('questionNum');
+
+    // Fallback questions if API fails
+    const fallbackQuestions = [
+      { question: "What is the capital of France?", options: ["London", "Berlin", "Paris", "Madrid"], correct: 2 },
+      { question: "Which planet is known as the Red Planet?", options: ["Venus", "Mars", "Jupiter", "Saturn"], correct: 1 },
+      { question: "What is the largest mammal in the world?", options: ["Elephant", "Blue Whale", "Giraffe", "Hippopotamus"], correct: 1 },
+      { question: "In what year did World War II end?", options: ["1943", "1944", "1945", "1946"], correct: 2 },
+      { question: "What is the chemical symbol for gold?", options: ["Go", "Gd", "Au", "Ag"], correct: 2 },
+      { question: "Who painted the Mona Lisa?", options: ["Van Gogh", "Picasso", "Da Vinci", "Michelangelo"], correct: 2 },
+      { question: "What is the smallest country in the world?", options: ["Monaco", "Vatican City", "San Marino", "Liechtenstein"], correct: 1 },
+      { question: "How many continents are there?", options: ["5", "6", "7", "8"], correct: 2 },
+      { question: "What is the speed of light in km/s (approx)?", options: ["200,000", "300,000", "400,000", "500,000"], correct: 1 },
+      { question: "Which element has the atomic number 1?", options: ["Helium", "Hydrogen", "Lithium", "Carbon"], correct: 1 }
+    ];
+
+    // Load questions from API or use fallback
+    async function loadQuestions() {
+      try {
+        const response = await fetch('/api/games/trivia/puzzle');
+        if (!response.ok) throw new Error('API error');
+        const data = await response.json();
+        questions = data.questions || data;
+        if (!questions.length) throw new Error('No questions');
+      } catch (error) {
+        console.log('Using fallback questions:', error.message);
+        questions = fallbackQuestions;
+      }
+
+      loadingScreen.classList.add('hidden');
+      questionContainer.classList.remove('hidden');
+      renderQuestion(0);
+      startQuestionTimer();
+    }
+
+    function startQuestionTimer() {
+      questionTimeLeft = 30;
+      questionStartTime = Date.now();
+      updateTimerDisplay();
+
+      if (questionTimer) clearInterval(questionTimer);
+      questionTimer = setInterval(function() {
+        questionTimeLeft--;
+        updateTimerDisplay();
+
+        if (questionTimeLeft <= 0) {
+          clearInterval(questionTimer);
+          handleTimeout();
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      timerEl.textContent = questionTimeLeft;
+      if (questionTimeLeft <= 10) {
+        timerEl.classList.add('warning');
+      } else {
+        timerEl.classList.remove('warning');
+      }
+    }
+
+    function handleTimeout() {
+      // Record as incorrect
+      answers.push({
+        questionIndex: currentQuestion,
+        selectedOption: -1,
+        correct: false,
+        timeSpent: 30000
+      });
+
+      showFeedback(-1, questions[currentQuestion].correct);
+
+      setTimeout(function() {
+        nextQuestion();
+      }, 1500);
+    }
+
+    function renderQuestion(index) {
+      const q = questions[index];
+      progressFill.style.width = ((index / questions.length) * 100) + '%';
+      questionNum.textContent = (index + 1) + '/' + questions.length;
+
+      const optionLetters = ['A', 'B', 'C', 'D'];
+
+      // Clear container safely
+      while (questionContainer.firstChild) {
+        questionContainer.removeChild(questionContainer.firstChild);
+      }
+
+      const card = document.createElement('div');
+      card.className = 'question-card';
+
+      // Question number header
+      const numDiv = document.createElement('div');
+      numDiv.className = 'question-number';
+
+      const questionLabel = document.createElement('span');
+      questionLabel.textContent = 'Question ' + (index + 1) + ' of ' + questions.length;
+
+      const timerSpan = document.createElement('span');
+      timerSpan.className = 'question-timer';
+      timerSpan.id = 'qTimer';
+      timerSpan.textContent = questionTimeLeft + 's remaining';
+
+      numDiv.appendChild(questionLabel);
+      numDiv.appendChild(timerSpan);
+
+      // Question text
+      const textDiv = document.createElement('div');
+      textDiv.className = 'question-text';
+      textDiv.textContent = q.question;
+
+      // Options
+      const optionsList = document.createElement('div');
+      optionsList.className = 'options-list';
+
+      q.options.forEach(function(opt, i) {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.setAttribute('data-index', i);
+        btn.setAttribute('aria-label', 'Option ' + optionLetters[i] + ': ' + opt);
+
+        const letterSpan = document.createElement('span');
+        letterSpan.className = 'option-letter';
+        letterSpan.textContent = optionLetters[i];
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = opt;
+
+        btn.appendChild(letterSpan);
+        btn.appendChild(textSpan);
+        btn.onclick = function() { selectOption(i); };
+        optionsList.appendChild(btn);
+      });
+
+      card.appendChild(numDiv);
+      card.appendChild(textDiv);
+      card.appendChild(optionsList);
+      questionContainer.appendChild(card);
+
+      // Update question timer display
+      const qTimerInterval = setInterval(function() {
+        const qTimerEl = document.getElementById('qTimer');
+        if (qTimerEl) {
+          qTimerEl.textContent = questionTimeLeft + 's remaining';
+          if (questionTimeLeft <= 10) {
+            qTimerEl.classList.add('warning');
+          }
+        } else {
+          clearInterval(qTimerInterval);
+        }
+      }, 1000);
+    }
+
+    function selectOption(optionIndex) {
+      clearInterval(questionTimer);
+
+      const timeSpent = Date.now() - questionStartTime;
+      const q = questions[currentQuestion];
+      const isCorrect = optionIndex === q.correct;
+
+      // Calculate points
+      let points = 0;
+      if (isCorrect) {
+        points = 80; // Base points per correct answer
+        // Time bonus: up to 20 extra points for quick answers
+        const timeBonus = Math.max(0, Math.floor((30000 - timeSpent) / 1500));
+        points += timeBonus;
+        score += points;
+        correctCount++;
+      }
+
+      answers.push({
+        questionIndex: currentQuestion,
+        selectedOption: optionIndex,
+        correct: isCorrect,
+        timeSpent: timeSpent,
+        points: points
+      });
+
+      // Update displays
+      scoreDisplay.textContent = score;
+      correctDisplay.textContent = correctCount;
+
+      // Show feedback
+      showFeedback(optionIndex, q.correct);
+
+      // Disable all buttons
+      const buttons = document.querySelectorAll('.option-btn');
+      buttons.forEach(function(btn) {
+        btn.disabled = true;
+      });
+
+      setTimeout(function() {
+        nextQuestion();
+      }, 1500);
+    }
+
+    function showFeedback(selectedIndex, correctIndex) {
+      const buttons = document.querySelectorAll('.option-btn');
+      buttons.forEach(function(btn, i) {
+        btn.disabled = true;
+        if (i === correctIndex) {
+          btn.classList.add('correct');
+        } else if (i === selectedIndex && i !== correctIndex) {
+          btn.classList.add('incorrect');
+        }
+      });
+    }
+
+    function nextQuestion() {
+      if (currentQuestion < questions.length - 1) {
+        currentQuestion++;
+        renderQuestion(currentQuestion);
+        startQuestionTimer();
+      } else {
+        showResults();
+      }
+    }
+
+    function showResults() {
+      clearInterval(questionTimer);
+      const totalTime = (Date.now() - startTime) / 1000;
+
+      // Calculate time bonus (up to 200 points for completing all quickly)
+      const avgTimePerQuestion = totalTime / questions.length;
+      const timeBonus = Math.max(0, Math.min(200, Math.floor((15 - avgTimePerQuestion) * 20)));
+      const finalScore = Math.min(1000, score + timeBonus);
+
+      questionContainer.classList.add('hidden');
+      progressFill.style.width = '100%';
+      successScreen.classList.remove('hidden');
+
+      document.getElementById('finalScore').textContent = finalScore;
+      document.getElementById('finalCorrect').textContent = correctCount + '/' + questions.length;
+      document.getElementById('finalTime').textContent = totalTime.toFixed(1) + 's';
+      document.getElementById('timeBonus').textContent = '+' + timeBonus;
+      document.getElementById('accuracy').textContent = Math.round((correctCount / questions.length) * 100) + '%';
+
+      const resultsGrid = document.getElementById('resultsGrid');
+      while (resultsGrid.firstChild) {
+        resultsGrid.removeChild(resultsGrid.firstChild);
+      }
+
+      answers.forEach(function(answer, i) {
+        const box = document.createElement('div');
+        box.className = 'result-box ' + (answer.correct ? 'correct' : 'incorrect');
+
+        const qLabel = document.createElement('div');
+        qLabel.textContent = 'Q' + (i + 1);
+
+        const result = document.createElement('div');
+        result.textContent = answer.correct ? 'OK' : 'X';
+
+        box.appendChild(qLabel);
+        box.appendChild(result);
+        resultsGrid.appendChild(box);
+      });
+
+      console.log('TRIVIA_COMPLETE', {
+        completionTime: totalTime,
+        timestamp: Date.now(),
+        correctCount: correctCount,
+        totalQuestions: questions.length,
+        answers: answers,
+        score: finalScore,
+        timeBonus: timeBonus
+      });
+    }
+
+    // Start
+    loadQuestions();
+  </script>
+</body>
+</html>

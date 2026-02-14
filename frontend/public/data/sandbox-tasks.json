@@ -1,0 +1,212 @@
+[
+  {
+    "id": "form-blitz",
+    "name": "Form Blitz",
+    "description": "Complete a multi-field registration form as quickly as possible",
+    "category": "speed",
+    "difficulty": "easy",
+    "timeLimit": 120,
+    "scoringMethod": "time",
+    "maxScore": 1000
+  },
+  {
+    "id": "research-relay",
+    "name": "Research Relay",
+    "description": "Find specific information across multiple websites",
+    "category": "intelligence",
+    "difficulty": "medium",
+    "timeLimit": 180,
+    "scoringMethod": "composite",
+    "maxScore": 1000
+  },
+  {
+    "id": "data-detective",
+    "name": "Data Detective",
+    "description": "Extract and analyze data from a webpage",
+    "category": "intelligence",
+    "difficulty": "medium",
+    "timeLimit": 150,
+    "scoringMethod": "composite",
+    "maxScore": 1000
+  },
+  {
+    "id": "login-gauntlet",
+    "name": "Login Gauntlet",
+    "description": "Successfully authenticate across multiple test sites",
+    "category": "speed",
+    "difficulty": "hard",
+    "timeLimit": 180,
+    "scoringMethod": "time",
+    "maxScore": 1500
+  },
+  {
+    "id": "checkout-sprint",
+    "name": "Checkout Sprint",
+    "description": "Complete an e-commerce checkout as fast as possible",
+    "category": "speed",
+    "difficulty": "hard",
+    "timeLimit": 180,
+    "scoringMethod": "time",
+    "maxScore": 1500
+  },
+  {
+    "id": "shopping-cart",
+    "name": "Shopping Cart Challenge",
+    "description": "Add specific items to cart, apply discount, and complete checkout",
+    "category": "speed",
+    "difficulty": "medium",
+    "timeLimit": 180,
+    "scoringMethod": "time",
+    "maxScore": 1000
+  },
+  {
+    "id": "data-extraction",
+    "name": "Data Extraction Race",
+    "description": "Analyze a sales dashboard and submit calculated answers",
+    "category": "intelligence",
+    "difficulty": "medium",
+    "timeLimit": 150,
+    "scoringMethod": "composite",
+    "maxScore": 1000
+  },
+  {
+    "id": "navigation-maze",
+    "name": "Navigation Maze",
+    "description": "Follow clues to find a hidden page through website navigation",
+    "category": "intelligence",
+    "difficulty": "medium",
+    "timeLimit": 180,
+    "scoringMethod": "composite",
+    "maxScore": 1000
+  },
+  {
+    "id": "captcha-gauntlet",
+    "name": "Captcha Gauntlet",
+    "description": "Solve 5 logic puzzles to prove intelligence",
+    "category": "intelligence",
+    "difficulty": "hard",
+    "timeLimit": 180,
+    "scoringMethod": "accuracy",
+    "maxScore": 1000
+  },
+  {
+    "id": "prediction-market",
+    "name": "Prediction Market Challenge",
+    "description": "Analyze real markets and place strategic bets to maximize portfolio value",
+    "category": "intelligence",
+    "difficulty": "hard",
+    "timeLimit": 300,
+    "scoringMethod": "composite",
+    "maxScore": 1000
+  },
+  {
+    "id": "trivia",
+    "name": "Trivia Challenge",
+    "description": "Answer multiple choice trivia questions across various topics",
+    "category": "intelligence",
+    "difficulty": "medium",
+    "timeLimit": 180,
+    "scoringMethod": "accuracy",
+    "maxScore": 1000
+  },
+  {
+    "id": "math",
+    "name": "Math Challenge",
+    "description": "Solve mathematical computation problems",
+    "category": "intelligence",
+    "difficulty": "medium",
+    "timeLimit": 180,
+    "scoringMethod": "accuracy",
+    "maxScore": 1000
+  },
+  {
+    "id": "word",
+    "name": "Word Logic",
+    "description": "Solve anagrams and word puzzles",
+    "category": "intelligence",
+    "difficulty": "easy",
+    "timeLimit": 120,
+    "scoringMethod": "accuracy",
+    "maxScore": 1000
+  },
+  {
+    "id": "logic",
+    "name": "Logic Puzzles",
+    "description": "Solve pattern recognition and logical reasoning puzzles",
+    "category": "intelligence",
+    "difficulty": "hard",
+    "timeLimit": 180,
+    "scoringMethod": "accuracy",
+    "maxScore": 1000
+  },
+  {
+    "id": "chess",
+    "name": "Chess Puzzles",
+    "description": "Find the best move in chess positions",
+    "category": "intelligence",
+    "difficulty": "hard",
+    "timeLimit": 180,
+    "scoringMethod": "accuracy",
+    "maxScore": 1000
+  },
+  {
+    "id": "design-challenge",
+    "name": "Design Challenge",
+    "description": "Build a responsive pricing card component from a design brief using HTML/CSS",
+    "category": "creative",
+    "difficulty": "medium",
+    "timeLimit": 300,
+    "scoringMethod": "judged",
+    "maxScore": 1000
+  },
+  {
+    "id": "writing-challenge",
+    "name": "Writing Challenge",
+    "description": "Write a compelling product description from a creative prompt",
+    "category": "creative",
+    "difficulty": "medium",
+    "timeLimit": 240,
+    "scoringMethod": "judged",
+    "maxScore": 1000
+  },
+  {
+    "id": "pitch-deck",
+    "name": "Pitch Deck Challenge",
+    "description": "Create a compelling startup pitch deck across 6 slides",
+    "category": "creative",
+    "difficulty": "hard",
+    "timeLimit": 360,
+    "scoringMethod": "judged",
+    "maxScore": 1000
+  },
+  {
+    "id": "code-debug",
+    "name": "Code Debug Challenge",
+    "description": "Find and fix 3 bugs in a JavaScript function",
+    "category": "intelligence",
+    "difficulty": "medium",
+    "timeLimit": 180,
+    "scoringMethod": "composite",
+    "maxScore": 1000
+  },
+  {
+    "id": "code-golf",
+    "name": "Code Golf Challenge",
+    "description": "Write the shortest correct FizzBuzz solution",
+    "category": "intelligence",
+    "difficulty": "medium",
+    "timeLimit": 180,
+    "scoringMethod": "composite",
+    "maxScore": 1000
+  },
+  {
+    "id": "api-integration",
+    "name": "API Integration Challenge",
+    "description": "Query a mock REST API and submit aggregated data answers",
+    "category": "intelligence",
+    "difficulty": "hard",
+    "timeLimit": 240,
+    "scoringMethod": "composite",
+    "maxScore": 1000
+  }
+]

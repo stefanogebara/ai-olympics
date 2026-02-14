@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Navigation Maze</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .nav-header {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 30px;
+    }
+
+    .nav-links a {
+      color: #a0aec0;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .timer {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 1.5rem;
+      color: #00d4ff;
+      z-index: 100;
+    }
+
+    .click-counter {
+      position: fixed;
+      top: 140px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 1rem;
+      color: #7c3aed;
+    }
+
+    .main-content {
+      padding: 40px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 60px 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 20px;
+      margin-bottom: 40px;
+    }
+
+    .hero h1 {
+      font-size: 2.5rem;
+      margin-bottom: 15px;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      color: #a0aec0;
+      font-size: 1.2rem;
+      margin-bottom: 30px;
+    }
+
+    .mission-card {
+      background: rgba(124, 58, 237, 0.2);
+      border: 2px solid #7c3aed;
+      border-radius: 16px;
+      padding: 25px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .mission-card h2 {
+      color: #7c3aed;
+      margin-bottom: 15px;
+      font-size: 1.3rem;
+    }
+
+    .mission-card p {
+      color: #e2e8f0;
+      line-height: 1.6;
+    }
+
+    .clue {
+      background: rgba(0, 212, 255, 0.1);
+      border-left: 4px solid #00d4ff;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .clue strong {
+      color: #00d4ff;
+    }
+
+    .sections-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 25px;
+    }
+
+    .section-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 25px;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .section-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .section-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+
+    .section-card h3 {
+      color: #e2e8f0;
+      margin-bottom: 10px;
+    }
+
+    .section-card p {
+      color: #718096;
+      font-size: 0.9rem;
+      margin-bottom: 15px;
+    }
+
+    .section-link {
+      display: inline-block;
+      padding: 10px 20px;
+      background: linear-gradient(90deg, #7c3aed, #00d4ff);
+      border-radius: 8px;
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+
+    .section-link:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+  <div class="click-counter" id="clickCounter">Clicks: 0</div>
+
+  <nav class="nav-header">
+    <div class="logo">MazeWorld</div>
+    <div class="nav-links">
+      <a href="index.html" aria-label="Home">Home</a>
+      <a href="pages/products.html" aria-label="Products">Products</a>
+      <a href="pages/services.html" aria-label="Services">Services</a>
+      <a href="pages/about.html" aria-label="About">About</a>
+      <a href="pages/contact.html" aria-label="Contact">Contact</a>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="hero">
+      <h1>Navigation Maze Challenge</h1>
+      <p>Find the hidden treasure page using the clues!</p>
+
+      <div class="mission-card">
+        <h2>Your Mission</h2>
+        <p>Navigate through this website to find the secret "Golden Achievement" page. Follow the clues on each page to find your way. The optimal path requires only 4 clicks!</p>
+        <div class="clue">
+          <strong>First Clue:</strong> The journey begins where innovation meets service. Look for what makes things "special".
+        </div>
+      </div>
+    </div>
+
+    <div class="sections-grid">
+      <div class="section-card">
+        <div class="section-icon">BOX</div>
+        <h3>Products</h3>
+        <p>Explore our amazing product catalog with cutting-edge technology.</p>
+        <a href="pages/products.html" class="section-link" aria-label="Explore Products">Explore</a>
+      </div>
+
+      <div class="section-card">
+        <div class="section-icon">GEAR</div>
+        <h3>Services</h3>
+        <p>Discover our professional services tailored to your needs.</p>
+        <a href="pages/services.html" class="section-link" aria-label="View Services">View Services</a>
+      </div>
+
+      <div class="section-card">
+        <div class="section-icon">TEAM</div>
+        <h3>About Us</h3>
+        <p>Learn about our company history and team members.</p>
+        <a href="pages/about.html" class="section-link" aria-label="Learn More">Learn More</a>
+      </div>
+
+      <div class="section-card">
+        <div class="section-icon">MSG</div>
+        <h3>Contact</h3>
+        <p>Get in touch with our support team for assistance.</p>
+        <a href="pages/contact.html" class="section-link" aria-label="Contact Us">Contact Us</a>
+      </div>
+
+      <div class="section-card">
+        <div class="section-icon">NEWS</div>
+        <h3>Blog</h3>
+        <p>Read our latest news and industry insights.</p>
+        <a href="pages/blog.html" class="section-link" aria-label="Read Blog">Read Blog</a>
+      </div>
+
+      <div class="section-card">
+        <div class="section-icon">HELP</div>
+        <h3>Support</h3>
+        <p>Find answers to common questions and get help.</p>
+        <a href="pages/support.html" class="section-link" aria-label="Get Support">Get Support</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let startTime = Date.now();
+    let clickCount = 0;
+
+    // Store in sessionStorage for tracking across pages
+    if (!sessionStorage.getItem('mazeStartTime')) {
+      sessionStorage.setItem('mazeStartTime', String(startTime));
+      sessionStorage.setItem('mazeClickCount', '0');
+      sessionStorage.setItem('mazePath', 'home');
+    } else {
+      startTime = parseInt(sessionStorage.getItem('mazeStartTime') || String(Date.now()), 10);
+      clickCount = parseInt(sessionStorage.getItem('mazeClickCount') || '0', 10);
+    }
+
+    const timerEl = document.getElementById('timer');
+    const clickCounterEl = document.getElementById('clickCounter');
+
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      const minutes = Math.floor(elapsed / 60000);
+      const seconds = Math.floor((elapsed % 60000) / 1000);
+      const millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    clickCounterEl.textContent = 'Clicks: ' + clickCount;
+
+    // Track link clicks
+    document.addEventListener('click', function(e) {
+      const link = e.target.closest('a');
+      if (link && link.href) {
+        clickCount++;
+        sessionStorage.setItem('mazeClickCount', String(clickCount));
+        const currentPath = sessionStorage.getItem('mazePath') || '';
+        sessionStorage.setItem('mazePath', currentPath + ' -> ' + (link.textContent || link.href));
+      }
+    });
+  </script>
+</body>
+</html>

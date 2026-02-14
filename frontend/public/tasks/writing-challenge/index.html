@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Writing Challenge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      padding: 40px;
+      color: #fff;
+    }
+
+    .timer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 1.5rem;
+      color: #00d4ff;
+      z-index: 100;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    .header p { color: #a0aec0; font-size: 1.1rem; }
+
+    .prompt-card {
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid #7c3aed;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 25px;
+    }
+
+    .prompt-card h3 {
+      color: #7c3aed;
+      margin-bottom: 12px;
+    }
+
+    .prompt-card p {
+      color: #cbd5e0;
+      line-height: 1.7;
+      font-size: 1.05rem;
+    }
+
+    .criteria-card {
+      background: rgba(0, 212, 255, 0.1);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .criteria-card h3 { color: #00d4ff; margin-bottom: 10px; }
+
+    .criteria-card ul {
+      margin-left: 20px;
+      color: #a0aec0;
+    }
+
+    .criteria-card li { margin-bottom: 5px; }
+
+    .writing-area {
+      width: 100%;
+      min-height: 350px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 20px;
+      color: #e2e8f0;
+      font-size: 1rem;
+      line-height: 1.8;
+      resize: vertical;
+      font-family: 'Georgia', serif;
+    }
+
+    .writing-area:focus {
+      outline: none;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    }
+
+    .writing-area::placeholder { color: #4a5568; }
+
+    .word-count {
+      text-align: right;
+      color: #718096;
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(90deg, #7c3aed, #00d4ff);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-top: 20px;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(124, 58, 237, 0.3);
+    }
+
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 60px 40px;
+    }
+
+    .success-message.show { display: block; }
+    .success-message h2 { color: #48bb78; margin-bottom: 15px; }
+    .success-message p { color: #a0aec0; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+
+  <div class="container">
+    <div class="header">
+      <h1>Writing Challenge</h1>
+      <p>Craft a compelling response to the prompt below.</p>
+    </div>
+
+    <div id="formSection">
+      <div class="prompt-card">
+        <h3>Writing Prompt</h3>
+        <p>Write a persuasive product description for a fictional AI-powered smart garden device called "GreenMind." The device automatically monitors soil moisture, light levels, and plant health, then waters and adjusts lighting accordingly. Your description should make a reader want to buy it immediately. Target audience: busy urban professionals who love plants but struggle to keep them alive.</p>
+      </div>
+
+      <div class="criteria-card">
+        <h3>Judging Criteria</h3>
+        <ul>
+          <li><strong>Creativity (30%)</strong> - Original language, vivid imagery, unique angle</li>
+          <li><strong>Persuasiveness (30%)</strong> - Compelling value proposition, emotional appeal</li>
+          <li><strong>Grammar & Style (20%)</strong> - Clean prose, appropriate tone, good flow</li>
+          <li><strong>Relevance (20%)</strong> - Addresses the prompt, targets the audience</li>
+        </ul>
+      </div>
+
+      <textarea id="writingArea" class="writing-area" placeholder="Start writing your response here..." aria-label="Writing Response"></textarea>
+      <div class="word-count" id="wordCount">0 words</div>
+
+      <button class="submit-btn" id="submitBtn" aria-label="Submit Writing">Submit Writing</button>
+    </div>
+
+    <div class="success-message" id="successMessage">
+      <h2>Writing Submitted!</h2>
+      <p>Your response has been submitted for judging.</p>
+      <p>Completed in <span id="completionTime">0.00</span> seconds</p>
+      <p style="margin-top:10px;">Word count: <span id="finalWordCount">0</span></p>
+      <p style="margin-top:15px;font-size:0.9rem;">Submission ID: <code id="submissionId"></code></p>
+    </div>
+  </div>
+
+  <script>
+    var startTime = Date.now();
+    var timerEl = document.getElementById('timer');
+
+    function updateTimer() {
+      var elapsed = Date.now() - startTime;
+      var minutes = Math.floor(elapsed / 60000);
+      var seconds = Math.floor((elapsed % 60000) / 1000);
+      var millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    var writingArea = document.getElementById('writingArea');
+    var wordCountEl = document.getElementById('wordCount');
+
+    function countWords(text) {
+      var trimmed = text.trim();
+      if (trimmed.length === 0) return 0;
+      return trimmed.split(/\s+/).length;
+    }
+
+    writingArea.addEventListener('input', function() {
+      var wc = countWords(writingArea.value);
+      wordCountEl.textContent = wc + ' word' + (wc !== 1 ? 's' : '');
+    });
+
+    document.getElementById('submitBtn').addEventListener('click', function() {
+      var text = writingArea.value.trim();
+      var wc = countWords(text);
+
+      if (wc < 10) {
+        alert('Please write at least 10 words before submitting.');
+        return;
+      }
+
+      var completionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      document.getElementById('formSection').style.display = 'none';
+      var success = document.getElementById('successMessage');
+      success.classList.add('show');
+      document.getElementById('completionTime').textContent = completionTime;
+      document.getElementById('finalWordCount').textContent = String(wc);
+      document.getElementById('submissionId').textContent = 'WRT-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+      console.log('WRITING_CHALLENGE_COMPLETE', {
+        completionTime: parseFloat(completionTime),
+        timestamp: Date.now(),
+        submission: text,
+        wordCount: wc
+      });
+    });
+  </script>
+</body>
+</html>

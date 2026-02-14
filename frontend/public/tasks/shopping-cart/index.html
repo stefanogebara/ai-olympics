@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Shopping Cart Challenge</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .header {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .cart-icon {
+      position: relative;
+      cursor: pointer;
+      font-size: 1.5rem;
+      padding: 10px;
+    }
+
+    .cart-count {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background: #7c3aed;
+      color: white;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    .main-content {
+      display: flex;
+      padding: 30px;
+      gap: 30px;
+    }
+
+    .products-section {
+      flex: 1;
+    }
+
+    .products-section h2 {
+      margin-bottom: 20px;
+      color: #00d4ff;
+    }
+
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .product-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .product-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .product-image {
+      width: 100%;
+      height: 120px;
+      background: linear-gradient(135deg, #2d3748, #1a202c);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+
+    .product-name {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #e2e8f0;
+    }
+
+    .product-price {
+      color: #00d4ff;
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .add-to-cart-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(90deg, #7c3aed, #00d4ff);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .add-to-cart-btn:hover {
+      opacity: 0.9;
+    }
+
+    .add-to-cart-btn:disabled {
+      background: #4a5568;
+      cursor: not-allowed;
+    }
+
+    .cart-sidebar {
+      width: 350px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 25px;
+      height: fit-content;
+    }
+
+    .cart-sidebar h3 {
+      color: #00d4ff;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .cart-items {
+      margin-bottom: 20px;
+    }
+
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .cart-item-name {
+      font-size: 0.9rem;
+    }
+
+    .cart-item-price {
+      color: #00d4ff;
+      font-weight: 600;
+    }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #fc8181;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 5px;
+    }
+
+    .cart-empty {
+      text-align: center;
+      color: #718096;
+      padding: 30px 0;
+    }
+
+    .discount-section {
+      margin-bottom: 20px;
+    }
+
+    .discount-input-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .discount-input {
+      flex: 1;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: white;
+    }
+
+    .apply-discount-btn {
+      padding: 12px 20px;
+      background: #48bb78;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .discount-applied {
+      color: #48bb78;
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
+
+    .discount-error {
+      color: #fc8181;
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
+
+    .cart-total {
+      padding-top: 15px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 20px;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .total-row.discount {
+      color: #48bb78;
+    }
+
+    .total-row.grand-total {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .checkout-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(90deg, #7c3aed, #00d4ff);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .checkout-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .checkout-btn:disabled {
+      background: #4a5568;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .checkout-modal {
+      background: #1a1a2e;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 40px;
+      width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .checkout-modal h2 {
+      color: #00d4ff;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+
+    .checkout-form .form-group {
+      margin-bottom: 18px;
+    }
+
+    .checkout-form label {
+      display: block;
+      margin-bottom: 6px;
+      color: #a0aec0;
+      font-size: 0.9rem;
+    }
+
+    .checkout-form input {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: white;
+      font-size: 1rem;
+    }
+
+    .checkout-form input:focus {
+      outline: none;
+      border-color: #7c3aed;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      color: #7c3aed;
+      margin: 25px 0 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .complete-purchase-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(90deg, #48bb78, #38a169);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    .success-screen {
+      display: none;
+      text-align: center;
+      padding: 60px 40px;
+    }
+
+    .success-screen.show {
+      display: block;
+    }
+
+    .success-icon {
+      font-size: 5rem;
+      margin-bottom: 20px;
+    }
+
+    .success-screen h2 {
+      color: #48bb78;
+      margin-bottom: 15px;
+    }
+
+    .order-id {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 1.2rem;
+    }
+
+    .timer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 1.5rem;
+      color: #00d4ff;
+      z-index: 100;
+    }
+
+    .instructions {
+      background: rgba(124, 58, 237, 0.2);
+      border: 1px solid #7c3aed;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .instructions h3 {
+      color: #7c3aed;
+      margin-bottom: 10px;
+    }
+
+    .instructions ul {
+      margin-left: 20px;
+      color: #a0aec0;
+    }
+
+    .instructions li {
+      margin-bottom: 5px;
+    }
+
+    .target-item {
+      color: #00d4ff;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+
+  <div class="header">
+    <div class="logo">OlympicShop</div>
+    <div class="cart-icon" id="cartIcon" aria-label="Shopping Cart">
+      <span id="cartCount" class="cart-count">0</span>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="products-section">
+      <div class="instructions">
+        <h3>Shopping Challenge</h3>
+        <ul>
+          <li>Add these 3 items to your cart:
+            <span class="target-item">Wireless Headphones</span>,
+            <span class="target-item">Smart Watch</span>,
+            <span class="target-item">Portable Charger</span>
+          </li>
+          <li>Apply discount code: <span class="target-item">OLYMPICS25</span></li>
+          <li>Complete checkout with payment information</li>
+        </ul>
+      </div>
+
+      <h2>Featured Products</h2>
+      <div class="products-grid" id="productsGrid"></div>
+    </div>
+
+    <div class="cart-sidebar">
+      <h3>Your Cart</h3>
+      <div class="cart-items" id="cartItems">
+        <div class="cart-empty">Your cart is empty</div>
+      </div>
+
+      <div class="discount-section">
+        <div class="discount-input-group">
+          <input type="text" class="discount-input" id="discountCode" placeholder="Discount code" aria-label="Discount Code">
+          <button class="apply-discount-btn" id="applyDiscount" aria-label="Apply Discount">Apply</button>
+        </div>
+        <div id="discountMessage"></div>
+      </div>
+
+      <div class="cart-total" id="cartTotal" style="display: none;">
+        <div class="total-row">
+          <span>Subtotal</span>
+          <span id="subtotal">$0.00</span>
+        </div>
+        <div class="total-row discount" id="discountRow" style="display: none;">
+          <span>Discount (25%)</span>
+          <span id="discountAmount">-$0.00</span>
+        </div>
+        <div class="total-row grand-total">
+          <span>Total</span>
+          <span id="grandTotal">$0.00</span>
+        </div>
+      </div>
+
+      <button class="checkout-btn" id="checkoutBtn" disabled aria-label="Proceed to Checkout">
+        Proceed to Checkout
+      </button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="checkoutModal">
+    <div class="checkout-modal">
+      <div id="checkoutForm">
+        <h2>Complete Your Order</h2>
+        <form id="paymentForm">
+          <div class="section-title">Shipping Information</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="shippingName">Full Name</label>
+              <input type="text" id="shippingName" name="shippingName" placeholder="John Doe" required aria-label="Full Name">
+            </div>
+            <div class="form-group">
+              <label for="shippingEmail">Email</label>
+              <input type="email" id="shippingEmail" name="shippingEmail" placeholder="john@example.com" required aria-label="Email">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="shippingAddress">Address</label>
+            <input type="text" id="shippingAddress" name="shippingAddress" placeholder="123 Main St" required aria-label="Address">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="shippingCity">City</label>
+              <input type="text" id="shippingCity" name="shippingCity" placeholder="San Francisco" required aria-label="City">
+            </div>
+            <div class="form-group">
+              <label for="shippingZip">ZIP Code</label>
+              <input type="text" id="shippingZip" name="shippingZip" placeholder="94102" required aria-label="ZIP Code">
+            </div>
+          </div>
+
+          <div class="section-title">Payment Details</div>
+          <div class="form-group">
+            <label for="cardNumber">Card Number</label>
+            <input type="text" id="cardNumber" name="cardNumber" placeholder="4242 4242 4242 4242" required aria-label="Card Number">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cardExpiry">Expiry Date</label>
+              <input type="text" id="cardExpiry" name="cardExpiry" placeholder="12/28" required aria-label="Expiry Date">
+            </div>
+            <div class="form-group">
+              <label for="cardCvc">CVC</label>
+              <input type="text" id="cardCvc" name="cardCvc" placeholder="123" required aria-label="CVC">
+            </div>
+          </div>
+
+          <button type="submit" class="complete-purchase-btn" aria-label="Complete Purchase">
+            Complete Purchase
+          </button>
+        </form>
+      </div>
+
+      <div class="success-screen" id="successScreen">
+        <div class="success-icon"></div>
+        <h2>Order Confirmed!</h2>
+        <p>Your purchase was successful.</p>
+        <p>Completed in <span id="completionTime">0.00</span> seconds</p>
+        <div class="order-id">
+          Order ID: <span id="orderId"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Products data - static content only
+    const products = [
+      { id: 'headphones', name: 'Wireless Headphones', price: 149.99, emoji: 'HP' },
+      { id: 'watch', name: 'Smart Watch', price: 299.99, emoji: 'SW' },
+      { id: 'charger', name: 'Portable Charger', price: 49.99, emoji: 'PC' },
+      { id: 'keyboard', name: 'Mechanical Keyboard', price: 129.99, emoji: 'KB' },
+      { id: 'mouse', name: 'Gaming Mouse', price: 79.99, emoji: 'GM' },
+      { id: 'speaker', name: 'Bluetooth Speaker', price: 89.99, emoji: 'BS' }
+    ];
+
+    const targetItems = ['headphones', 'watch', 'charger'];
+    const validDiscountCode = 'OLYMPICS25';
+    const discountPercent = 0.25;
+
+    let cart = [];
+    let discountApplied = false;
+    let startTime = Date.now();
+
+    const timerEl = document.getElementById('timer');
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      const minutes = Math.floor(elapsed / 60000);
+      const seconds = Math.floor((elapsed % 60000) / 1000);
+      const millis = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(millis).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    // Render products using DOM methods
+    const productsGrid = document.getElementById('productsGrid');
+    products.forEach(function(product) {
+      const card = document.createElement('div');
+      card.className = 'product-card';
+
+      const imageDiv = document.createElement('div');
+      imageDiv.className = 'product-image';
+      imageDiv.textContent = product.emoji;
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'product-name';
+      nameDiv.textContent = product.name;
+
+      const priceDiv = document.createElement('div');
+      priceDiv.className = 'product-price';
+      priceDiv.textContent = '$' + product.price.toFixed(2);
+
+      const btn = document.createElement('button');
+      btn.className = 'add-to-cart-btn';
+      btn.setAttribute('data-id', product.id);
+      btn.setAttribute('aria-label', 'Add ' + product.name + ' to cart');
+      btn.textContent = 'Add to Cart';
+
+      card.appendChild(imageDiv);
+      card.appendChild(nameDiv);
+      card.appendChild(priceDiv);
+      card.appendChild(btn);
+      productsGrid.appendChild(card);
+    });
+
+    productsGrid.addEventListener('click', function(e) {
+      if (e.target.classList.contains('add-to-cart-btn')) {
+        const productId = e.target.dataset.id;
+        const product = products.find(function(p) { return p.id === productId; });
+        if (product && !cart.find(function(item) { return item.id === productId; })) {
+          cart.push(product);
+          e.target.disabled = true;
+          e.target.textContent = 'Added';
+          updateCart();
+        }
+      }
+    });
+
+    function updateCart() {
+      const cartItems = document.getElementById('cartItems');
+      const cartCount = document.getElementById('cartCount');
+      const cartTotal = document.getElementById('cartTotal');
+      const checkoutBtn = document.getElementById('checkoutBtn');
+
+      cartCount.textContent = String(cart.length);
+
+      while (cartItems.firstChild) {
+        cartItems.removeChild(cartItems.firstChild);
+      }
+
+      if (cart.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'cart-empty';
+        emptyDiv.textContent = 'Your cart is empty';
+        cartItems.appendChild(emptyDiv);
+        cartTotal.style.display = 'none';
+        checkoutBtn.disabled = true;
+        return;
+      }
+
+      cart.forEach(function(item) {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'cart-item';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'cart-item-name';
+        nameSpan.textContent = item.name;
+
+        const priceSpan = document.createElement('span');
+        priceSpan.className = 'cart-item-price';
+        priceSpan.textContent = '$' + item.price.toFixed(2);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.setAttribute('data-id', item.id);
+        removeBtn.setAttribute('aria-label', 'Remove ' + item.name);
+        removeBtn.textContent = 'X';
+
+        removeBtn.addEventListener('click', function() {
+          cart = cart.filter(function(c) { return c.id !== item.id; });
+          const addBtn = document.querySelector('button[data-id="' + item.id + '"]');
+          if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.textContent = 'Add to Cart';
+          }
+          updateCart();
+        });
+
+        itemDiv.appendChild(nameSpan);
+        itemDiv.appendChild(priceSpan);
+        itemDiv.appendChild(removeBtn);
+        cartItems.appendChild(itemDiv);
+      });
+
+      const subtotal = cart.reduce(function(sum, item) { return sum + item.price; }, 0);
+      const discount = discountApplied ? subtotal * discountPercent : 0;
+      const total = subtotal - discount;
+
+      document.getElementById('subtotal').textContent = '$' + subtotal.toFixed(2);
+      document.getElementById('discountAmount').textContent = '-$' + discount.toFixed(2);
+      document.getElementById('grandTotal').textContent = '$' + total.toFixed(2);
+      document.getElementById('discountRow').style.display = discountApplied ? 'flex' : 'none';
+      cartTotal.style.display = 'block';
+
+      const hasAllTargets = targetItems.every(function(id) { return cart.find(function(item) { return item.id === id; }); });
+      checkoutBtn.disabled = !hasAllTargets;
+    }
+
+    document.getElementById('applyDiscount').addEventListener('click', function() {
+      const code = document.getElementById('discountCode').value.trim().toUpperCase();
+      const messageEl = document.getElementById('discountMessage');
+
+      if (code === validDiscountCode) {
+        discountApplied = true;
+        messageEl.className = 'discount-applied';
+        messageEl.textContent = '25% discount applied!';
+        updateCart();
+      } else {
+        messageEl.className = 'discount-error';
+        messageEl.textContent = 'Invalid discount code';
+      }
+    });
+
+    document.getElementById('checkoutBtn').addEventListener('click', function() {
+      document.getElementById('checkoutModal').classList.add('show');
+    });
+
+    document.getElementById('paymentForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const formData = new FormData(e.target);
+      const completionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      document.getElementById('checkoutForm').style.display = 'none';
+      document.getElementById('successScreen').classList.add('show');
+      document.getElementById('completionTime').textContent = completionTime;
+      document.getElementById('orderId').textContent = 'OLY-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+      console.log('SHOPPING_CART_COMPLETE', {
+        completionTime: parseFloat(completionTime),
+        timestamp: Date.now(),
+        cart: cart.map(function(p) { return p.id; }),
+        discountApplied: discountApplied,
+        hasAllTargetItems: targetItems.every(function(id) { return cart.find(function(item) { return item.id === id; }); }),
+        paymentData: Object.fromEntries(formData)
+      });
+    });
+  </script>
+</body>
+</html>

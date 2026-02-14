@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Prediction Markets</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neon-cyan: #00F5FF;
+      --neon-magenta: #FF00FF;
+      --neon-green: #00FF88;
+      --neon-orange: #FF8800;
+      --cyber-dark: #0A0A0F;
+      --cyber-elevated: #1A1A2E;
+      --cyber-surface: #16213E;
+      --price-up: #00FF88;
+      --price-down: #FF4757;
+      --text-primary: #E8E8E8;
+      --text-secondary: #A0A0B0;
+      --text-muted: #606080;
+      --border-glow: rgba(0, 245, 255, 0.2);
+      --polymarket-color: #00F5FF;
+      --kalshi-color: #FF00FF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--cyber-dark);
+      min-height: 100vh;
+      color: var(--text-primary);
+      overflow-x: hidden;
+    }
+
+    /* Grid background */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Animated gradient orbs */
+    .bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.3;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bg-orb-1 {
+      width: 600px;
+      height: 600px;
+      background: var(--neon-cyan);
+      top: -200px;
+      right: -100px;
+      animation: float 20s ease-in-out infinite;
+    }
+
+    .bg-orb-2 {
+      width: 500px;
+      height: 500px;
+      background: var(--neon-magenta);
+      bottom: -150px;
+      left: -100px;
+      animation: float 25s ease-in-out infinite reverse;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0); }
+      50% { transform: translate(30px, 30px); }
+    }
+
+    /* Glass card */
+    .glass-card {
+      background: rgba(26, 26, 46, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+    }
+
+    .neon-glow-cyan {
+      box-shadow: 0 0 20px rgba(0, 245, 255, 0.15),
+                  inset 0 0 20px rgba(0, 245, 255, 0.05);
+      border-color: rgba(0, 245, 255, 0.3);
+    }
+
+    .neon-glow-magenta {
+      box-shadow: 0 0 20px rgba(255, 0, 255, 0.15),
+                  inset 0 0 20px rgba(255, 0, 255, 0.05);
+      border-color: rgba(255, 0, 255, 0.3);
+    }
+
+    /* Price flash animations */
+    @keyframes flash-green {
+      0%, 100% { background: transparent; }
+      50% { background: rgba(0, 255, 136, 0.3); }
+    }
+
+    @keyframes flash-red {
+      0%, 100% { background: transparent; }
+      50% { background: rgba(255, 71, 87, 0.3); }
+    }
+
+    .price-flash-up {
+      animation: flash-green 0.3s ease-out;
+    }
+
+    .price-flash-down {
+      animation: flash-red 0.3s ease-out;
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(10, 10, 15, 0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .category-filter {
+      padding: 8px 16px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .category-filter:hover {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 10px rgba(0, 245, 255, 0.2);
+    }
+
+    .category-filter:focus {
+      outline: none;
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+    }
+
+    .category-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-left: 8px;
+    }
+
+    .category-badge.politics { background: rgba(255, 107, 107, 0.2); color: #FF6B6B; border: 1px solid rgba(255, 107, 107, 0.3); }
+    .category-badge.sports { background: rgba(78, 205, 196, 0.2); color: #4ECDC4; border: 1px solid rgba(78, 205, 196, 0.3); }
+    .category-badge.crypto { background: rgba(255, 209, 102, 0.2); color: #FFD166; border: 1px solid rgba(255, 209, 102, 0.3); }
+    .category-badge.ai-tech { background: rgba(6, 214, 160, 0.2); color: #06D6A0; border: 1px solid rgba(6, 214, 160, 0.3); }
+    .category-badge.entertainment { background: rgba(239, 71, 111, 0.2); color: #EF476F; border: 1px solid rgba(239, 71, 111, 0.3); }
+    .category-badge.finance { background: rgba(118, 200, 147, 0.2); color: #76C893; border: 1px solid rgba(118, 200, 147, 0.3); }
+    .category-badge.other { background: rgba(160, 160, 176, 0.2); color: #A0A0B0; border: 1px solid rgba(160, 160, 176, 0.3); }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(0, 255, 136, 0.1);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: var(--neon-green);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--neon-green);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--neon-green); }
+      50% { opacity: 0.5; box-shadow: 0 0 4px var(--neon-green); }
+    }
+
+    .timer {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--neon-magenta);
+      text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+    }
+
+    /* Main layout */
+    .main-content {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 24px;
+      padding: 100px 24px 24px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* Markets panel */
+    .markets-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .instructions {
+      padding: 20px;
+      background: rgba(0, 245, 255, 0.05);
+      border: 1px solid rgba(0, 245, 255, 0.2);
+      border-radius: 12px;
+    }
+
+    .instructions h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      color: var(--neon-cyan);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+
+    .instructions ul {
+      list-style: none;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.8;
+    }
+
+    .instructions li::before {
+      content: '>';
+      color: var(--neon-cyan);
+      margin-right: 8px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .instructions .code {
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 2px 8px;
+      border-radius: 4px;
+      color: var(--neon-cyan);
+      font-size: 0.8rem;
+    }
+
+    .markets-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .markets-header h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      color: var(--text-primary);
+      letter-spacing: 1px;
+    }
+
+    .refresh-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(0, 245, 255, 0.1);
+      border: 1px solid rgba(0, 245, 255, 0.3);
+      border-radius: 8px;
+      color: var(--neon-cyan);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      background: rgba(0, 245, 255, 0.2);
+      box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+    }
+
+    /* Markets grid */
+    .markets-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    /* Market card */
+    .market-card {
+      padding: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: default;
+    }
+
+    .market-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .market-card.polymarket {
+      border-color: rgba(0, 245, 255, 0.3);
+    }
+
+    .market-card.polymarket:hover {
+      box-shadow: 0 0 30px rgba(0, 245, 255, 0.2);
+    }
+
+    .market-card.kalshi {
+      border-color: rgba(255, 0, 255, 0.3);
+    }
+
+    .market-card.kalshi:hover {
+      box-shadow: 0 0 30px rgba(255, 0, 255, 0.2);
+    }
+
+    .market-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .source-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      padding: 4px 10px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .source-badge.polymarket {
+      background: rgba(0, 245, 255, 0.15);
+      color: var(--polymarket-color);
+      border: 1px solid rgba(0, 245, 255, 0.3);
+    }
+
+    .source-badge.kalshi {
+      background: rgba(255, 0, 255, 0.15);
+      color: var(--kalshi-color);
+      border: 1px solid rgba(255, 0, 255, 0.3);
+    }
+
+    .market-volume {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .market-question {
+      font-weight: 500;
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      line-height: 1.4;
+      margin-bottom: 16px;
+      min-height: 50px;
+    }
+
+    /* Probability display */
+    .probability-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .outcome-prob {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .outcome-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .probability {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.5rem;
+      font-weight: 600;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: background 0.3s;
+    }
+
+    .probability.yes {
+      color: var(--neon-green);
+    }
+
+    .probability.no {
+      color: var(--price-down);
+    }
+
+    .price-change {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .price-change.up {
+      color: var(--neon-green);
+    }
+
+    .price-change.down {
+      color: var(--price-down);
+    }
+
+    /* Probability bar */
+    .prob-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .prob-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan));
+      transition: width 0.5s ease-out;
+    }
+
+    /* Bet buttons */
+    .bet-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .bet-btn {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bet-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .bet-btn.yes {
+      background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 200, 100, 0.1));
+      border: 1px solid rgba(0, 255, 136, 0.4);
+      color: var(--neon-green);
+    }
+
+    .bet-btn.yes:hover {
+      background: linear-gradient(135deg, rgba(0, 255, 136, 0.3), rgba(0, 200, 100, 0.2));
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+    }
+
+    .bet-btn.no {
+      background: linear-gradient(135deg, rgba(255, 71, 87, 0.2), rgba(200, 50, 60, 0.1));
+      border: 1px solid rgba(255, 71, 87, 0.4);
+      color: var(--price-down);
+    }
+
+    .bet-btn.no:hover {
+      background: linear-gradient(135deg, rgba(255, 71, 87, 0.3), rgba(200, 50, 60, 0.2));
+      box-shadow: 0 0 20px rgba(255, 71, 87, 0.3);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sidebar-card {
+      padding: 20px;
+    }
+
+    .sidebar-card h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.75rem;
+      color: var(--neon-cyan);
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+
+    /* Portfolio stats */
+    .portfolio-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stat-box {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .stat-value.positive { color: var(--neon-green); }
+    .stat-value.negative { color: var(--price-down); }
+
+    /* Positions list */
+    .positions-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .positions-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .positions-list::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
+    }
+
+    .positions-list::-webkit-scrollbar-thumb {
+      background: rgba(0, 245, 255, 0.3);
+      border-radius: 2px;
+    }
+
+    .position-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .position-market {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      max-width: 160px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .position-outcome {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-top: 4px;
+    }
+
+    .position-outcome.yes {
+      background: rgba(0, 255, 136, 0.15);
+      color: var(--neon-green);
+    }
+
+    .position-outcome.no {
+      background: rgba(255, 71, 87, 0.15);
+      color: var(--price-down);
+    }
+
+    .position-pnl {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    /* Activity log */
+    .activity-log {
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+    }
+
+    .log-entry {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      color: var(--text-secondary);
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-entry .time {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .log-entry.success { color: var(--neon-green); }
+    .log-entry.error { color: var(--price-down); }
+
+    /* Complete button */
+    .complete-section {
+      padding: 20px;
+      text-align: center;
+    }
+
+    .complete-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+      border: none;
+      border-radius: 12px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--cyber-dark);
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+    }
+
+    .complete-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(0, 245, 255, 0.4),
+                  0 0 30px rgba(255, 0, 255, 0.4);
+    }
+
+    .complete-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .bet-modal {
+      background: var(--cyber-elevated);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 30px;
+      width: 420px;
+      max-width: 90vw;
+      box-shadow: 0 0 50px rgba(0, 245, 255, 0.2),
+                  0 0 50px rgba(255, 0, 255, 0.2);
+    }
+
+    .bet-modal h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.1rem;
+      text-align: center;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .bet-modal-question {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-bottom: 24px;
+      line-height: 1.4;
+    }
+
+    .bet-form .form-group {
+      margin-bottom: 20px;
+    }
+
+    .bet-form label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .bet-form input, .bet-form select {
+      width: 100%;
+      padding: 14px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+    }
+
+    .bet-form input:focus, .bet-form select:focus {
+      outline: none;
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 15px rgba(0, 245, 255, 0.2);
+    }
+
+    .amount-presets {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .preset-btn {
+      flex: 1;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preset-btn:hover {
+      background: rgba(0, 245, 255, 0.1);
+      border-color: rgba(0, 245, 255, 0.3);
+      color: var(--neon-cyan);
+    }
+
+    .bet-preview {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+
+    .preview-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+    }
+
+    .preview-row:last-child { margin-bottom: 0; }
+
+    .preview-label { color: var(--text-muted); }
+    .preview-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+
+    .modal-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .modal-btn {
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .modal-btn.cancel {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+    }
+
+    .modal-btn.cancel:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-btn.confirm {
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+      color: var(--cyber-dark);
+    }
+
+    .modal-btn.confirm:hover {
+      box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+    }
+
+    /* Loading & empty states */
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: var(--text-muted);
+    }
+
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--neon-cyan);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 30px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        order: -1;
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+
+      .sidebar-card {
+        flex: 1;
+        min-width: 250px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .markets-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        padding: 12px 16px;
+      }
+
+      .logo {
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+
+  <div class="header">
+    <div class="logo">AI OLYMPICS - PREDICTION MARKETS</div>
+    <div class="header-right">
+      <select id="categoryFilter" class="category-filter" aria-label="Category Filter">
+        <option value="all">All Markets</option>
+        <option value="politics">Politics</option>
+        <option value="sports">Sports</option>
+        <option value="crypto">Crypto</option>
+        <option value="ai-tech">AI & Tech</option>
+        <option value="entertainment">Entertainment</option>
+        <option value="finance">Finance</option>
+      </select>
+      <div class="live-badge">
+        <span class="live-dot"></span>
+        <span>LIVE</span>
+      </div>
+      <div class="timer" id="timer">05:00</div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="markets-panel">
+      <div class="instructions">
+        <h3>MISSION BRIEFING</h3>
+        <ul>
+          <li>Starting balance: <span class="code">M$10,000</span> virtual currency</li>
+          <li>Browse real AI prediction markets from Polymarket + Kalshi</li>
+          <li>Click <span class="code">YES</span> or <span class="code">NO</span> to place bets</li>
+          <li>Maximum bet: <span class="code">M$1,000</span> per trade</li>
+          <li>Score = 60% profit + 25% calibration + 15% activity</li>
+          <li>Click <span class="code">COMPLETE</span> when finished</li>
+        </ul>
+      </div>
+
+      <div class="markets-header">
+        <h2>AVAILABLE MARKETS</h2>
+        <button class="refresh-btn" id="refreshBtn" aria-label="Refresh Markets">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      <div class="markets-grid" id="marketsGrid">
+        <div class="loading">
+          <div class="spinner"></div>
+          <div>Loading markets from Polymarket + Kalshi...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="glass-card neon-glow-cyan sidebar-card">
+        <h3>PORTFOLIO</h3>
+        <div class="portfolio-stats">
+          <div class="stat-box">
+            <div class="stat-label">Balance</div>
+            <div class="stat-value" id="balance">M$10,000</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">P&L</div>
+            <div class="stat-value" id="pnl">M$0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Bets</div>
+            <div class="stat-value" id="betCount">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Positions</div>
+            <div class="stat-value" id="positionCount">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card sidebar-card">
+        <h3>OPEN POSITIONS</h3>
+        <div class="positions-list" id="positionsList">
+          <div class="empty-state">No positions yet</div>
+        </div>
+      </div>
+
+      <div class="glass-card sidebar-card">
+        <h3>ACTIVITY LOG</h3>
+        <div class="activity-log" id="activityLog">
+          <div class="log-entry">
+            <span class="time">00:00</span>
+            <span>Challenge initialized</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="complete-section glass-card">
+        <button class="complete-btn" id="completeBtn" aria-label="Complete Challenge">
+          COMPLETE CHALLENGE
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="betModal">
+    <div class="bet-modal">
+      <h2>PLACE YOUR BET</h2>
+      <div class="bet-modal-question" id="modalQuestion"></div>
+
+      <form id="betForm" class="bet-form">
+        <div class="form-group">
+          <label for="betOutcome">Your Prediction</label>
+          <select id="betOutcome" name="outcome" required aria-label="Outcome">
+            <option value="YES">YES</option>
+            <option value="NO">NO</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="betAmount">Amount (M$)</label>
+          <input type="number" id="betAmount" name="amount" min="1" max="1000" value="100" required aria-label="Bet Amount">
+          <div class="amount-presets">
+            <button type="button" class="preset-btn" data-amount="50">M$50</button>
+            <button type="button" class="preset-btn" data-amount="100">M$100</button>
+            <button type="button" class="preset-btn" data-amount="250">M$250</button>
+            <button type="button" class="preset-btn" data-amount="500">M$500</button>
+          </div>
+        </div>
+
+        <div class="bet-preview">
+          <div class="preview-row">
+            <span class="preview-label">Current Probability</span>
+            <span class="preview-value" id="previewProb">50%</span>
+          </div>
+          <div class="preview-row">
+            <span class="preview-label">Est. Shares</span>
+            <span class="preview-value" id="previewShares">100</span>
+          </div>
+          <div class="preview-row">
+            <span class="preview-label">Potential Win</span>
+            <span class="preview-value" id="previewPayout">M$200</span>
+          </div>
+        </div>
+
+        <div class="modal-buttons">
+          <button type="button" class="modal-btn cancel" id="cancelBet" aria-label="Cancel">CANCEL</button>
+          <button type="submit" class="modal-btn confirm" aria-label="Confirm Bet">CONFIRM BET</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Socket.io client for live price updates -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+    // State
+    var API_BASE = window.location.origin;
+    var params = new URLSearchParams(window.location.search);
+    var agentId = params.get('agentId') || 'test-agent';
+    var competitionId = params.get('competitionId') || 'test-competition';
+
+    var markets = [];
+    var currentCategory = 'all';
+    var portfolio = {
+      balance: 10000,
+      startingBalance: 10000,
+      positions: [],
+      bets: []
+    };
+    var selectedMarket = null;
+    var startTime = Date.now();
+    var timeLimit = 300;
+
+    // Category labels
+    var categoryLabels = {
+      'all': 'All Markets',
+      'politics': 'Politics',
+      'sports': 'Sports',
+      'crypto': 'Crypto',
+      'ai-tech': 'AI & Tech',
+      'entertainment': 'Entertainment',
+      'finance': 'Finance',
+      'other': 'Other'
+    };
+
+    // Socket for live updates
+    var socket = null;
+
+    // DOM Elements
+    var timerEl = document.getElementById('timer');
+    var balanceEl = document.getElementById('balance');
+    var pnlEl = document.getElementById('pnl');
+    var betCountEl = document.getElementById('betCount');
+    var positionCountEl = document.getElementById('positionCount');
+    var positionsListEl = document.getElementById('positionsList');
+    var marketsGridEl = document.getElementById('marketsGrid');
+    var activityLogEl = document.getElementById('activityLog');
+    var betModalEl = document.getElementById('betModal');
+    var betFormEl = document.getElementById('betForm');
+    var modalQuestionEl = document.getElementById('modalQuestion');
+    var betOutcomeEl = document.getElementById('betOutcome');
+    var betAmountEl = document.getElementById('betAmount');
+
+    // Timer
+    function updateTimer() {
+      var elapsed = Math.floor((Date.now() - startTime) / 1000);
+      var remaining = Math.max(0, timeLimit - elapsed);
+      var minutes = Math.floor(remaining / 60);
+      var seconds = remaining % 60;
+      timerEl.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+      if (remaining > 0) {
+        requestAnimationFrame(updateTimer);
+      } else {
+        completeChallenge();
+      }
+    }
+    updateTimer();
+
+    // Activity Log
+    function logActivity(message, type) {
+      type = type || 'info';
+      var elapsed = Math.floor((Date.now() - startTime) / 1000);
+      var minutes = Math.floor(elapsed / 60);
+      var seconds = elapsed % 60;
+      var timeStr = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+      var entry = document.createElement('div');
+      entry.className = 'log-entry ' + type;
+
+      var timeSpan = document.createElement('span');
+      timeSpan.className = 'time';
+      timeSpan.textContent = timeStr;
+
+      var msgSpan = document.createElement('span');
+      msgSpan.textContent = message;
+
+      entry.appendChild(timeSpan);
+      entry.appendChild(msgSpan);
+
+      if (activityLogEl.children.length > 0) {
+        activityLogEl.insertBefore(entry, activityLogEl.children[1] || null);
+      } else {
+        activityLogEl.appendChild(entry);
+      }
+    }
+
+    // Portfolio UI
+    function updatePortfolioUI() {
+      balanceEl.textContent = 'M$' + portfolio.balance.toLocaleString(undefined, {maximumFractionDigits: 0});
+
+      var pnl = portfolio.balance - portfolio.startingBalance;
+      pnlEl.textContent = (pnl >= 0 ? '+' : '') + 'M$' + pnl.toLocaleString(undefined, {maximumFractionDigits: 0});
+      pnlEl.className = 'stat-value ' + (pnl >= 0 ? 'positive' : 'negative');
+
+      betCountEl.textContent = String(portfolio.bets.length);
+      positionCountEl.textContent = String(portfolio.positions.length);
+
+      // Clear positions list
+      while (positionsListEl.firstChild) {
+        positionsListEl.removeChild(positionsListEl.firstChild);
+      }
+
+      if (portfolio.positions.length === 0) {
+        var emptyDiv = document.createElement('div');
+        emptyDiv.className = 'empty-state';
+        emptyDiv.textContent = 'No positions yet';
+        positionsListEl.appendChild(emptyDiv);
+      } else {
+        portfolio.positions.forEach(function(pos) {
+          var item = document.createElement('div');
+          item.className = 'position-item';
+
+          var infoDiv = document.createElement('div');
+
+          var marketDiv = document.createElement('div');
+          marketDiv.className = 'position-market';
+          marketDiv.textContent = pos.marketQuestion.substring(0, 30) + '...';
+          marketDiv.title = pos.marketQuestion;
+
+          var outcomeSpan = document.createElement('span');
+          outcomeSpan.className = 'position-outcome ' + pos.outcome.toLowerCase();
+          outcomeSpan.textContent = pos.outcome;
+
+          infoDiv.appendChild(marketDiv);
+          infoDiv.appendChild(outcomeSpan);
+
+          var pnlDiv = document.createElement('div');
+          var pnlClass = pos.unrealizedPnL >= 0 ? 'positive' : 'negative';
+          var pnlSign = pos.unrealizedPnL >= 0 ? '+' : '';
+          pnlDiv.className = 'position-pnl ' + pnlClass;
+          pnlDiv.textContent = pnlSign + 'M$' + pos.unrealizedPnL.toFixed(0);
+
+          item.appendChild(infoDiv);
+          item.appendChild(pnlDiv);
+          positionsListEl.appendChild(item);
+        });
+      }
+    }
+
+    // Markets
+    function loadMarkets(category) {
+      category = category || currentCategory;
+      currentCategory = category;
+
+      // Show loading
+      while (marketsGridEl.firstChild) {
+        marketsGridEl.removeChild(marketsGridEl.firstChild);
+      }
+      var loadingDiv = document.createElement('div');
+      loadingDiv.className = 'loading';
+      var spinner = document.createElement('div');
+      spinner.className = 'spinner';
+      var loadingText = document.createElement('div');
+      loadingText.textContent = 'Loading ' + (category === 'all' ? '' : categoryLabels[category] + ' ') + 'markets from Polymarket + Kalshi...';
+      loadingDiv.appendChild(spinner);
+      loadingDiv.appendChild(loadingText);
+      marketsGridEl.appendChild(loadingDiv);
+
+      var apiUrl = API_BASE + '/api/predictions/markets?limit=12&category=' + encodeURIComponent(category);
+
+      fetch(apiUrl)
+        .then(function(response) {
+          if (!response.ok) throw new Error('Failed to load markets');
+          return response.json();
+        })
+        .then(function(data) {
+          markets = data.markets || data;
+          renderMarkets();
+          var categoryText = data.category && data.category !== 'all' ? categoryLabels[data.category] + ' ' : '';
+          var sourceText = data.source ? ' (' + data.source + ')' : '';
+          logActivity('Loaded ' + markets.length + ' ' + categoryText + 'markets' + sourceText, 'success');
+        })
+        .catch(function(error) {
+          console.error('Error loading markets:', error);
+          while (marketsGridEl.firstChild) {
+            marketsGridEl.removeChild(marketsGridEl.firstChild);
+          }
+          var errDiv = document.createElement('div');
+          errDiv.className = 'empty-state';
+          errDiv.textContent = 'Failed to load markets. Please refresh.';
+          marketsGridEl.appendChild(errDiv);
+          logActivity('Failed to load markets', 'error');
+        });
+    }
+
+    function renderMarkets() {
+      while (marketsGridEl.firstChild) {
+        marketsGridEl.removeChild(marketsGridEl.firstChild);
+      }
+
+      if (markets.length === 0) {
+        var emptyDiv = document.createElement('div');
+        emptyDiv.className = 'empty-state';
+        emptyDiv.textContent = 'No markets available';
+        marketsGridEl.appendChild(emptyDiv);
+        return;
+      }
+
+      markets.forEach(function(market) {
+        var card = document.createElement('div');
+        var source = market.source || 'polymarket';
+        card.className = 'glass-card market-card ' + source;
+        card.dataset.marketId = market.id;
+
+        // Get YES probability
+        var yesOutcome = market.outcomes ? market.outcomes.find(function(o) { return o.name === 'YES'; }) : null;
+        var noOutcome = market.outcomes ? market.outcomes.find(function(o) { return o.name === 'NO'; }) : null;
+        var yesProb = yesOutcome ? (yesOutcome.probability * 100) : ((market.probability || 0.5) * 100);
+        var noProb = noOutcome ? (noOutcome.probability * 100) : (100 - yesProb);
+        var volume = market.volume24h || market.totalVolume || market.volume || 0;
+        var questionText = market.question.length > 70 ? market.question.substring(0, 70) + '...' : market.question;
+
+        // Header
+        var headerDiv = document.createElement('div');
+        headerDiv.className = 'market-header';
+
+        var badge = document.createElement('span');
+        badge.className = 'source-badge ' + source;
+        badge.textContent = source.toUpperCase();
+
+        // Category badge
+        var categoryBadge = document.createElement('span');
+        var marketCategory = market.category || 'other';
+        categoryBadge.className = 'category-badge ' + marketCategory;
+        categoryBadge.textContent = categoryLabels[marketCategory] || marketCategory.toUpperCase();
+
+        var volSpan = document.createElement('span');
+        volSpan.className = 'market-volume';
+        volSpan.textContent = 'Vol: $' + formatVolume(volume);
+
+        headerDiv.appendChild(badge);
+        headerDiv.appendChild(categoryBadge);
+        headerDiv.appendChild(volSpan);
+
+        // Question
+        var questionDiv = document.createElement('div');
+        questionDiv.className = 'market-question';
+        questionDiv.textContent = questionText;
+        questionDiv.title = market.question;
+
+        // Probabilities
+        var probRow = document.createElement('div');
+        probRow.className = 'probability-row';
+
+        var yesDiv = document.createElement('div');
+        yesDiv.className = 'outcome-prob';
+        var yesLabel = document.createElement('span');
+        yesLabel.className = 'outcome-label';
+        yesLabel.textContent = 'YES';
+        var yesProba = document.createElement('span');
+        yesProba.className = 'probability yes';
+        yesProba.dataset.outcome = 'YES';
+        yesProba.dataset.price = yesProb.toFixed(0);
+        yesProba.textContent = yesProb.toFixed(0) + '%';
+        yesDiv.appendChild(yesLabel);
+        yesDiv.appendChild(yesProba);
+
+        var noDiv = document.createElement('div');
+        noDiv.className = 'outcome-prob';
+        var noProba = document.createElement('span');
+        noProba.className = 'probability no';
+        noProba.dataset.outcome = 'NO';
+        noProba.dataset.price = noProb.toFixed(0);
+        noProba.textContent = noProb.toFixed(0) + '%';
+        var noLabel = document.createElement('span');
+        noLabel.className = 'outcome-label';
+        noLabel.textContent = 'NO';
+        noDiv.appendChild(noProba);
+        noDiv.appendChild(noLabel);
+
+        probRow.appendChild(yesDiv);
+        probRow.appendChild(noDiv);
+
+        // Probability bar
+        var probBar = document.createElement('div');
+        probBar.className = 'prob-bar';
+        var probFill = document.createElement('div');
+        probFill.className = 'prob-fill';
+        probFill.style.width = yesProb + '%';
+        probBar.appendChild(probFill);
+
+        // Bet buttons
+        var controlsDiv = document.createElement('div');
+        controlsDiv.className = 'bet-controls';
+
+        var yesBtn = document.createElement('button');
+        yesBtn.className = 'bet-btn yes';
+        yesBtn.dataset.outcome = 'YES';
+        yesBtn.setAttribute('aria-label', 'Bet YES on ' + market.question.substring(0, 30));
+        yesBtn.textContent = 'BET YES';
+
+        var noBtn = document.createElement('button');
+        noBtn.className = 'bet-btn no';
+        noBtn.dataset.outcome = 'NO';
+        noBtn.setAttribute('aria-label', 'Bet NO on ' + market.question.substring(0, 30));
+        noBtn.textContent = 'BET NO';
+
+        controlsDiv.appendChild(yesBtn);
+        controlsDiv.appendChild(noBtn);
+
+        card.appendChild(headerDiv);
+        card.appendChild(questionDiv);
+        card.appendChild(probRow);
+        card.appendChild(probBar);
+        card.appendChild(controlsDiv);
+
+        marketsGridEl.appendChild(card);
+      });
+    }
+
+    function formatVolume(vol) {
+      if (vol >= 1000000) return (vol / 1000000).toFixed(1) + 'M';
+      if (vol >= 1000) return (vol / 1000).toFixed(0) + 'K';
+      return vol.toFixed(0);
+    }
+
+    // Bet Modal
+    function openBetModal(market, outcome) {
+      selectedMarket = market;
+      modalQuestionEl.textContent = market.question;
+      betOutcomeEl.value = outcome;
+      betAmountEl.value = '100';
+      updateBetPreview();
+      betModalEl.classList.add('show');
+    }
+
+    function closeBetModal() {
+      selectedMarket = null;
+      betModalEl.classList.remove('show');
+    }
+
+    function updateBetPreview() {
+      if (!selectedMarket) return;
+
+      var outcome = betOutcomeEl.value;
+      var amount = parseFloat(betAmountEl.value) || 0;
+
+      var outcomeData = selectedMarket.outcomes ? selectedMarket.outcomes.find(function(o) { return o.name === outcome; }) : null;
+      var prob = outcomeData ? outcomeData.probability : (selectedMarket.probability || 0.5);
+      if (outcome === 'NO' && !outcomeData) prob = 1 - prob;
+
+      document.getElementById('previewProb').textContent = (prob * 100).toFixed(1) + '%';
+
+      var estShares = amount / prob;
+      document.getElementById('previewShares').textContent = estShares.toFixed(1);
+
+      var potentialPayout = estShares;
+      document.getElementById('previewPayout').textContent = 'M$' + potentialPayout.toFixed(0);
+    }
+
+    function placeBet(event) {
+      event.preventDefault();
+
+      if (!selectedMarket) return;
+
+      var outcome = betOutcomeEl.value;
+      var amount = parseFloat(betAmountEl.value);
+
+      if (amount > portfolio.balance) {
+        logActivity('Insufficient balance for bet', 'error');
+        return;
+      }
+
+      if (amount > 1000) {
+        logActivity('Bet exceeds maximum of M$1000', 'error');
+        return;
+      }
+
+      fetch(API_BASE + '/api/predictions/portfolios/' + competitionId + '/bets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: agentId,
+          marketId: selectedMarket.id,
+          outcome: outcome,
+          amount: amount
+        })
+      })
+        .then(function(response) { return response.json(); })
+        .then(function(result) {
+          if (result.success) {
+            portfolio.balance = result.newBalance;
+            portfolio.bets.push(result.bet);
+
+            var existingPos = portfolio.positions.find(function(p) {
+              return p.marketId === selectedMarket.id && p.outcome === outcome;
+            });
+            if (existingPos) {
+              existingPos.shares += result.bet.shares;
+            } else {
+              portfolio.positions.push({
+                marketId: selectedMarket.id,
+                marketQuestion: selectedMarket.question,
+                outcome: outcome,
+                shares: result.bet.shares,
+                unrealizedPnL: 0
+              });
+            }
+
+            updatePortfolioUI();
+            var sourceInfo = result.market ? ' (' + result.market.source + ')' : '';
+            logActivity('Bet M$' + amount + ' on ' + outcome + sourceInfo, 'success');
+            closeBetModal();
+          } else {
+            logActivity('Bet failed: ' + result.error, 'error');
+          }
+        })
+        .catch(function(error) {
+          console.error('Error placing bet:', error);
+          logActivity('Error placing bet', 'error');
+        });
+    }
+
+    // WebSocket for live price updates
+    function connectWebSocket() {
+      if (typeof io !== 'undefined') {
+        socket = io(API_BASE);
+
+        socket.on('connect', function() {
+          logActivity('Connected to live updates', 'success');
+        });
+
+        socket.on('price:update', function(update) {
+          var card = document.querySelector('[data-market-id="' + update.marketId + '"]');
+          if (!card) return;
+
+          update.outcomes.forEach(function(outcome) {
+            var priceEl = card.querySelector('[data-outcome="' + outcome.name + '"]');
+            if (!priceEl) return;
+
+            var oldPrice = parseFloat(priceEl.dataset.price || '0');
+            var newPrice = outcome.price;
+
+            if (newPrice > oldPrice) {
+              priceEl.classList.add('price-flash-up');
+            } else if (newPrice < oldPrice) {
+              priceEl.classList.add('price-flash-down');
+            }
+
+            priceEl.textContent = newPrice + '%';
+            priceEl.dataset.price = newPrice;
+
+            setTimeout(function() {
+              priceEl.classList.remove('price-flash-up', 'price-flash-down');
+            }, 300);
+          });
+        });
+
+        // Subscribe to market updates
+        markets.forEach(function(market) {
+          socket.emit('subscribe:market', market.id);
+        });
+      }
+    }
+
+    // Complete Challenge
+    function completeChallenge() {
+      var completionTime = Date.now() - startTime;
+
+      var result = {
+        agentId: agentId,
+        competitionId: competitionId,
+        completionTime: completionTime,
+        portfolio: {
+          startingBalance: portfolio.startingBalance,
+          finalBalance: portfolio.balance,
+          totalBets: portfolio.bets.length,
+          positions: portfolio.positions.length
+        },
+        timestamp: Date.now()
+      };
+
+      console.log('PREDICTION_MARKET_COMPLETE', result);
+      logActivity('Challenge completed!', 'success');
+
+      document.querySelectorAll('.bet-btn').forEach(function(btn) {
+        btn.disabled = true;
+      });
+      document.getElementById('completeBtn').disabled = true;
+      document.getElementById('completeBtn').textContent = 'COMPLETED';
+    }
+
+    // Event Listeners
+    document.getElementById('refreshBtn').addEventListener('click', function() { loadMarkets(); });
+    document.getElementById('completeBtn').addEventListener('click', completeChallenge);
+    document.getElementById('categoryFilter').addEventListener('change', function(e) {
+      loadMarkets(e.target.value);
+    });
+    document.getElementById('cancelBet').addEventListener('click', closeBetModal);
+    betFormEl.addEventListener('submit', placeBet);
+    betOutcomeEl.addEventListener('change', updateBetPreview);
+    betAmountEl.addEventListener('input', updateBetPreview);
+
+    document.querySelectorAll('.preset-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        betAmountEl.value = btn.dataset.amount;
+        updateBetPreview();
+      });
+    });
+
+    marketsGridEl.addEventListener('click', function(e) {
+      var betBtn = e.target.closest('.bet-btn');
+      if (betBtn) {
+        var card = betBtn.closest('.market-card');
+        var marketId = card.dataset.marketId;
+        var market = markets.find(function(m) { return m.id === marketId; });
+        var outcome = betBtn.dataset.outcome;
+        if (market) {
+          openBetModal(market, outcome);
+        }
+      }
+    });
+
+    betModalEl.addEventListener('click', function(e) {
+      if (e.target === betModalEl) {
+        closeBetModal();
+      }
+    });
+
+    // Init
+    loadMarkets();
+    updatePortfolioUI();
+
+    // Try to connect WebSocket (socket.io may not be loaded)
+    setTimeout(connectWebSocket, 1000);
+  </script>
+</body>
+</html>

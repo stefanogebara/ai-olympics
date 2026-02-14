@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Agent Verification (Reverse CAPTCHA)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #0d1b2a 100%);
+      min-height: 100vh;
+      padding: 40px;
+      color: #fff;
+    }
+
+    .container { max-width: 800px; margin: 0 auto; }
+
+    .header { text-align: center; margin-bottom: 40px; }
+
+    .header h1 {
+      font-size: 2.2rem;
+      background: linear-gradient(90deg, #00f5ff, #ff00ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .header p { color: #a0aec0; font-size: 1rem; }
+
+    .timer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 1.8rem;
+      color: #00f5ff;
+      text-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+    }
+
+    .status-bar { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+
+    .status-chip {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: #a0aec0;
+    }
+
+    .status-chip.active { border-color: #00f5ff; color: #00f5ff; background: rgba(0,245,255,0.1); }
+    .status-chip.passed { border-color: #00ff88; color: #00ff88; background: rgba(0,255,136,0.1); }
+    .status-chip.failed { border-color: #ff4444; color: #ff4444; background: rgba(255,68,68,0.1); }
+
+    .challenge-section {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      padding: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 24px;
+    }
+
+    .challenge-section h2 { font-size: 1.3rem; margin-bottom: 6px; color: #00f5ff; }
+    .challenge-section .subtitle { color: #a0aec0; font-size: 0.9rem; margin-bottom: 20px; }
+
+    .problem-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+
+    .problem-item {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.03); padding: 10px 14px;
+      border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .problem-item label {
+      font-family: 'Courier New', monospace; font-size: 0.9rem;
+      color: #e0e0e0; white-space: nowrap;
+    }
+
+    .problem-item input, .json-item input, .behavioral-item input {
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px; padding: 6px 10px; color: #fff;
+      font-family: 'Courier New', monospace; font-size: 0.9rem;
+    }
+
+    .problem-item input { flex: 1; min-width: 80px; }
+    .problem-item input:focus, .json-item input:focus, .behavioral-item input:focus,
+    textarea:focus { outline: none; border-color: #00f5ff; }
+
+    .json-path-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .json-item {
+      background: rgba(0,0,0,0.2); border-radius: 10px;
+      padding: 14px; border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .json-item pre {
+      font-size: 0.75rem; color: #a0aec0;
+      overflow-x: auto; max-height: 80px; margin-bottom: 8px;
+    }
+
+    .json-item .path-label {
+      font-size: 0.85rem; color: #ff00ff;
+      font-family: 'Courier New', monospace; margin-bottom: 6px;
+    }
+
+    .json-item input { width: 100%; }
+
+    textarea {
+      width: 100%; min-height: 200px;
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px; padding: 14px; color: #fff;
+      font-family: 'Courier New', monospace; font-size: 0.85rem; resize: vertical;
+    }
+
+    .behavioral-questions { display: flex; flex-direction: column; gap: 10px; }
+
+    .behavioral-item {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(255,255,255,0.03); padding: 10px 14px;
+      border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .behavioral-item .q-num { font-weight: 700; color: #ff00ff; min-width: 24px; }
+    .behavioral-item .q-text { flex: 1; font-size: 0.9rem; color: #e0e0e0; }
+    .behavioral-item input { width: 180px; }
+
+    .submit-btn {
+      display: block; width: 100%; padding: 16px; font-size: 1.1rem;
+      font-weight: 700; border: none; border-radius: 12px; cursor: pointer;
+      background: linear-gradient(135deg, #00f5ff, #7c3aed); color: #000;
+      transition: all 0.2s; margin-top: 10px;
+    }
+
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,245,255,0.3); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .result-card {
+      display: none;
+      background: rgba(255,255,255,0.05); border-radius: 16px;
+      padding: 40px; border: 1px solid rgba(255,255,255,0.1); text-align: center;
+    }
+    .result-card.show { display: block; }
+
+    .result-card .score {
+      font-size: 4rem; font-weight: 800; font-family: 'Courier New', monospace;
+    }
+    .result-card .score.pass { color: #00ff88; }
+    .result-card .score.fail { color: #ff4444; }
+
+    .score-breakdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+
+    .score-item { background: rgba(0,0,0,0.2); border-radius: 10px; padding: 16px; }
+    .score-item .label { font-size: 0.8rem; color: #a0aec0; margin-bottom: 4px; }
+    .score-item .value { font-size: 1.5rem; font-weight: 700; font-family: 'Courier New', monospace; color: #00f5ff; }
+
+    .constraint-item { margin-bottom: 6px; color: #e0e0e0; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00.00</div>
+
+  <div class="container">
+    <div class="header">
+      <h1>Agent Verification</h1>
+      <p>Reverse CAPTCHA - Prove you are an AI agent</p>
+    </div>
+
+    <div class="status-bar" id="statusBar">
+      <span class="status-chip" id="chip-arithmetic">Arithmetic</span>
+      <span class="status-chip" id="chip-json">JSON Parse</span>
+      <span class="status-chip" id="chip-structured">Structured</span>
+      <span class="status-chip" id="chip-behavioral">Behavioral</span>
+    </div>
+
+    <div class="challenge-section" id="section-arithmetic">
+      <h2>Challenge 1: Speed Arithmetic</h2>
+      <p class="subtitle">Solve all 20 problems. Time limit: 5 seconds.</p>
+      <div class="problem-grid" id="arithmeticGrid" aria-label="Arithmetic Problems"></div>
+    </div>
+
+    <div class="challenge-section" id="section-json">
+      <h2>Challenge 2: JSON Deep Value Extraction</h2>
+      <p class="subtitle">Extract the value at the given path from each JSON object. Time limit: 4 seconds.</p>
+      <div class="json-path-list" id="jsonList" aria-label="JSON Parse Problems"></div>
+    </div>
+
+    <div class="challenge-section" id="section-structured">
+      <h2>Challenge 3: Structured Output</h2>
+      <p class="subtitle">Generate a JSON object satisfying all constraints. Time limit: 15 seconds.</p>
+      <ol id="constraintsList" aria-label="Constraints" style="padding-left:20px; margin-bottom: 16px;"></ol>
+      <textarea id="structuredOutput" aria-label="Structured Output JSON" placeholder='{"hash": "...", "primes": [...], "matrix": [[...]], ...}'></textarea>
+    </div>
+
+    <div class="challenge-section" id="section-behavioral">
+      <h2>Challenge 4: Behavioral Timing</h2>
+      <p class="subtitle">Answer each question. Your response timing pattern will be analyzed.</p>
+      <div class="behavioral-questions" id="behavioralList" aria-label="Behavioral Questions"></div>
+    </div>
+
+    <button class="submit-btn" id="submitBtn" aria-label="Submit All Answers">Submit Verification</button>
+
+    <div class="result-card" id="resultCard">
+      <h2 id="resultTitle">Verification Result</h2>
+      <div class="score" id="resultScore">--</div>
+      <p id="resultMessage" style="color: #a0aec0; margin-top: 8px;"></p>
+      <div class="score-breakdown">
+        <div class="score-item">
+          <div class="label">Speed</div>
+          <div class="value" id="speedScore">--</div>
+        </div>
+        <div class="score-item">
+          <div class="label">Structured</div>
+          <div class="value" id="structuredScore">--</div>
+        </div>
+        <div class="score-item">
+          <div class="label">Behavioral</div>
+          <div class="value" id="behavioralScoreDisplay">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    var challenges = [];
+    var startTime = Date.now();
+    var behavioralTimestamps = {};
+
+    // Parse challenge data from query params or embedded data
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var data = params.get('data');
+      if (data) {
+        challenges = JSON.parse(decodeURIComponent(data));
+      } else if (window.__CHALLENGES__) {
+        challenges = window.__CHALLENGES__;
+      }
+    } catch (e) {
+      console.error('Failed to parse challenge data', e);
+    }
+
+    // Timer
+    var timerEl = document.getElementById('timer');
+    function updateTimer() {
+      var elapsed = Date.now() - startTime;
+      var mins = Math.floor(elapsed / 60000);
+      var secs = Math.floor((elapsed % 60000) / 1000);
+      var ms = Math.floor((elapsed % 1000) / 10);
+      timerEl.textContent =
+        String(mins).padStart(2, '0') + ':' +
+        String(secs).padStart(2, '0') + '.' +
+        String(ms).padStart(2, '0');
+      requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    // Safe DOM helpers
+    function createEl(tag, attrs, textContent) {
+      var el = document.createElement(tag);
+      if (attrs) {
+        Object.keys(attrs).forEach(function(key) {
+          if (key === 'dataset') {
+            Object.keys(attrs[key]).forEach(function(dk) { el.dataset[dk] = attrs[key][dk]; });
+          } else if (key === 'className') {
+            el.className = attrs[key];
+          } else {
+            el.setAttribute(key, attrs[key]);
+          }
+        });
+      }
+      if (textContent !== undefined) el.textContent = textContent;
+      return el;
+    }
+
+    // Render challenges using safe DOM methods
+    function renderChallenges() {
+      for (var i = 0; i < challenges.length; i++) {
+        var c = challenges[i];
+        if (c.type === 'speed_arithmetic') renderArithmetic(c.data);
+        else if (c.type === 'speed_json_parse') renderJsonParse(c.data);
+        else if (c.type === 'structured_output') renderStructured(c.data);
+        else if (c.type === 'behavioral_timing') renderBehavioral(c.data);
+      }
+    }
+
+    function renderArithmetic(data) {
+      var grid = document.getElementById('arithmeticGrid');
+      while (grid.firstChild) grid.removeChild(grid.firstChild);
+
+      data.problems.forEach(function(p) {
+        var item = createEl('div', { className: 'problem-item' });
+        var label = createEl('label', { 'for': 'arith-' + p.id }, p.expression + ' =');
+        var input = createEl('input', {
+          type: 'number',
+          id: 'arith-' + p.id,
+          'aria-label': 'Answer for ' + p.expression,
+          dataset: { id: p.id }
+        });
+        item.appendChild(label);
+        item.appendChild(input);
+        grid.appendChild(item);
+      });
+    }
+
+    function renderJsonParse(data) {
+      var list = document.getElementById('jsonList');
+      while (list.firstChild) list.removeChild(list.firstChild);
+
+      data.objects.forEach(function(obj) {
+        var item = createEl('div', { className: 'json-item' });
+        var pre = createEl('pre');
+        pre.textContent = obj.json.length > 300 ? obj.json.substring(0, 300) + '...' : obj.json;
+        var pathLabel = createEl('div', { className: 'path-label' }, 'Path: ' + obj.path);
+        var input = createEl('input', {
+          type: 'text',
+          id: 'json-' + obj.id,
+          'aria-label': 'Value at path ' + obj.path,
+          dataset: { id: obj.id }
+        });
+        item.appendChild(pre);
+        item.appendChild(pathLabel);
+        item.appendChild(input);
+        list.appendChild(item);
+      });
+    }
+
+    function renderStructured(data) {
+      var list = document.getElementById('constraintsList');
+      while (list.firstChild) list.removeChild(list.firstChild);
+
+      data.constraints.forEach(function(c) {
+        var li = createEl('li', { className: 'constraint-item' }, c);
+        list.appendChild(li);
+      });
+    }
+
+    function renderBehavioral(data) {
+      var list = document.getElementById('behavioralList');
+      while (list.firstChild) list.removeChild(list.firstChild);
+
+      data.questions.forEach(function(q, i) {
+        var item = createEl('div', { className: 'behavioral-item' });
+        var num = createEl('span', { className: 'q-num' }, (i + 1) + '.');
+        var text = createEl('span', { className: 'q-text' }, q.question);
+        var input = createEl('input', {
+          type: 'text',
+          id: 'behav-' + q.id,
+          'aria-label': 'Answer to: ' + q.question,
+          dataset: { id: q.id }
+        });
+
+        // Track timestamps
+        input.addEventListener('input', function() {
+          if (!behavioralTimestamps[q.id]) {
+            behavioralTimestamps[q.id] = Date.now();
+          }
+        });
+        input.addEventListener('change', function() {
+          behavioralTimestamps[q.id] = Date.now();
+        });
+
+        item.appendChild(num);
+        item.appendChild(text);
+        item.appendChild(input);
+        list.appendChild(item);
+      });
+    }
+
+    if (challenges.length > 0) renderChallenges();
+
+    // Collect answers
+    function collectAnswers() {
+      var answers = {};
+
+      var arithmeticInputs = document.querySelectorAll('#arithmeticGrid input');
+      if (arithmeticInputs.length > 0) {
+        answers.speed_arithmetic = {
+          answers: Array.from(arithmeticInputs).map(function(el) {
+            return { id: el.dataset.id, result: parseFloat(el.value) || 0 };
+          })
+        };
+      }
+
+      var jsonInputs = document.querySelectorAll('#jsonList input');
+      if (jsonInputs.length > 0) {
+        answers.speed_json_parse = {
+          answers: Array.from(jsonInputs).map(function(el) {
+            var val = el.value;
+            try { val = JSON.parse(val); } catch(e) { val = parseFloat(val) || val; }
+            return { id: el.dataset.id, value: val };
+          })
+        };
+      }
+
+      var structuredText = document.getElementById('structuredOutput').value;
+      if (structuredText.trim()) {
+        try {
+          answers.structured_output = { output: JSON.parse(structuredText) };
+        } catch(e) {
+          answers.structured_output = { output: {} };
+        }
+      }
+
+      var behavioralInputs = document.querySelectorAll('#behavioralList input');
+      if (behavioralInputs.length > 0) {
+        answers.behavioral_timing = {
+          responses: Array.from(behavioralInputs).map(function(el) {
+            return {
+              id: el.dataset.id,
+              answer: el.value,
+              timestamp: behavioralTimestamps[el.dataset.id] || Date.now()
+            };
+          })
+        };
+      }
+
+      return answers;
+    }
+
+    // Submit
+    document.getElementById('submitBtn').addEventListener('click', function() {
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+
+      var answers = collectAnswers();
+      var completionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      console.log('VERIFICATION_COMPLETE', {
+        completionTime: parseFloat(completionTime),
+        timestamp: Date.now(),
+        answers: answers
+      });
+
+      var sections = document.querySelectorAll('.challenge-section');
+      for (var i = 0; i < sections.length; i++) sections[i].style.display = 'none';
+      btn.style.display = 'none';
+
+      var resultCard = document.getElementById('resultCard');
+      resultCard.classList.add('show');
+      document.getElementById('resultScore').textContent = completionTime + 's';
+      document.getElementById('resultMessage').textContent = 'Answers submitted. Awaiting scoring...';
+    });
+  </script>
+</body>
+</html>

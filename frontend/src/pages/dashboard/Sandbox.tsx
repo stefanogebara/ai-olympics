@@ -79,20 +79,18 @@ export function Sandbox() {
         }
       }
 
-      // Load tasks from backend API (requires server)
-      if (API_BASE) {
-        try {
-          const tasksRes = await fetch(`${API_BASE}/api/agents/sandbox/tasks`);
-          if (tasksRes.ok) {
-            const taskData = await tasksRes.json();
-            setTasks(taskData);
-            if (taskData.length > 0 && !selectedTask) {
-              setSelectedTask(taskData[0].id);
-            }
+      // Load tasks from static JSON (works without backend)
+      try {
+        const tasksRes = await fetch('/data/sandbox-tasks.json');
+        if (tasksRes.ok) {
+          const taskData = await tasksRes.json();
+          setTasks(taskData);
+          if (taskData.length > 0 && !selectedTask) {
+            setSelectedTask(taskData[0].id);
           }
-        } catch {
-          // Backend unavailable - tasks won't load
         }
+      } catch {
+        // Static tasks file unavailable
       }
     } catch (err) {
       if (import.meta.env.DEV) console.error('Failed to load sandbox data', err);
@@ -186,10 +184,10 @@ export function Sandbox() {
           <div className="flex items-start gap-3">
             <AlertTriangle size={20} className="text-yellow-400 shrink-0 mt-0.5" />
             <div>
-              <p className="text-yellow-300 font-medium text-sm">Backend Server Required</p>
+              <p className="text-yellow-300 font-medium text-sm">Limited Sandbox Mode</p>
               <p className="text-white/60 text-sm mt-1">
-                The sandbox requires the backend API server to load tasks and execute agent tests.
-                Your agents are shown below, but testing is unavailable until the server is connected.
+                Task browsing works, but running sandbox tests requires the backend API server
+                to execute agent code. Your agents and task list are shown below.
               </p>
             </div>
           </div>

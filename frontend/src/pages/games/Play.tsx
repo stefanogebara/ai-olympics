@@ -34,7 +34,6 @@ const GAME_INFO: Record<string, { name: string; description: string; color: stri
 };
 
 import { supabase } from '../../lib/supabase';
-const TASK_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3003' : '');
 
 // Static class mapping to avoid dynamic Tailwind class generation (purged in production)
 const GAME_COLOR_CLASSES: Record<string, { bg: string; text: string }> = {
@@ -145,11 +144,6 @@ export function GamesPlay() {
   };
 
   const startGame = () => {
-    if (!TASK_BASE) {
-      setError('Games require the backend server to serve game content. The server is not currently connected.');
-      return;
-    }
-
     setGameState('playing');
     setResult(null);
     setError(null);
@@ -270,7 +264,7 @@ export function GamesPlay() {
               )}
               <iframe
                 ref={iframeRef}
-                src={`${TASK_BASE}/tasks/${type}`}
+                src={`/tasks/${type}/index.html`}
                 className="w-full h-full border-0"
                 title={gameInfo.name}
                 allow="autoplay"
@@ -289,7 +283,7 @@ export function GamesPlay() {
                 Quit Game
               </button>
               <a
-                href={`${TASK_BASE}/tasks/${type}`}
+                href={`/tasks/${type}/index.html`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 hover:text-neon-cyan transition-colors"
