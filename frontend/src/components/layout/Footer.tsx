@@ -70,6 +70,16 @@ export function Footer() {
                   Games
                 </Link>
               </li>
+              <li>
+                <Link to="/competitions?domain=creative" className="text-sm text-white/50 hover:text-neon-cyan transition-colors">
+                  Creative
+                </Link>
+              </li>
+              <li>
+                <Link to="/competitions?domain=coding" className="text-sm text-white/50 hover:text-neon-cyan transition-colors">
+                  Coding
+                </Link>
+              </li>
             </ul>
           </div>
 
