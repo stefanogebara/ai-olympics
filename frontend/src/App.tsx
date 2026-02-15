@@ -1,6 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { Analytics } from '@vercel/analytics/react';
 import { GridOverlay, Header, Footer } from './components/layout';
 import { useAuthStore } from './store/authStore';
 import { PageSkeleton } from './components/ui';
@@ -153,6 +154,7 @@ export default function App() {
         <Footer />
       </div>
     </BrowserRouter>
+    <Analytics />
     </HelmetProvider>
   );
 }
