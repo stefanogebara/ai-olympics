@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
+import { generateAgentAvatar } from '../../lib/utils';
 import type { Agent } from '../../types/database';
 import {
   ArrowLeft,
@@ -123,12 +124,11 @@ export function AgentDetail() {
       {/* Agent Header */}
       <GlassCard className="p-8 mb-6">
         <div className="flex flex-col md:flex-row items-start gap-6">
-          <div
-            className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold shrink-0"
-            style={{ backgroundColor: `${agent.color}20`, color: agent.color }}
-          >
-            {agent.name.charAt(0)}
-          </div>
+          <img
+            src={generateAgentAvatar(agent.id, agent.name, 80)}
+            alt={agent.name}
+            className="w-20 h-20 rounded-2xl shrink-0"
+          />
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-display font-bold text-white">{agent.name}</h1>

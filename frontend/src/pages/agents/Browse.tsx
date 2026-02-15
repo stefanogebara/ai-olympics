@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
 import { GlassCard, NeonButton, NeonText, Badge, Input, SkeletonCard } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
+import { generateAgentAvatar } from '../../lib/utils';
 import { useAuthStore } from '../../store/authStore';
 import type { Agent } from '../../types/database';
 import {
@@ -159,12 +160,11 @@ export function AgentBrowser() {
                 <Link to={`/agents/${agent.slug}`}>
                   <GlassCard hover className="p-6 h-full">
                     <div className="flex items-start justify-between mb-4">
-                      <div
-                        className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-bold"
-                        style={{ backgroundColor: `${agent.color}20`, color: agent.color }}
-                      >
-                        {agent.name.charAt(0)}
-                      </div>
+                      <img
+                        src={generateAgentAvatar(agent.id, agent.name, 56)}
+                        alt={agent.name}
+                        className="w-14 h-14 rounded-xl"
+                      />
                       <Badge variant={agent.agent_type === 'webhook' ? 'info' : 'default'}>
                         {agent.agent_type === 'webhook' ? (
                           <><Code2 size={12} className="mr-1" /> Webhook</>

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
 import { GlassCard, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
+import { generateAgentAvatar } from '../../lib/utils';
 import type { Agent, Domain } from '../../types/database';
 import {
   Trophy,
@@ -24,10 +25,19 @@ interface LeaderboardAgent extends Agent {
 }
 
 export function GlobalLeaderboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [agents, setAgents] = useState<LeaderboardAgent[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
-  const [selectedDomain, setSelectedDomain] = useState<string>('all');
+  const selectedDomain = searchParams.get('domain') || 'all';
   const [loading, setLoading] = useState(true);
+
+  const setSelectedDomain = (domain: string) => {
+    if (domain === 'all') {
+      setSearchParams({});
+    } else {
+      setSearchParams({ domain });
+    }
+  };
 
   useEffect(() => {
     loadDomains();
@@ -176,9 +186,7 @@ export function GlobalLeaderboard() {
             className="w-24 sm:w-32 md:w-40"
           >
             <GlassCard className="p-4 text-center">
-              <div className="w-16 h-16 rounded-full bg-gray-400/20 flex items-center justify-center mx-auto mb-3 text-2xl font-bold text-gray-300">
-                {agents[1]?.name.charAt(0)}
-              </div>
+              {agents[1] && <img src={generateAgentAvatar(agents[1].id, agents[1].name, 64)} alt={agents[1].name} className="w-16 h-16 rounded-full mx-auto mb-3" />}
               <p className="font-semibold truncate">{agents[1]?.name}</p>
               <p className="text-sm text-white/50">@{agents[1]?.owner?.username}</p>
               <p className="text-xl font-mono font-bold text-gray-300 mt-2">
@@ -197,9 +205,7 @@ export function GlobalLeaderboard() {
           >
             <GlassCard neonBorder className="p-4 text-center">
               <Crown className="text-yellow-400 mx-auto mb-2" size={24} />
-              <div className="w-20 h-20 rounded-full bg-yellow-500/20 flex items-center justify-center mx-auto mb-3 text-3xl font-bold text-yellow-400">
-                {agents[0]?.name.charAt(0)}
-              </div>
+              {agents[0] && <img src={generateAgentAvatar(agents[0].id, agents[0].name, 80)} alt={agents[0].name} className="w-20 h-20 rounded-full mx-auto mb-3" />}
               <p className="font-semibold truncate text-lg">{agents[0]?.name}</p>
               <p className="text-sm text-white/50">@{agents[0]?.owner?.username}</p>
               <p className="text-2xl font-mono font-bold text-yellow-400 mt-2">
@@ -218,9 +224,7 @@ export function GlobalLeaderboard() {
             className="w-24 sm:w-32 md:w-40"
           >
             <GlassCard className="p-4 text-center">
-              <div className="w-16 h-16 rounded-full bg-amber-600/20 flex items-center justify-center mx-auto mb-3 text-2xl font-bold text-amber-600">
-                {agents[2]?.name.charAt(0)}
-              </div>
+              {agents[2] && <img src={generateAgentAvatar(agents[2].id, agents[2].name, 64)} alt={agents[2].name} className="w-16 h-16 rounded-full mx-auto mb-3" />}
               <p className="font-semibold truncate">{agents[2]?.name}</p>
               <p className="text-sm text-white/50">@{agents[2]?.owner?.username}</p>
               <p className="text-xl font-mono font-bold text-amber-600 mt-2">
@@ -287,12 +291,11 @@ export function GlobalLeaderboard() {
                       </td>
                       <td className="px-3 md:px-6 py-3 md:py-4">
                         <Link to={`/agents/${agent.slug}`} className="flex items-center gap-2 md:gap-3 hover:opacity-80">
-                          <div
-                            className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-bold text-sm md:text-base shrink-0"
-                            style={{ backgroundColor: `${agent.color}20`, color: agent.color }}
-                          >
-                            {agent.name.charAt(0)}
-                          </div>
+                          <img
+                            src={generateAgentAvatar(agent.id, agent.name, 40)}
+                            alt={agent.name}
+                            className="w-8 h-8 md:w-10 md:h-10 rounded-lg shrink-0"
+                          />
                           <div className="min-w-0">
                             <p className="font-semibold text-white truncate">{agent.name}</p>
                             <p className="text-xs text-white/40 hidden md:block">{agent.agent_type}</p>
