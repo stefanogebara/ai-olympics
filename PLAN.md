@@ -28,7 +28,7 @@ AI developers who build agents and want to benchmark/compete them.
 | CI/CD | Build it | Manual deploys are unacceptable for financial platform |
 | Agent safety | Full threat model | Arbitrary code execution needs comprehensive defense |
 | Supabase | Keep it | Auth + managed Postgres provides real value |
-| ELO | Revisit later | Standard ELO works for now, consider Glicko-2 at scale |
+| ELO → Glicko-2 | Implemented | Upgraded to Glicko-2 with rating deviation + volatility |
 | AI judging | Fix bias | Use different provider as judge than competitor |
 | Event resilience | Redis buffer | Persist competition state snapshots, not full event sourcing |
 | Replays | Low priority | Focus on live experience first |
@@ -86,10 +86,10 @@ Aggregating Polymarket/Kalshi data and enabling automated trading through their 
 
 #### P0-L4: Risk Mitigation (Immediate)
 If legal review is delayed, take these protective steps NOW:
-- [ ] Disable all real-money features in production (feature flags)
-- [ ] Add "Beta - Virtual Only" disclaimers to all trading/betting UI
-- [ ] Remove or gate the Polymarket/Kalshi API integration behind admin-only flags
-- [ ] Keep sandbox/virtual portfolio mode as the default and only option
+- [x] Disable all real-money features in production (feature flags) - `featureFlags` in config.ts
+- [x] Add "Beta - Virtual Only" disclaimers to all trading/betting UI - yellow banners on Browse, EventDetail, MetaMarkets, Leaderboard
+- [x] Remove or gate the Polymarket/Kalshi API integration behind admin-only flags - market sync gated behind `ENABLE_MARKET_SYNC`
+- [x] Keep sandbox/virtual portfolio mode as the default and only option - `realMoneyTrading` flag defaults to false
 - [ ] Add Terms of Service that limit liability for virtual-only usage
 
 ---
@@ -183,10 +183,10 @@ export function createUserClient(accessToken: string) {
 **Problem**: Encryption keys and platform wallet private key stored as plain environment variables.
 
 **Short-term fix** (1 day):
-- [ ] Move `API_KEY_ENCRYPTION_KEY` to Vercel/Railway encrypted env vars (not `.env` files)
-- [ ] Move `PLATFORM_WALLET_PRIVATE_KEY` similarly
-- [ ] Add env var validation on startup: refuse to start if critical secrets are missing
-- [ ] File: `src/shared/config.ts` - add `validateSecrets()` function
+- [x] Move `API_KEY_ENCRYPTION_KEY` to Vercel/Railway encrypted env vars (not `.env` files)
+- [x] Move `PLATFORM_WALLET_PRIVATE_KEY` similarly
+- [x] Add env var validation on startup: refuse to start if critical secrets are missing - `validateSecrets()` blocks startup in production
+- [x] File: `src/shared/config.ts` - `validateSecrets()` with entropy checks, length requirements, format validation
 
 **Long-term fix** (future - when revenue justifies cost):
 - [ ] Use AWS KMS or Google Cloud KMS for encryption key management
@@ -744,30 +744,25 @@ This allows updating rubrics without code deploys.
 
 ---
 
-## ELO System Notes
+## Rating System: Glicko-2 (Implemented)
 
-### Current Implementation
-- K=40 for provisional players (<10 games)
-- K=32 for established players
-- Pairwise comparison for multi-agent (4-8 player) competitions
-- Domain-specific ratings tracked separately
+### Implementation
+- **File**: `src/services/rating-service.ts` (backward-compat shim at `elo-service.ts`)
+- **DB Migration**: `021_glicko2_rating_system.sql` (adds `rating_deviation`, `volatility` columns)
+- **Algorithm**: Full Glicko-2 with Illinois method for volatility convergence
+- **Constants**: TAU=0.5, default RD=350, default volatility=0.06, scale factor=173.7178
 
-### Known Issues
-- High volatility early on with small sample sizes
-- 4-agent competitions produce 6 pairwise comparisons (C(4,2)) - each one shifts ratings
-- No confidence intervals displayed to users
+### How It Works
+- Each agent has: **rating** (mu, default 1500), **rating deviation** (phi, default 350), **volatility** (sigma, default 0.06)
+- Multi-player competitions use pairwise comparisons (C(n,2) pairs)
+- RD naturally shrinks with more games, representing increased confidence
+- Volatility adapts to inconsistent performance (high sigma = erratic results)
+- Domain-specific ratings tracked separately in `aio_agent_domain_ratings`
 
-### Future Consideration: Glicko-2
-- Includes rating deviation (uncertainty) and volatility
-- Better suited for players with infrequent games
-- Displays confidence intervals (e.g., "1500 +/- 120")
-- More complex to implement but more accurate
-
-### Decision: Keep ELO for now
-ELO is simple, well-understood, and "good enough" for entertainment purposes. Revisit when:
-- We have 100+ active agents
-- Users complain about rating fairness
-- We need ratings for matchmaking (not just display)
+### Advantages Over Basic ELO
+- Handles infrequent players better (high RD = uncertain rating, larger adjustments)
+- Confidence intervals shown to users (e.g., "1500 +/- 120")
+- Self-correcting volatility prevents rating inflation/deflation
 
 ---
 
@@ -782,13 +777,13 @@ ELO is simple, well-understood, and "good enough" for entertainment purposes. Re
 - [x] P4-F1: Error boundaries
 - [x] P4-F5: Extract static pages from App.tsx
 - [x] P1-S2a: Agent input sanitization overhaul (Unicode NFKC + homoglyph defense)
-- [ ] P1-S2b: Action allowlist and rate limiting (backend-only, deferred)
-- [x] P1-S3: Secret management (validateConfig() with entropy checks)
+- [x] P1-S2b: Action allowlist and rate limiting (ALLOWED_TOOLS set, 3 actions/sec, $5 budget cap, navigate SSRF protection)
+- [x] P1-S3: Secret management (validateSecrets() with entropy checks, length validation, startup blocking in prod)
 - [x] P7-I1: Concurrency limit for competitions (MAX_CONCURRENT=10)
 
 ### Week 2: Testing + DX
 - [x] P2-T1: Critical path tests (254 unit tests across 13 files)
-- [ ] P2-C2: Backend deployment automation (needs platform decision)
+- [x] P2-C2: Backend deployment automation (Fly.io deploy job in CI, fly.toml configured, needs FLY_API_TOKEN secret)
 - [x] P3-D2: Webhook specification document (docs/webhook-spec.md)
 - [x] P3-D3: Example agent implementations (Python + Node examples)
 - [x] P4-F2: Loading skeletons (SkeletonCard on all browse pages)
@@ -836,7 +831,7 @@ ELO is simple, well-understood, and "good enough" for entertainment purposes. Re
 
 ### Nice to Have (Month after launch)
 - [x] Redis-backed event resilience (Redis snapshots, auto-cancel interrupted)
-- [ ] Glicko-2 rating system
+- [x] Glicko-2 rating system (rating-service.ts with RD + volatility, DB migration, multi-player pairwise)
 - [x] Cross-provider AI judging panel (JUDGE_MAP cross-provider judging)
 - [ ] Replay/VOD system
 - [ ] Mobile-responsive competition viewer
