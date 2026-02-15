@@ -113,9 +113,12 @@ export function PredictionBrowse() {
       setLoadingMore(true);
     }
     try {
+      // Select only needed columns (skip description to reduce payload)
+      // Use estimated count to avoid slow exact count on 91K+ rows
+      const columns = 'id,source,question,category,outcomes,total_volume,volume_24h,liquidity,close_time,status,url,image';
       let query = supabase
         .from('aio_markets')
-        .select('*', { count: 'exact' })
+        .select(columns, { count: 'estimated' })
         .eq('status', 'open');
 
       if (category !== 'all') {
@@ -145,10 +148,10 @@ export function PredictionBrowse() {
       }
 
       setTotal(totalCount);
-      setHasMore(newOffset + PAGE_SIZE < totalCount);
+      setHasMore(newEvents.length === PAGE_SIZE);
       setOffset(newOffset);
     } catch (error) {
-      if (import.meta.env.DEV) console.error('Error loading events:', error);
+      console.error('Error loading events:', error);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -171,9 +174,10 @@ export function PredictionBrowse() {
     setLoading(true);
     try {
       const query = searchQuery.trim().toLowerCase();
+      const columns = 'id,source,question,category,outcomes,total_volume,volume_24h,liquidity,close_time,status,url,image';
       const { data, error } = await supabase
         .from('aio_markets')
-        .select('*')
+        .select(columns)
         .eq('status', 'open')
         .ilike('question', `%${query}%`)
         .order('total_volume', { ascending: false })
@@ -181,32 +185,13 @@ export function PredictionBrowse() {
 
       if (error) throw error;
 
-      const searchEvents: MarketEvent[] = (data || []).map((m) => ({
-        eventUrl: m.url || '',
-        eventTitle: m.question,
-        source: m.source,
-        category: m.category || 'other',
-        image: m.image || null,
-        totalVolume: Number(m.total_volume) || 0,
-        volume24h: Number(m.volume_24h) || 0,
-        liquidity: Number(m.liquidity) || 0,
-        closeTime: m.close_time ? Number(m.close_time) : 0,
-        marketCount: 1,
-        markets: [{
-          id: m.id,
-          question: m.question,
-          outcomes: m.outcomes || [],
-          total_volume: Number(m.total_volume) || 0,
-          volume_24h: Number(m.volume_24h) || 0,
-          probability: (m.outcomes as { probability?: number }[])?.[0]?.probability || 0.5,
-        }],
-      }));
+      const searchEvents: MarketEvent[] = (data || []).map(mapRowToEvent);
       setEvents(searchEvents);
       setTotal(searchEvents.length);
       setHasMore(false);
       setOffset(0);
     } catch (error) {
-      if (import.meta.env.DEV) console.error('Error searching markets:', error);
+      console.error('Error searching markets:', error);
     } finally {
       setLoading(false);
     }
