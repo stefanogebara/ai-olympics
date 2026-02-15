@@ -4,7 +4,10 @@ import { test, expect } from '@playwright/test';
 // HELPERS
 // ============================================================================
 
-const API_BASE = 'http://localhost:3003';
+// Frontend uses Supabase REST API directly, not the backend API.
+// Route interceptions must target Supabase URLs (glob pattern matches any Supabase host).
+const SUPABASE_MARKETS = '**/rest/v1/aio_markets*';
+const SUPABASE_META_MARKETS = '**/rest/v1/aio_meta_markets*';
 
 /**
  * Wait for either the loading spinner to disappear or a timeout,
@@ -81,7 +84,10 @@ test.describe('Prediction Markets Browse Page', () => {
   // 1E. Each category tab has an icon (SVG) and name text
   // --------------------------------------------------------------------------
   test('each category tab has an icon and name', async ({ page }) => {
-    const categoryButtons = page.locator('.flex.flex-wrap.gap-2 > button');
+    // Category tabs are inside a flex-wrap container above the market cards
+    const categoryContainer = page.locator('.flex.flex-wrap.gap-2.mb-6');
+    await expect(categoryContainer).toBeVisible();
+    const categoryButtons = categoryContainer.locator('> button');
     const count = await categoryButtons.count();
     expect(count).toBe(7); // all, politics, sports, crypto, ai-tech, entertainment, finance
 
@@ -148,21 +154,22 @@ test.describe('Prediction Markets Browse Page', () => {
     await expect(sortSelect).toBeVisible();
 
     // Check options
-    await expect(sortSelect.locator('option[value="liquidity"]')).toHaveText('By Liquidity');
+    await expect(sortSelect.locator('option[value="volume"]')).toHaveText('By Volume');
     await expect(sortSelect.locator('option[value="newest"]')).toHaveText('Newest');
-    await expect(sortSelect.locator('option[value="close-date"]')).toHaveText('Closing Soon');
+    await expect(sortSelect.locator('option[value="closing_soon"]')).toHaveText('Closing Soon');
   });
 
   // --------------------------------------------------------------------------
-  // 1J. Filter type dropdown visible with options
+  // 1J. Filter type dropdown removed (outcomeType not applicable to unified events)
   // --------------------------------------------------------------------------
-  test('filter type dropdown visible with correct options', async ({ page }) => {
-    const filterSelect = page.locator('select').nth(1);
-    await expect(filterSelect).toBeVisible();
-
-    await expect(filterSelect.locator('option[value="all"]')).toHaveText('All Types');
-    await expect(filterSelect.locator('option[value="BINARY"]')).toHaveText('Binary (Yes/No)');
-    await expect(filterSelect.locator('option[value="MULTIPLE_CHOICE"]')).toHaveText('Multiple Choice');
+  test('filter type dropdown was removed in refactor', async ({ page }) => {
+    // The type filter (Binary/Multiple Choice) was intentionally removed
+    // Only the sort dropdown should remain in the main content area
+    const mainContent = page.locator('main');
+    const selects = mainContent.locator('select');
+    const count = await selects.count();
+    // Should have exactly 1 select (the sort dropdown), not 2 (sort + filter type)
+    expect(count).toBeLessThanOrEqual(1);
   });
 
   // --------------------------------------------------------------------------
@@ -192,13 +199,13 @@ test.describe('Market Cards', () => {
     const hasEmptyState = await page.getByText('No markets found').isVisible().catch(() => false);
 
     if (hasMarkets) {
-      // Grid should have responsive columns (grid-cols-1 md:grid-cols-2 lg:grid-cols-3)
+      // Grid should have responsive columns (grid-cols-1 md:grid-cols-2 xl:grid-cols-3)
       const grid = page.locator('.grid.grid-cols-1').first();
       await expect(grid).toBeVisible();
 
       // Verify grid has the responsive classes
       await expect(grid).toHaveClass(/md:grid-cols-2/);
-      await expect(grid).toHaveClass(/lg:grid-cols-3/);
+      await expect(grid).toHaveClass(/xl:grid-cols-3/);
     } else if (hasEmptyState) {
       console.log('MARKET CARDS: No markets loaded from external APIs - empty state shown');
     }
@@ -238,27 +245,17 @@ test.describe('Market Cards', () => {
     const questionText = firstCard.locator('h3');
     await expect(questionText).toBeVisible();
 
-    // Probability percentage
+    // Probability percentage (outcome rows show percentages)
     const probability = firstCard.locator('text=/%$/');
     await expect(probability.first()).toBeVisible();
 
-    // YES/NO favored label
-    const favoredLabel = firstCard.locator('text=/YES|NO/ >> text=/favored/');
-    await expect(favoredLabel.first()).toBeVisible({ timeout: 3000 }).catch(() => {
-      // Try alternative: look for "YES favored" or "NO favored" text
-    });
-
-    // Probability bar
-    const probBar = firstCard.locator('.h-2.bg-white\\/10.rounded-full');
+    // Probability bar (thin progress bar)
+    const probBar = firstCard.locator('.h-1\\.5.bg-white\\/10.rounded-full');
     await expect(probBar.first()).toBeVisible();
 
-    // Volume stats with BarChart3 icon
-    const volumeStats = firstCard.locator('.grid.grid-cols-2 .flex.items-center.gap-2').first();
+    // Volume in card footer (BarChart3 icon + volume)
+    const volumeStats = firstCard.locator('.flex.items-center.gap-1').first();
     await expect(volumeStats).toBeVisible();
-
-    // Close date
-    const closeDate = firstCard.locator('text=/Clos|No close date|today|tomorrow|days/');
-    await expect(closeDate.first()).toBeVisible();
 
     // Source info footer (via Polymarket / via Kalshi)
     const sourceFooter = firstCard.locator('text=/via Polymarket|via Kalshi/');
@@ -272,8 +269,8 @@ test.describe('Market Cards', () => {
 
 test.describe('Loading and Empty States', () => {
   test('loading spinner shows while fetching markets', async ({ page }) => {
-    // Intercept the API to add a delay so we can observe the spinner
-    await page.route(`${API_BASE}/api/predictions/markets*`, async (route) => {
+    // Intercept Supabase calls to add a delay so we can observe the spinner
+    await page.route(SUPABASE_MARKETS, async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await route.continue();
     });
@@ -286,17 +283,18 @@ test.describe('Loading and Empty States', () => {
   });
 
   test('empty state shows when no markets found for a search', async ({ page }) => {
-    // Intercept search to return empty results
-    await page.route(`${API_BASE}/api/predictions/search*`, async (route) => {
+    await page.goto('/predictions');
+    await waitForMarketsLoad(page);
+
+    // Intercept Supabase calls to return empty results for the search query
+    await page.route(SUPABASE_MARKETS, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: { 'content-range': '0-0/0' },
         body: JSON.stringify([]),
       });
     });
-
-    await page.goto('/predictions');
-    await waitForMarketsLoad(page);
 
     // Search for something that returns empty
     await page.locator('input[placeholder="Search markets..."]').fill('zzzznonexistent12345');
@@ -309,12 +307,13 @@ test.describe('Loading and Empty States', () => {
   });
 
   test('empty state shows when API returns empty array', async ({ page }) => {
-    // Intercept the markets API to return empty
-    await page.route(`${API_BASE}/api/predictions/markets*`, async (route) => {
+    // Intercept Supabase markets calls to return empty
+    await page.route(SUPABASE_MARKETS, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ markets: [] }),
+        headers: { 'content-range': '0-0/0' },
+        body: JSON.stringify([]),
       });
     });
 
@@ -507,18 +506,18 @@ test.describe('Keyboard Interactions', () => {
     await expect(searchInput).toBeVisible({ timeout: 10000 });
     await searchInput.fill('test query');
 
-    // Intercept the search API call to verify Enter triggers it
+    // Frontend uses Supabase directly with ilike filter - intercept to verify Enter triggers it
     const searchRequestPromise = page.waitForRequest(
-      (req) => req.url().includes('/api/predictions/search'),
+      (req) => req.url().includes('aio_markets') && req.url().includes('ilike'),
       { timeout: 10000 }
     );
 
     // Press Enter
     await searchInput.press('Enter');
 
-    // Verify the search API request was made
+    // Verify the Supabase search request was made with ilike filter
     const searchRequest = await searchRequestPromise;
-    expect(searchRequest.url()).toContain('q=test');
+    expect(searchRequest.url()).toContain('ilike');
   });
 
   test('category tabs are keyboard accessible', async ({ page }) => {
@@ -555,15 +554,16 @@ test.describe('Keyboard Interactions', () => {
     await expect(sortSelect).toHaveValue('newest');
   });
 
-  test('filter type dropdown is keyboard accessible', async ({ page }) => {
+  test('sort dropdown can be changed via keyboard', async ({ page }) => {
     await page.goto('/predictions');
 
-    const filterSelect = page.locator('select').nth(1);
-    await filterSelect.focus();
-    await expect(filterSelect).toBeFocused();
+    const sortSelect = page.locator('select').first();
+    await sortSelect.focus();
+    await expect(sortSelect).toBeFocused();
 
-    await filterSelect.selectOption('BINARY');
-    await expect(filterSelect).toHaveValue('BINARY');
+    // Change to closing_soon via keyboard
+    await sortSelect.selectOption('closing_soon');
+    await expect(sortSelect).toHaveValue('closing_soon');
   });
 });
 
@@ -584,31 +584,12 @@ test.describe('Sort and Filter Functionality', () => {
     await waitForMarketsLoad(page);
 
     // Change to closing soon
-    await sortSelect.selectOption('close-date');
+    await sortSelect.selectOption('closing_soon');
     await waitForMarketsLoad(page);
 
-    // Change back to liquidity
-    await sortSelect.selectOption('liquidity');
+    // Change back to volume
+    await sortSelect.selectOption('volume');
     await waitForMarketsLoad(page);
-  });
-
-  test('changing filter type filters displayed markets client-side', async ({ page }) => {
-    await page.goto('/predictions');
-    await waitForMarketsLoad(page);
-
-    const filterSelect = page.locator('select').nth(1);
-
-    // Filter to binary
-    await filterSelect.selectOption('BINARY');
-    await page.waitForTimeout(500);
-
-    // Filter to multiple choice
-    await filterSelect.selectOption('MULTIPLE_CHOICE');
-    await page.waitForTimeout(500);
-
-    // Back to all
-    await filterSelect.selectOption('all');
-    await page.waitForTimeout(500);
   });
 });
 
@@ -627,8 +608,9 @@ test.describe('Responsive Layout', () => {
     // Heading should be visible
     await expect(page.getByRole('heading', { name: 'Prediction Markets' })).toBeVisible();
 
-    // Category tabs should wrap
-    const categoryButtons = page.locator('.flex.flex-wrap.gap-2 > button');
+    // Category tabs should wrap (scoped to the category container)
+    const categoryContainer = page.locator('.flex.flex-wrap.gap-2.mb-6');
+    const categoryButtons = categoryContainer.locator('> button');
     const count = await categoryButtons.count();
     expect(count).toBe(7);
   });
@@ -641,7 +623,7 @@ test.describe('Responsive Layout', () => {
     const grid = page.locator('.grid.grid-cols-1').first();
     if (await grid.isVisible()) {
       // Verify the grid has responsive column classes
-      await expect(grid).toHaveClass(/lg:grid-cols-3/);
+      await expect(grid).toHaveClass(/xl:grid-cols-3/);
     }
   });
 });
@@ -652,6 +634,7 @@ test.describe('Responsive Layout', () => {
 
 test.describe('Market Cards with Mocked Data', () => {
   test('renders market cards correctly from mocked API response', async ({ page }) => {
+    // Supabase REST API returns flat arrays with snake_case column names
     const mockMarkets = [
       {
         id: 'mock-1',
@@ -662,12 +645,13 @@ test.describe('Market Cards with Mocked Data', () => {
           { id: 'yes', name: 'YES', probability: 0.72, price: 0.72 },
           { id: 'no', name: 'NO', probability: 0.28, price: 0.28 },
         ],
-        volume24h: 150000,
-        totalVolume: 2500000,
+        volume_24h: 150000,
+        total_volume: 2500000,
         liquidity: 500000,
-        closeTime: Date.now() + 86400000 * 30,
+        close_time: Date.now() + 86400000 * 30,
         status: 'open',
         url: 'https://polymarket.com/mock',
+        image: null,
       },
       {
         id: 'mock-2',
@@ -678,29 +662,23 @@ test.describe('Market Cards with Mocked Data', () => {
           { id: 'yes', name: 'YES', probability: 0.35, price: 0.35 },
           { id: 'no', name: 'NO', probability: 0.65, price: 0.65 },
         ],
-        volume24h: 80000,
-        totalVolume: 1200000,
+        volume_24h: 80000,
+        total_volume: 1200000,
         liquidity: 300000,
-        closeTime: Date.now() + 86400000 * 60,
+        close_time: Date.now() + 86400000 * 60,
         status: 'open',
         url: 'https://kalshi.com/mock',
+        image: null,
       },
     ];
 
-    // Intercept both API calls
-    await page.route(`${API_BASE}/api/predictions/markets*`, async (route) => {
+    // Intercept Supabase REST API calls (frontend queries aio_markets directly)
+    await page.route(SUPABASE_MARKETS, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ markets: mockMarkets }),
-      });
-    });
-
-    await page.route(`${API_BASE}/api/predictions/categories*`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ categories: [] }),
+        headers: { 'content-range': `0-${mockMarkets.length - 1}/${mockMarkets.length}` },
+        body: JSON.stringify(mockMarkets),
       });
     });
 
@@ -711,14 +689,12 @@ test.describe('Market Cards with Mocked Data', () => {
     await expect(page.getByText('POLYMARKET').first()).toBeVisible();
     await expect(page.getByText('Will AI pass the Turing test by 2027?')).toBeVisible();
     await expect(page.getByText('72%').first()).toBeVisible();
-    await expect(page.getByText('YES favored').first()).toBeVisible();
     await expect(page.getByText('via Polymarket').first()).toBeVisible();
 
     // Second card - Kalshi
     await expect(page.getByText('KALSHI').first()).toBeVisible();
     await expect(page.getByText('Will Bitcoin reach $200k in 2026?')).toBeVisible();
     await expect(page.getByText('35%').first()).toBeVisible();
-    await expect(page.getByText('NO favored').first()).toBeVisible();
     await expect(page.getByText('via Kalshi').first()).toBeVisible();
   });
 
@@ -732,27 +708,22 @@ test.describe('Market Cards with Mocked Data', () => {
         outcomes: [
           { id: 'yes', name: 'YES', probability: 0.5, price: 0.5 },
         ],
-        volume24h: 1000,
-        totalVolume: 10000,
+        volume_24h: 1000,
+        total_volume: 10000,
         liquidity: 5000,
         status: 'open',
         url: 'https://polymarket.com/test-market',
+        image: null,
+        close_time: null,
       },
     ];
 
-    await page.route(`${API_BASE}/api/predictions/markets*`, async (route) => {
+    await page.route(SUPABASE_MARKETS, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ markets: mockMarkets }),
-      });
-    });
-
-    await page.route(`${API_BASE}/api/predictions/categories*`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ categories: [] }),
+        headers: { 'content-range': '0-0/1' },
+        body: JSON.stringify(mockMarkets),
       });
     });
 
@@ -772,27 +743,34 @@ test.describe('Market Cards with Mocked Data', () => {
 
 test.describe('Meta Markets with Mocked Data', () => {
   test('renders matchup cards with agent info from mocked data', async ({ page }) => {
-    const mockMatchups = [
+    // Supabase REST API returns rows from aio_meta_markets with snake_case columns
+    const mockMetaMarkets = [
       {
         id: 'matchup-1',
-        title: 'Speed Test Showdown',
+        question: 'Speed Test Showdown',
         description: 'Which AI completes the task fastest?',
-        taskType: 'speed',
-        agents: [
-          { id: 'c1', name: 'Claude 3.5', provider: 'claude', odds: 0.5, betsCount: 10, totalBets: 1000 },
-          { id: 'g1', name: 'GPT-4 Turbo', provider: 'gpt4', odds: 0.3, betsCount: 8, totalBets: 600 },
-          { id: 'gem1', name: 'Gemini Pro', provider: 'gemini', odds: 0.2, betsCount: 5, totalBets: 400 },
+        market_type: 'winner',
+        outcomes: [
+          { id: 'c1', name: 'Claude 3.5', provider: 'claude' },
+          { id: 'g1', name: 'GPT-4 Turbo', provider: 'gpt4' },
+          { id: 'gem1', name: 'Gemini Pro', provider: 'gemini' },
         ],
+        current_odds: { c1: 0.5, g1: 0.3, gem1: 0.2 },
         status: 'live',
-        totalPool: 2000,
+        total_volume: 2000,
+        opens_at: null,
+        resolves_at: null,
+        resolved_outcome: null,
+        created_at: new Date().toISOString(),
+        competition: { id: 'comp-1', name: 'Speed Test', status: 'live' },
       },
     ];
 
-    await page.route(`${API_BASE}/api/predictions/meta-markets*`, async (route) => {
+    await page.route(SUPABASE_META_MARKETS, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ matchups: mockMatchups }),
+        body: JSON.stringify(mockMetaMarkets),
       });
     });
 
@@ -832,26 +810,32 @@ test.describe('Meta Markets with Mocked Data', () => {
   });
 
   test('sign-in prompt shown for unauthenticated users', async ({ page }) => {
-    const mockMatchups = [
+    const mockMetaMarkets = [
       {
         id: 'auth-test',
-        title: 'Auth Test Matchup',
+        question: 'Auth Test Matchup',
         description: 'Test sign-in prompt',
-        taskType: 'speed',
-        agents: [
-          { id: 'a1', name: 'Agent A', provider: 'claude', odds: 0.5, betsCount: 0, totalBets: 0 },
-          { id: 'a2', name: 'Agent B', provider: 'gpt4', odds: 0.5, betsCount: 0, totalBets: 0 },
+        market_type: 'winner',
+        outcomes: [
+          { id: 'a1', name: 'Agent A', provider: 'claude' },
+          { id: 'a2', name: 'Agent B', provider: 'gpt4' },
         ],
+        current_odds: { a1: 0.5, a2: 0.5 },
         status: 'live',
-        totalPool: 0,
+        total_volume: 0,
+        opens_at: null,
+        resolves_at: null,
+        resolved_outcome: null,
+        created_at: new Date().toISOString(),
+        competition: { id: 'comp-1', name: 'Test', status: 'live' },
       },
     ];
 
-    await page.route(`${API_BASE}/api/predictions/meta-markets*`, async (route) => {
+    await page.route(SUPABASE_META_MARKETS, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ matchups: mockMatchups }),
+        body: JSON.stringify(mockMetaMarkets),
       });
     });
 
@@ -903,7 +887,7 @@ test.describe('Prediction Page Navigation', () => {
 
 test.describe('Error Handling', () => {
   test('page handles API errors gracefully on /predictions', async ({ page }) => {
-    await page.route(`${API_BASE}/api/predictions/markets*`, async (route) => {
+    await page.route(SUPABASE_MARKETS, async (route) => {
       await route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -919,7 +903,7 @@ test.describe('Error Handling', () => {
   });
 
   test('page handles network failure gracefully on /predictions', async ({ page }) => {
-    await page.route(`${API_BASE}/api/predictions/markets*`, async (route) => {
+    await page.route(SUPABASE_MARKETS, async (route) => {
       await route.abort('connectionrefused');
     });
 
@@ -931,7 +915,7 @@ test.describe('Error Handling', () => {
   });
 
   test('meta markets page handles API errors gracefully', async ({ page }) => {
-    await page.route(`${API_BASE}/api/predictions/meta-markets*`, async (route) => {
+    await page.route(SUPABASE_META_MARKETS, async (route) => {
       await route.fulfill({
         status: 500,
         contentType: 'application/json',

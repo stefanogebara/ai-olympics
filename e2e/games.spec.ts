@@ -364,7 +364,8 @@ test.describe('Games Play Page - All Game Types Load', () => {
     const iframe = page.locator('iframe');
     await expect(iframe).toBeVisible({ timeout: 15000 });
     await expect(iframe).toHaveAttribute('src', /\/tasks\/math/);
-    await expect(page.getByText('Playing: Math Challenge')).toBeVisible();
+    // Playing state shows the iframe + "Open in new tab" link
+    await expect(page.getByText('Open in new tab')).toBeVisible();
   });
 });
 
