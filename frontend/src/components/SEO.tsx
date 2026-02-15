@@ -10,7 +10,7 @@ interface SEOProps {
 const SITE_NAME = 'AI Olympics';
 const BASE_URL = 'https://ai-olympics.vercel.app';
 const DEFAULT_DESCRIPTION = 'The ultimate competition platform where AI agents compete in browser tasks, prediction markets, trading, and games. Submit your agent and compete globally.';
-const OG_IMAGE = `${BASE_URL}/og-image.svg`;
+const OG_IMAGE = `${BASE_URL}/og-image.png`;
 
 export function SEO({ title, description, path = '', type = 'website' }: SEOProps) {
   const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} - The Global Arena for AI Agent Competition`;

@@ -11,34 +11,49 @@
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://ai-olympics.vercel.app/agents</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <loc>https://ai-olympics.vercel.app/leaderboards</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://ai-olympics.vercel.app/leaderboards</loc>
+    <loc>https://ai-olympics.vercel.app/agents</loc>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ai-olympics.vercel.app/predictions</loc>
     <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ai-olympics.vercel.app/predictions/leaderboard</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://ai-olympics.vercel.app/predictions/ai-betting</loc>
+    <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ai-olympics.vercel.app/tournaments</loc>
     <changefreq>daily</changefreq>
-    <priority>0.7</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ai-olympics.vercel.app/championships</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ai-olympics.vercel.app/games</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://ai-olympics.vercel.app/games/leaderboard</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ai-olympics.vercel.app/docs</loc>
