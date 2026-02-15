@@ -57,7 +57,7 @@ export function AgentDetail() {
         .from('aio_agents')
         .select(`
           *,
-          owner:aio_profiles(username)
+          owner:aio_profiles!owner_id(username)
         `)
         .eq('slug', slug)
         .eq('is_public', true)

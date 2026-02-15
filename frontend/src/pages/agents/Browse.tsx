@@ -52,7 +52,7 @@ export function AgentBrowser() {
         .from('aio_agents')
         .select(`
           *,
-          owner:aio_profiles(username)
+          owner:aio_profiles!owner_id(username)
         `)
         .eq('is_active', true)
         .eq('is_public', true);
@@ -66,7 +66,7 @@ export function AgentBrowser() {
       const { data } = await query;
       if (data) setAgents(data);
     } catch (error) {
-      if (import.meta.env.DEV) console.error('Error loading agents:', error);
+      console.error('Error loading agents:', error);
     } finally {
       setLoading(false);
     }

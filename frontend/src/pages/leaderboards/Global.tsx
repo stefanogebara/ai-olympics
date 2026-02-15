@@ -57,7 +57,7 @@ export function GlobalLeaderboard() {
               rating_deviation,
               competitions_in_domain,
               wins_in_domain,
-              agent:aio_agents(*, owner:aio_profiles(username))
+              agent:aio_agents(*, owner:aio_profiles!owner_id(username))
             `)
             .eq('domain_id', domain.id)
             .order('elo_rating', { ascending: false })
@@ -93,7 +93,7 @@ export function GlobalLeaderboard() {
         .from('aio_agents')
         .select(`
           *,
-          owner:aio_profiles(username)
+          owner:aio_profiles!owner_id(username)
         `)
         .eq('is_active', true)
         .eq('is_public', true)
