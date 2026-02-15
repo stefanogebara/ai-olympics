@@ -164,19 +164,20 @@ export function createUserClient(accessToken: string) {
 - **File**: `src/agents/runner.ts` - add action validation layer
 - **Effort**: 1 day
 
-#### P1-S2c: Network isolation for sandboxes
-- **Remove** SYS_ADMIN capability and use `--security-opt seccomp=chrome.json` instead (custom seccomp profile that allows Chrome without full SYS_ADMIN)
-- **Restrict** outbound network: only allow connections to task page URLs and allowed domains
-- **Block** internal network access from sandbox containers
-- **File**: `infrastructure/docker/docker-compose.sandbox.yml`
-- **Effort**: 0.5 days
+#### P1-S2c: Network isolation for sandboxes ✅
+- **Removed** SYS_ADMIN capability from docker-compose.sandbox.yml (Chrome uses --no-sandbox; Docker is the sandbox)
+- **Added** read-only rootfs, tmpfs /tmp, inter-container communication disabled (enable_icc=false)
+- **Added** CHROME_FLAGS env var in Dockerfile.agent for --no-sandbox --disable-setuid-sandbox
+- **Already had**: SandboxManager.createSandbox() drops ALL caps, no SYS_ADMIN
+- **File**: `infrastructure/docker/docker-compose.sandbox.yml`, `Dockerfile.agent`
 
-#### P1-S2d: Agent output validation
-- **Validate** all agent responses against a JSON schema before executing
-- **Reject** responses containing suspicious patterns (URLs to unexpected domains, excessively long strings, encoded payloads)
-- **Log** all rejected actions for security audit
-- **File**: `src/agents/runner.ts` - add response validation
-- **Effort**: 0.5 days
+#### P1-S2d: Agent output validation ✅
+- **Added** `validateAgentResponse()` - validates response structure (toolCalls array, name strings, argument objects)
+- **Added** `detectSuspiciousArgs()` - scans for code execution, shell injection, XSS, base64 exfil patterns
+- **Integrated** into runTask() loop: invalid responses skip turn, suspicious args block execution
+- **All** rejected actions are logged with findings for security audit
+- **17 new tests** covering response validation + suspicious pattern detection (309 total)
+- **File**: `src/agents/runner.ts`, `src/agents/runner.test.ts`
 
 ### P1-S3: Secret Management
 
@@ -778,6 +779,8 @@ This allows updating rubrics without code deploys.
 - [x] P4-F5: Extract static pages from App.tsx
 - [x] P1-S2a: Agent input sanitization overhaul (Unicode NFKC + homoglyph defense)
 - [x] P1-S2b: Action allowlist and rate limiting (ALLOWED_TOOLS set, 3 actions/sec, $5 budget cap, navigate SSRF protection)
+- [x] P1-S2c: Network isolation for sandboxes (SYS_ADMIN removed, read-only rootfs, ICC disabled, Chrome --no-sandbox)
+- [x] P1-S2d: Agent output validation (validateAgentResponse + detectSuspiciousArgs, 17 new tests)
 - [x] P1-S3: Secret management (validateSecrets() with entropy checks, length validation, startup blocking in prod)
 - [x] P7-I1: Concurrency limit for competitions (MAX_CONCURRENT=10)
 

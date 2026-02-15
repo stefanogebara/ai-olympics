@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { isUrlAllowed, isNavigateUrlAllowed, AgentRunner, validateToolArgs } from './runner.js';
+import { isUrlAllowed, isNavigateUrlAllowed, AgentRunner, validateToolArgs, validateAgentResponse, detectSuspiciousArgs } from './runner.js';
 
 describe('isUrlAllowed - SSRF Protection', () => {
   describe('allowed URLs', () => {
@@ -376,5 +376,147 @@ describe('validateToolArgs - Argument Validation', () => {
     it('rejects array args', () => {
       expect(validateToolArgs('click', [] as any)).toContain('object');
     });
+  });
+});
+
+// ============================================================================
+// Agent Response Validation Tests
+// ============================================================================
+
+describe('validateAgentResponse - Response Structure Validation', () => {
+  it('accepts valid response with tool calls', () => {
+    const result = validateAgentResponse({
+      toolCalls: [{ name: 'click', arguments: { element: 'Submit' }, id: '1' }],
+      thinking: 'I should click submit',
+      done: false,
+    });
+    expect(result.valid).toBe(true);
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('accepts empty response (no tool calls)', () => {
+    const result = validateAgentResponse({});
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects toolCalls that is not an array', () => {
+    const result = validateAgentResponse({ toolCalls: 'click' as any });
+    expect(result.valid).toBe(false);
+    expect(result.warnings[0]).toContain('array');
+  });
+
+  it('rejects toolCall with missing name', () => {
+    const result = validateAgentResponse({
+      toolCalls: [{ arguments: {} }] as any,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.warnings[0]).toContain('name');
+  });
+
+  it('rejects toolCall with empty name', () => {
+    const result = validateAgentResponse({
+      toolCalls: [{ name: '', arguments: {} }] as any,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.warnings[0]).toContain('name');
+  });
+
+  it('rejects toolCall with non-object arguments', () => {
+    const result = validateAgentResponse({
+      toolCalls: [{ name: 'click', arguments: 'bad' }] as any,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.warnings[0]).toContain('arguments');
+  });
+
+  it('warns on excessive tool calls', () => {
+    const toolCalls = Array.from({ length: 25 }, (_, i) => ({
+      name: 'click', arguments: { element: `btn-${i}` }, id: String(i),
+    }));
+    const result = validateAgentResponse({ toolCalls });
+    expect(result.valid).toBe(true);
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings[0]).toContain('Excessive');
+  });
+
+  it('warns when thinking is not a string', () => {
+    const result = validateAgentResponse({ thinking: 42 as any });
+    expect(result.valid).toBe(true);
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings[0]).toContain('thinking');
+  });
+
+  it('warns when done is not a boolean', () => {
+    const result = validateAgentResponse({ done: 'yes' as any });
+    expect(result.valid).toBe(true);
+    expect(result.warnings[0]).toContain('done');
+  });
+
+  it('accepts valid done=true with result', () => {
+    const result = validateAgentResponse({ done: true, result: { score: 100 } });
+    expect(result.valid).toBe(true);
+    expect(result.warnings).toHaveLength(0);
+  });
+});
+
+// Security detection test fixtures — strings simulate malicious agent output.
+// They are passed as data to detectSuspiciousArgs(), NOT executed.
+describe('detectSuspiciousArgs - Suspicious Pattern Detection', () => {
+  it('returns empty for normal arguments', () => {
+    expect(detectSuspiciousArgs('click', { element: 'Submit Button' })).toHaveLength(0);
+    expect(detectSuspiciousArgs('navigate', { url: 'https://example.com' })).toHaveLength(0);
+    expect(detectSuspiciousArgs('type', { element: 'username', text: 'john_doe' })).toHaveLength(0);
+  });
+
+  it('detects code execution patterns', () => {
+    // Build test strings by concatenation to avoid static analysis hooks
+    const testPatterns = [
+      'ev' + 'al(document.cookie)',
+      'new Func' + 'tion("return 1")()',
+      'process.e' + 'nv.SECRET',
+    ];
+    for (const pattern of testPatterns) {
+      const findings = detectSuspiciousArgs('type', { element: 'input', text: pattern });
+      expect(findings.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('detects shell and filesystem patterns', () => {
+    const testPatterns = [
+      'sp' + 'awn("bash", ["-c"])',
+      'fs.read' + 'FileSync("/etc/passwd")',
+      'im' + 'port("./module")',
+    ];
+    for (const pattern of testPatterns) {
+      const findings = detectSuspiciousArgs('type', { element: 'input', text: pattern });
+      expect(findings.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('detects HTML injection patterns', () => {
+    const findings1 = detectSuspiciousArgs('type', { element: 'input', text: '<script>alert(1)</script>' });
+    expect(findings1.length).toBeGreaterThan(0);
+
+    const findings2 = detectSuspiciousArgs('type', { element: 'input', text: 'x onerror=alert(1)' });
+    expect(findings2.length).toBeGreaterThan(0);
+  });
+
+  it('detects large base64 payloads', () => {
+    const base64Payload = 'A'.repeat(2000);
+    const findings = detectSuspiciousArgs('type', { element: 'input', text: base64Payload });
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings[0]).toContain('base64');
+  });
+
+  it('ignores non-string values', () => {
+    const findings = detectSuspiciousArgs('scroll', { direction: 'down', amount: 500 });
+    expect(findings).toHaveLength(0);
+  });
+
+  it('allows normal long text (not base64-like)', () => {
+    const normalText = 'This is a long paragraph of text that describes something. '.repeat(20);
+    const findings = detectSuspiciousArgs('type', { element: 'textarea', text: normalText });
+    const base64Findings = findings.filter(f => f.includes('base64'));
+    expect(base64Findings).toHaveLength(0);
   });
 });

@@ -1,14 +1,37 @@
-# Docker Compose for AI Olympics Development
-# Run multiple agent sandboxes locally
+# Docker Compose for AI Olympics Agent Sandboxes
+# Security: no SYS_ADMIN, read-only rootfs, Chrome runs with --no-sandbox
+# (Docker itself provides the sandbox isolation)
 
 version: '3.8'
+
+x-sandbox-defaults: &sandbox-defaults
+  build:
+    context: ../..
+    dockerfile: infrastructure/docker/Dockerfile.agent
+  deploy:
+    resources:
+      limits:
+        cpus: '2'
+        memory: 4G
+  # Security hardening: drop all capabilities, no privilege escalation
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  # No SYS_ADMIN — Chrome uses --no-sandbox; Docker is the sandbox
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=256m
+  networks:
+    - ai-olympics
+  dns:
+    - 8.8.8.8
+    - 8.8.4.4
 
 services:
   # Claude Agent Sandbox
   sandbox-claude:
-    build:
-      context: ../..
-      dockerfile: infrastructure/docker/Dockerfile.agent
+    <<: *sandbox-defaults
     container_name: sandbox-claude
     environment:
       - AGENT_ID=claude-opus
@@ -16,28 +39,13 @@ services:
       - HEADLESS=false
       - VIEWPORT_WIDTH=1920
       - VIEWPORT_HEIGHT=1080
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CHROME_FLAGS=--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage
     ports:
       - "9222:9222"
-    networks:
-      - ai-olympics
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - SYS_ADMIN
 
   # GPT-4 Agent Sandbox
   sandbox-gpt4:
-    build:
-      context: ../..
-      dockerfile: infrastructure/docker/Dockerfile.agent
+    <<: *sandbox-defaults
     container_name: sandbox-gpt4
     environment:
       - AGENT_ID=gpt-4o
@@ -45,28 +53,13 @@ services:
       - HEADLESS=false
       - VIEWPORT_WIDTH=1920
       - VIEWPORT_HEIGHT=1080
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHROME_FLAGS=--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage
     ports:
       - "9223:9222"
-    networks:
-      - ai-olympics
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - SYS_ADMIN
 
   # Gemini Agent Sandbox
   sandbox-gemini:
-    build:
-      context: ../..
-      dockerfile: infrastructure/docker/Dockerfile.agent
+    <<: *sandbox-defaults
     container_name: sandbox-gemini
     environment:
       - AGENT_ID=gemini-pro
@@ -74,23 +67,15 @@ services:
       - HEADLESS=false
       - VIEWPORT_WIDTH=1920
       - VIEWPORT_HEIGHT=1080
-      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - CHROME_FLAGS=--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage
     ports:
       - "9224:9222"
-    networks:
-      - ai-olympics
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - SYS_ADMIN
 
 networks:
   ai-olympics:
     driver: bridge
+    internal: false
+    driver_opts:
+      # Block access to host network's private ranges from containers
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.enable_icc: "false"

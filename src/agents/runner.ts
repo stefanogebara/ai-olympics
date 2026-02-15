@@ -203,6 +203,104 @@ export function validateToolArgs(name: string, args: Record<string, unknown>): s
   return null;
 }
 
+// ============================================================================
+// SECURITY: Agent response validation
+// ============================================================================
+
+/** Suspicious patterns that may indicate prompt injection or data exfiltration */
+const SUSPICIOUS_PATTERNS = [
+  /\beval\s*\(/i,                          // JavaScript eval
+  /\bnew\s+Function\b/i,                   // Function constructor
+  /\bimport\s*\(/i,                        // Dynamic imports
+  /\brequire\s*\(/i,                       // Node.js require
+  /\bprocess\.(env|exit|kill)\b/i,         // Process manipulation
+  /\b(child_process|exec|spawn)\b/i,       // Shell execution
+  /\bfs\.(read|write|unlink|rmdir)/i,       // Filesystem access
+  /<script[\s>]/i,                         // Script injection in type text
+  /\bon(error|load|click)\s*=/i,           // Event handler injection
+];
+
+/** Max length for any single tool argument value (strings) */
+const MAX_RESPONSE_TOOL_CALLS = 20;
+
+/**
+ * Validate the overall structure of an agent's turn response.
+ * Returns an array of warning strings (empty = valid).
+ */
+export function validateAgentResponse(response: {
+  toolCalls?: unknown;
+  thinking?: unknown;
+  done?: unknown;
+  result?: unknown;
+}): { valid: boolean; warnings: string[] } {
+  const warnings: string[] = [];
+
+  // toolCalls must be an array if present
+  if (response.toolCalls !== undefined) {
+    if (!Array.isArray(response.toolCalls)) {
+      return { valid: false, warnings: ['toolCalls must be an array'] };
+    }
+    if (response.toolCalls.length > MAX_RESPONSE_TOOL_CALLS) {
+      warnings.push(`Excessive tool calls: ${response.toolCalls.length} (max ${MAX_RESPONSE_TOOL_CALLS})`);
+    }
+    for (let i = 0; i < response.toolCalls.length; i++) {
+      const tc = response.toolCalls[i];
+      if (!tc || typeof tc !== 'object') {
+        return { valid: false, warnings: [`toolCalls[${i}] is not an object`] };
+      }
+      if (typeof tc.name !== 'string' || tc.name.length === 0) {
+        return { valid: false, warnings: [`toolCalls[${i}].name must be a non-empty string`] };
+      }
+      if (tc.arguments !== undefined && (typeof tc.arguments !== 'object' || tc.arguments === null)) {
+        return { valid: false, warnings: [`toolCalls[${i}].arguments must be an object`] };
+      }
+    }
+  }
+
+  // thinking must be a string if present
+  if (response.thinking !== undefined && typeof response.thinking !== 'string') {
+    warnings.push('thinking should be a string');
+  }
+
+  // done must be a boolean if present
+  if (response.done !== undefined && typeof response.done !== 'boolean') {
+    warnings.push('done should be a boolean');
+  }
+
+  return { valid: true, warnings };
+}
+
+/**
+ * Scan tool call arguments for suspicious patterns that may indicate
+ * prompt injection, code execution, or data exfiltration attempts.
+ * Returns a list of findings (empty = clean).
+ */
+export function detectSuspiciousArgs(toolName: string, args: Record<string, unknown>): string[] {
+  const findings: string[] = [];
+
+  for (const [key, value] of Object.entries(args)) {
+    if (typeof value !== 'string') continue;
+
+    // Check for suspicious patterns in string values
+    for (const pattern of SUSPICIOUS_PATTERNS) {
+      if (pattern.test(value)) {
+        findings.push(`Suspicious pattern in ${toolName}.${key}: ${pattern.source}`);
+        break; // One finding per field is enough
+      }
+    }
+
+    // Detect large base64-encoded payloads (potential data exfil)
+    if (value.length > 500) {
+      const base64Ratio = (value.match(/[A-Za-z0-9+/=]/g)?.length || 0) / value.length;
+      if (base64Ratio > 0.9 && value.length > 1000) {
+        findings.push(`Possible base64 payload in ${toolName}.${key} (${value.length} chars, ${(base64Ratio * 100).toFixed(0)}% b64)`);
+      }
+    }
+  }
+
+  return findings;
+}
+
 export interface AgentRunnerConfig {
   headless: boolean;
   viewport: { width: number; height: number };
@@ -378,6 +476,17 @@ export class AgentRunner {
 
         if (!turnResult) {
           throw new Error('Turn timeout');
+        }
+
+        // SECURITY: Validate response structure
+        const responseCheck = validateAgentResponse(turnResult);
+        if (!responseCheck.valid) {
+          log.warn(`Agent ${this.id} sent invalid response: ${responseCheck.warnings.join('; ')}`);
+          this.recordAction('invalid_response', responseCheck.warnings.join('; '), false, 'Invalid agent response');
+          continue; // Skip this turn
+        }
+        if (responseCheck.warnings.length > 0) {
+          log.warn(`Agent ${this.id} response warnings: ${responseCheck.warnings.join('; ')}`);
         }
 
         // SECURITY: Track token usage if the adapter reports it
@@ -694,6 +803,14 @@ export class AgentRunner {
       log.warn(`Agent ${this.id} invalid args for ${name}: ${argError}`);
       this.recordAction(name, JSON.stringify(args), false, argError);
       return `Error: Invalid arguments - ${argError}`;
+    }
+
+    // SECURITY: Scan for suspicious patterns in arguments
+    const suspiciousFindings = detectSuspiciousArgs(name, args);
+    if (suspiciousFindings.length > 0) {
+      log.warn(`Agent ${this.id} suspicious args detected`, { tool: name, findings: suspiciousFindings });
+      this.recordAction(name, JSON.stringify(args), false, `Suspicious: ${suspiciousFindings[0]}`);
+      return `Error: Action blocked - suspicious content detected`;
     }
 
     log.agent(this.id, `Executing: ${name}`, args);

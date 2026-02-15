@@ -46,6 +46,8 @@ COPY --chown=agent:agent dist/sandbox-runtime.js ./
 ENV HEADLESS=false
 ENV VIEWPORT_WIDTH=1920
 ENV VIEWPORT_HEIGHT=1080
+# Chrome runs without its own sandbox — Docker IS the sandbox
+ENV CHROME_FLAGS="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage"
 
 # Expose Chrome DevTools Protocol port
 EXPOSE 9222
