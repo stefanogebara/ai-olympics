@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev && npm install tsx
+RUN npm ci --omit=dev --ignore-scripts && npm install tsx
 
 # Copy source code
 COPY src/ ./src/
