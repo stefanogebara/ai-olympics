@@ -25,6 +25,11 @@ async function fillInput(page: Page, placeholder: string, value: string) {
   await input.fill(value);
 }
 
+async function fillSignupPasswords(page: Page, password: string, confirmPassword?: string) {
+  await page.locator('input[placeholder="••••••••"]').fill(password);
+  await page.locator('input[placeholder="Re-enter your password"]').fill(confirmPassword ?? password);
+}
+
 // ============================================================================
 // 1. PAGE LOAD & NAVIGATION TESTS
 // ============================================================================
@@ -83,8 +88,8 @@ test.describe('Auth Pages Load', () => {
     await expect(page.locator('input[placeholder="you@example.com"]')).toBeVisible();
 
     // Two password fields (password + confirm)
-    const passwordFields = page.locator('input[placeholder="••••••••"]');
-    await expect(passwordFields).toHaveCount(2);
+    await expect(page.locator('input[placeholder="••••••••"]')).toBeVisible();
+    await expect(page.locator('input[placeholder="Re-enter your password"]')).toBeVisible();
 
     // Check terms checkbox
     await expect(page.locator('#terms')).toBeVisible();
@@ -173,10 +178,7 @@ test.describe('Signup Form Validation', () => {
   test('shows error for short username (< 3 chars)', async ({ page }) => {
     await fillInput(page, 'cooluser123', 'ab');
     await fillInput(page, 'you@example.com', 'test@example.com');
-
-    const passwords = page.locator('input[placeholder="••••••••"]');
-    await passwords.nth(0).fill('ValidPass123!');
-    await passwords.nth(1).fill('ValidPass123!');
+    await fillSignupPasswords(page, 'ValidPass123!');
 
     await page.locator('#terms').check();
     await page.getByRole('button', { name: /create account/i }).click();
@@ -187,10 +189,7 @@ test.describe('Signup Form Validation', () => {
   test('shows error for short password (< 8 chars)', async ({ page }) => {
     await fillInput(page, 'cooluser123', 'testuser');
     await fillInput(page, 'you@example.com', 'test@example.com');
-
-    const passwords = page.locator('input[placeholder="••••••••"]');
-    await passwords.nth(0).fill('Short1!');
-    await passwords.nth(1).fill('Short1!');
+    await fillSignupPasswords(page, 'Short1!');
 
     await page.locator('#terms').check();
     await page.getByRole('button', { name: /create account/i }).click();
@@ -201,10 +200,7 @@ test.describe('Signup Form Validation', () => {
   test('shows error for mismatched passwords', async ({ page }) => {
     await fillInput(page, 'cooluser123', 'testuser');
     await fillInput(page, 'you@example.com', 'test@example.com');
-
-    const passwords = page.locator('input[placeholder="••••••••"]');
-    await passwords.nth(0).fill('ValidPass123!');
-    await passwords.nth(1).fill('DifferentPass456!');
+    await fillSignupPasswords(page, 'ValidPass123!', 'DifferentPass456!');
 
     await page.locator('#terms').check();
     await page.getByRole('button', { name: /create account/i }).click();
@@ -212,20 +208,22 @@ test.describe('Signup Form Validation', () => {
     await expect(page.getByText('Passwords do not match')).toBeVisible();
   });
 
-  test('username input strips special characters', async ({ page }) => {
-    const usernameInput = page.locator('input[placeholder="cooluser123"]');
-    await usernameInput.fill('Test@User!');
-    // The onChange handler strips non a-z0-9_ and lowercases
-    await expect(usernameInput).toHaveValue('testuser');
+  test('username rejects special characters on submit', async ({ page }) => {
+    await fillInput(page, 'cooluser123', 'Test@User!');
+    await fillInput(page, 'you@example.com', 'test@example.com');
+    await fillSignupPasswords(page, 'ValidPass123!');
+
+    await page.locator('#terms').check();
+    await page.getByRole('button', { name: /create account/i }).click();
+
+    // Zod validates: ^[a-z0-9_]+$ - should show validation error
+    await expect(page.getByText(/lowercase letters, numbers, and underscores/i)).toBeVisible();
   });
 
   test('terms checkbox is required (HTML validation)', async ({ page }) => {
     await fillInput(page, 'cooluser123', 'testuser');
     await fillInput(page, 'you@example.com', 'test@example.com');
-
-    const passwords = page.locator('input[placeholder="••••••••"]');
-    await passwords.nth(0).fill('ValidPass123!');
-    await passwords.nth(1).fill('ValidPass123!');
+    await fillSignupPasswords(page, 'ValidPass123!');
 
     // Don't check terms
     await page.getByRole('button', { name: /create account/i }).click();
@@ -283,10 +281,7 @@ test.describe('Signup E2E Flow', () => {
 
     await fillInput(page, 'cooluser123', TEST_USERNAME);
     await fillInput(page, 'you@example.com', TEST_EMAIL);
-
-    const passwords = page.locator('input[placeholder="••••••••"]');
-    await passwords.nth(0).fill(TEST_PASSWORD);
-    await passwords.nth(1).fill(TEST_PASSWORD);
+    await fillSignupPasswords(page, TEST_PASSWORD);
 
     await page.locator('#terms').check();
 
