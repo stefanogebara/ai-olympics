@@ -167,13 +167,13 @@ export function GlobalLeaderboard() {
 
       {/* Top 3 Podium */}
       {!loading && agents.length >= 3 && (
-        <div className="flex justify-center items-end gap-4 mb-12">
+        <div className="flex justify-center items-end gap-2 sm:gap-4 mb-12">
           {/* 2nd Place */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="w-32 md:w-40"
+            className="w-24 sm:w-32 md:w-40"
           >
             <GlassCard className="p-4 text-center">
               <div className="w-16 h-16 rounded-full bg-gray-400/20 flex items-center justify-center mx-auto mb-3 text-2xl font-bold text-gray-300">
@@ -193,7 +193,7 @@ export function GlobalLeaderboard() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-36 md:w-48"
+            className="w-28 sm:w-36 md:w-48"
           >
             <GlassCard neonBorder className="p-4 text-center">
               <Crown className="text-yellow-400 mx-auto mb-2" size={24} />
@@ -215,7 +215,7 @@ export function GlobalLeaderboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="w-32 md:w-40"
+            className="w-24 sm:w-32 md:w-40"
           >
             <GlassCard className="p-4 text-center">
               <div className="w-16 h-16 rounded-full bg-amber-600/20 flex items-center justify-center mx-auto mb-3 text-2xl font-bold text-amber-600">
@@ -242,13 +242,13 @@ export function GlobalLeaderboard() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Rank</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Agent</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Owner</th>
-                  <th className="px-6 py-4 text-right text-sm font-medium text-white/60">Rating</th>
-                  <th className="px-6 py-4 text-right text-sm font-medium text-white/60">Wins</th>
-                  <th className="px-6 py-4 text-right text-sm font-medium text-white/60">Competitions</th>
-                  <th className="px-6 py-4 text-right text-sm font-medium text-white/60">Win Rate</th>
+                  <th className="px-3 md:px-6 py-3 md:py-4 text-left text-sm font-medium text-white/60">Rank</th>
+                  <th className="px-3 md:px-6 py-3 md:py-4 text-left text-sm font-medium text-white/60">Agent</th>
+                  <th className="hidden sm:table-cell px-3 md:px-6 py-3 md:py-4 text-left text-sm font-medium text-white/60">Owner</th>
+                  <th className="px-3 md:px-6 py-3 md:py-4 text-right text-sm font-medium text-white/60">Rating</th>
+                  <th className="px-3 md:px-6 py-3 md:py-4 text-right text-sm font-medium text-white/60">Wins</th>
+                  <th className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 text-right text-sm font-medium text-white/60">Competitions</th>
+                  <th className="hidden sm:table-cell px-3 md:px-6 py-3 md:py-4 text-right text-sm font-medium text-white/60">Win Rate</th>
                 </tr>
               </thead>
               <tbody>
@@ -261,7 +261,7 @@ export function GlobalLeaderboard() {
                       transition={{ delay: index * 0.02 }}
                       className="border-b border-white/5 hover:bg-white/5 transition-colors"
                     >
-                      <td className="px-6 py-4">
+                      <td className="px-3 md:px-6 py-3 md:py-4">
                         <div className="flex items-center gap-2">
                           <span className={`font-mono font-bold ${
                             agent.rank === 1 ? 'text-yellow-400' :
@@ -285,38 +285,38 @@ export function GlobalLeaderboard() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <Link to={`/agents/${agent.slug}`} className="flex items-center gap-3 hover:opacity-80">
+                      <td className="px-3 md:px-6 py-3 md:py-4">
+                        <Link to={`/agents/${agent.slug}`} className="flex items-center gap-2 md:gap-3 hover:opacity-80">
                           <div
-                            className="w-10 h-10 rounded-lg flex items-center justify-center font-bold"
+                            className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-bold text-sm md:text-base shrink-0"
                             style={{ backgroundColor: `${agent.color}20`, color: agent.color }}
                           >
                             {agent.name.charAt(0)}
                           </div>
-                          <div>
-                            <p className="font-semibold text-white">{agent.name}</p>
-                            <p className="text-xs text-white/40">{agent.agent_type}</p>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-white truncate">{agent.name}</p>
+                            <p className="text-xs text-white/40 hidden md:block">{agent.agent_type}</p>
                           </div>
                         </Link>
                       </td>
-                      <td className="px-6 py-4 text-white/60">
+                      <td className="hidden sm:table-cell px-3 md:px-6 py-3 md:py-4 text-white/60">
                         @{agent.owner?.username || 'unknown'}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-3 md:px-6 py-3 md:py-4 text-right">
                         <span className="font-mono font-bold text-neon-cyan">
                           {agent.domain_elo ?? agent.elo_rating}
                         </span>
-                        <span className="text-white/30 text-xs font-mono ml-1">
+                        <span className="text-white/30 text-xs font-mono ml-1 hidden sm:inline">
                           {'\u00B1'}{Math.round(agent.domain_rd ?? agent.rating_deviation ?? 350)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right text-white/60">
+                      <td className="px-3 md:px-6 py-3 md:py-4 text-right text-white/60">
                         {agent.total_wins}
                       </td>
-                      <td className="px-6 py-4 text-right text-white/60">
+                      <td className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 text-right text-white/60">
                         {agent.total_competitions}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="hidden sm:table-cell px-3 md:px-6 py-3 md:py-4 text-right">
                         <span className={
                           agent.total_competitions > 0
                             ? (agent.total_wins / agent.total_competitions) >= 0.5

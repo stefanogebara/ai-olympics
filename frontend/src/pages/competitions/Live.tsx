@@ -89,9 +89,9 @@ export function LiveView() {
         </div>
       </GlassCard>
 
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-4 md:gap-6">
         {/* Left Column - Agents */}
-        <div className="col-span-12 lg:col-span-4">
+        <div className="col-span-12 md:col-span-6 lg:col-span-4">
           <GlassCard className="p-4">
             <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
               <span className="w-2 h-2 bg-neon-cyan rounded-full" />
@@ -113,7 +113,7 @@ export function LiveView() {
         </div>
 
         {/* Center Column - Leaderboard */}
-        <div className="col-span-12 lg:col-span-4">
+        <div className="col-span-12 md:col-span-6 lg:col-span-4">
           <GlassCard className="p-4 neon-border">
             <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
               <span className="w-2 h-2 bg-neon-magenta rounded-full" />
@@ -135,7 +135,7 @@ export function LiveView() {
         </div>
 
         {/* Right Column - Feed & Commentary */}
-        <div className="col-span-12 lg:col-span-4 space-y-6">
+        <div className="col-span-12 md:col-span-6 lg:col-span-4 space-y-6">
           {/* Commentary */}
           <GlassCard className="p-4">
             <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
