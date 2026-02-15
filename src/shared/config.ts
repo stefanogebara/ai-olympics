@@ -233,4 +233,106 @@ export function validateConfig(): { valid: boolean; errors: string[]; warnings: 
   };
 }
 
+// ========================================================================
+// CENTRALIZED FEATURE FLAGS
+// All feature gates in one place. Backend routes (payments, trading,
+// competitions) already check ENABLE_REAL_MONEY_TRADING; this object
+// gives a single import for new code.
+// ========================================================================
+export const featureFlags = {
+  /** Allow real-money deposits, withdrawals, and trading. */
+  realMoneyTrading: process.env.ENABLE_REAL_MONEY_TRADING === 'true',
+
+  /** Enable background market sync from PolyRouter (Polymarket + Kalshi). */
+  marketSync: process.env.ENABLE_MARKET_SYNC !== 'false', // on by default
+
+  /** Enable Polymarket CLOB direct trading. */
+  polymarketClob: process.env.POLYMARKET_CLOB_ENABLED === 'true',
+
+  /** Enable Kalshi direct trading. */
+  kalshiTrading: process.env.KALSHI_TRADING_ENABLED === 'true',
+
+  /** Enable crypto (Polygon) payments. */
+  cryptoPayments: process.env.ENABLE_CRYPTO_PAYMENTS === 'true',
+} as const;
+
+// ========================================================================
+// PRODUCTION SECRET VALIDATION
+// Called on server startup. In production, refuses to start if critical
+// secrets are missing or obviously weak. In development, logs warnings.
+// ========================================================================
+export function validateSecrets(): { valid: boolean; errors: string[]; warnings: string[] } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // JWT Secret - must be strong in production
+  const jwtSecret = process.env.JWT_SECRET || '';
+  if (isProduction) {
+    if (!jwtSecret) {
+      errors.push('JWT_SECRET is required in production');
+    } else if (jwtSecret.length < 64) {
+      errors.push('JWT_SECRET must be at least 64 characters in production');
+    }
+  } else if (!jwtSecret) {
+    warnings.push('JWT_SECRET not set - using insecure default (set for production)');
+  }
+
+  // API Key Encryption Key
+  const encKey = process.env.API_KEY_ENCRYPTION_KEY || '';
+  if (isProduction) {
+    if (!encKey) {
+      errors.push('API_KEY_ENCRYPTION_KEY is required in production');
+    } else if (encKey.length < 32) {
+      errors.push('API_KEY_ENCRYPTION_KEY must be at least 32 characters in production');
+    } else {
+      const uniqueChars = new Set(encKey).size;
+      if (uniqueChars < 10) {
+        errors.push('API_KEY_ENCRYPTION_KEY has dangerously low entropy (< 10 unique chars)');
+      }
+    }
+  } else if (!encKey) {
+    warnings.push('API_KEY_ENCRYPTION_KEY not set - using fallback (not safe for production)');
+  }
+
+  // Platform wallet private key (only if crypto payments enabled)
+  if (featureFlags.cryptoPayments || featureFlags.realMoneyTrading) {
+    if (!config.platformWalletPrivateKey) {
+      if (isProduction) {
+        errors.push('PLATFORM_WALLET_PRIVATE_KEY is required when real-money or crypto features are enabled');
+      } else {
+        warnings.push('PLATFORM_WALLET_PRIVATE_KEY not set - crypto payouts disabled');
+      }
+    }
+    if (isProduction && config.platformWalletPrivateKey) {
+      warnings.push('PLATFORM_WALLET_PRIVATE_KEY is in an env var - migrate to KMS/Vault for production');
+    }
+  }
+
+  // Stripe secrets (only if real money enabled)
+  if (featureFlags.realMoneyTrading) {
+    if (!config.stripeSecretKey) {
+      errors.push('STRIPE_SECRET_KEY is required when ENABLE_REAL_MONEY_TRADING=true');
+    }
+    if (!config.stripeWebhookSecret) {
+      errors.push('STRIPE_WEBHOOK_SECRET is required when ENABLE_REAL_MONEY_TRADING=true');
+    }
+  }
+
+  // Print summary
+  if (errors.length > 0) {
+    console.error('\n  Secret validation errors:');
+    errors.forEach(e => console.error(`    ${e}`));
+  }
+  if (warnings.length > 0) {
+    console.warn('\n  Secret validation warnings:');
+    warnings.forEach(w => console.warn(`    ${w}`));
+  }
+  if (errors.length === 0 && warnings.length === 0) {
+    console.log('  All secret checks passed');
+  }
+
+  return { valid: errors.length === 0, errors, warnings };
+}
+
 export default config;

@@ -307,10 +307,17 @@ export function MetaMarkets() {
                 </NeonText>
               </h1>
 
-              <p className="text-lg md:text-xl text-white/60 mb-8 max-w-2xl mx-auto">
+              <p className="text-lg md:text-xl text-white/60 mb-4 max-w-2xl mx-auto">
                 Bet on which AI agent will perform best in upcoming competitions.
                 Watch live matchups and win based on agent performance.
               </p>
+
+              <div className="max-w-xl mx-auto mb-8 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300 text-left flex items-start gap-2">
+                <span className="shrink-0 mt-0.5">&#9888;</span>
+                <span>
+                  <strong>Beta - Virtual Currency Only.</strong> All bets use virtual M$ (play money). No real money is involved.
+                </span>
+              </div>
 
               <NeonButton
                 onClick={loadMatchups}

@@ -455,6 +455,14 @@ export function EventDetail() {
         <span className="text-sm">Back to Markets</span>
       </button>
 
+      {/* Beta Virtual-Only Disclaimer */}
+      <div className="mb-4 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300 flex items-start gap-2">
+        <span className="shrink-0 mt-0.5">&#9888;</span>
+        <span>
+          <strong>Beta - Virtual Currency Only.</strong> All bets use virtual M$ (play money). No real money is involved.
+        </span>
+      </div>
+
       {/* Event Header */}
       <GlassCard className="p-6 mb-6">
         <div className="flex items-start gap-4">

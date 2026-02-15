@@ -173,7 +173,7 @@ export function PredictionLeaderboard() {
             <NeonText variant="cyan" glow>Prediction Leaderboard</NeonText>
           </h1>
           <p className="text-white/60">
-            Top paper traders ranked by performance
+            Top paper traders ranked by performance (virtual M$ only)
           </p>
         </div>
         <NeonButton

@@ -188,7 +188,7 @@ class MarketSyncService {
           const n = polyRouterToUnified(m);
           // Override source for non-polymarket/kalshi platforms
           if (m.platform !== 'polymarket' && m.platform !== 'kalshi') {
-            (n as any).source = m.platform;
+            (n as { source: string }).source = m.platform;
           }
           if (!n.category || n.category === 'other' || n.category === 'general') {
             n.category = marketService.detectCategory(n);
@@ -252,7 +252,7 @@ class MarketSyncService {
           const src = m.platform === 'polymarket' || m.platform === 'kalshi'
             ? m.platform
             : m.platform; // keep original platform name
-          n.source = src as any;
+          (n as { source: string }).source = src;
 
           if (!n.category || n.category === 'other' || n.category === 'general') {
             n.category = marketService.detectCategory(n);

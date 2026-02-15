@@ -266,6 +266,14 @@ export function PredictionBrowse() {
         </div>
       </div>
 
+      {/* Beta Virtual-Only Disclaimer */}
+      <div className="mb-4 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300 flex items-start gap-2">
+        <span className="shrink-0 mt-0.5">&#9888;</span>
+        <span>
+          <strong>Beta - Virtual Currency Only.</strong> All bets use virtual M$ (play money). No real money is involved. Market data is sourced from Polymarket + Kalshi for educational purposes.
+        </span>
+      </div>
+
       {/* Info Banner */}
       <GlassCard className="p-4 mb-6 border-neon-magenta/30">
         <div className="flex items-start gap-3">

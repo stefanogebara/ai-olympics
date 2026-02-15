@@ -8,7 +8,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
-import { config, validateConfig } from '../shared/config.js';
+import { config, validateConfig, validateSecrets, featureFlags } from '../shared/config.js';
 
 // Initialize Sentry for backend error tracking
 if (process.env.SENTRY_DSN) {
@@ -812,6 +812,14 @@ export function createAPIServer() {
       throw new Error(`Configuration errors: ${configCheck.errors.join('; ')}`);
     }
 
+    // Validate secrets (stricter in production)
+    log.info('Validating secrets...');
+    const secretCheck = validateSecrets();
+    if (!secretCheck.valid) {
+      log.error('Secret validation failed - server cannot start', { errors: secretCheck.errors });
+      throw new Error(`Secret validation errors: ${secretCheck.errors.join('; ')}`);
+    }
+
     // Initialize Redis (optional - gracefully degrades)
     await initRedis();
 
@@ -856,8 +864,12 @@ export function createAPIServer() {
         log.info('Market resolver started');
 
         // Start market sync service (background ingestion from Polymarket + Kalshi)
-        marketSyncService.start();
-        log.info('Market sync service started');
+        if (featureFlags.marketSync) {
+          marketSyncService.start();
+          log.info('Market sync service started');
+        } else {
+          log.info('Market sync service disabled (ENABLE_MARKET_SYNC=false)');
+        }
       });
     });
   };
