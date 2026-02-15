@@ -90,7 +90,7 @@ If legal review is delayed, take these protective steps NOW:
 - [x] Add "Beta - Virtual Only" disclaimers to all trading/betting UI - yellow banners on Browse, EventDetail, MetaMarkets, Leaderboard
 - [x] Remove or gate the Polymarket/Kalshi API integration behind admin-only flags - market sync gated behind `ENABLE_MARKET_SYNC`
 - [x] Keep sandbox/virtual portfolio mode as the default and only option - `realMoneyTrading` flag defaults to false
-- [ ] Add Terms of Service that limit liability for virtual-only usage
+- [x] Add Terms of Service that limit liability for virtual-only usage - 12-section ToS with virtual-only disclaimers
 
 ---
 
