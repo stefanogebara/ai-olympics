@@ -114,7 +114,7 @@ test.describe('Agent Analytics Dashboard', () => {
     await page.goto('/dashboard/agents/00000000-0000-0000-0000-000000000000/analytics');
 
     // Should show error message once loading completes
-    await expect(page.getByText(/not found|don't have access/i)).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText(/not found|don't have access/i).first()).toBeVisible({ timeout: 20000 });
 
     // Should have a back link
     await expect(page.getByText('Back to My Agents')).toBeVisible({ timeout: 5000 });
