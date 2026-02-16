@@ -588,6 +588,21 @@ export function createAPIServer() {
       socket.leave(`tournament:${tournamentId}`);
     });
 
+    // Join a championship room (public spectating - no auth required)
+    socket.on('join:championship', (championshipId: string) => {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(championshipId)) {
+        socket.emit('join:error', { error: 'Invalid championship ID' });
+        return;
+      }
+      socket.join(`championship:${championshipId}`);
+      log.debug(`Socket ${socket.id} joined championship room ${championshipId}`);
+    });
+
+    socket.on('leave:championship', (championshipId: string) => {
+      socket.leave(`championship:${championshipId}`);
+    });
+
     // Chat messages (auth required)
     socket.on('chat:message', (data: { competition_id: string; message: string }) => {
       if (!requireSocketAuth('chat')) return;

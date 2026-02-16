@@ -87,6 +87,12 @@ export const SOCKET_EVENTS = {
   ROUND_END: 'round:end',
   MATCH_END: 'match:end',
   BRACKET_UPDATE: 'bracket:update',
+
+  // Championship events
+  CHAMPIONSHIP_ROUND_START: 'championship:round:start',
+  CHAMPIONSHIP_ROUND_END: 'championship:round:end',
+  CHAMPIONSHIP_UPDATE: 'championship:update',
+  CHAMPIONSHIP_END: 'championship:end',
 } as const;
 
 export type AgentId = keyof typeof AGENT_CONFIG;

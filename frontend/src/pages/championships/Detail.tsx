@@ -18,6 +18,7 @@ import {
   Circle,
   Loader2,
   AlertCircle,
+  Maximize2,
 } from 'lucide-react';
 
 const formatLabels: Record<string, string> = {
@@ -434,12 +435,21 @@ export function ChampionshipDetail() {
       {/* Standings Table */}
       {championship.participants.length > 0 && (
         <div className="mb-8">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            <span className="flex items-center gap-2">
-              <Trophy size={20} className="text-yellow-400" />
-              Standings
-            </span>
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">
+              <span className="flex items-center gap-2">
+                <Trophy size={20} className="text-yellow-400" />
+                Standings
+              </span>
+            </h3>
+            {championship.status !== 'registration' && (
+              <Link to={`/championships/${id}/standings`}>
+                <NeonButton size="sm" variant="ghost" icon={<Maximize2 size={16} />}>
+                  Full Standings
+                </NeonButton>
+              </Link>
+            )}
+          </div>
           <StandingsTable
             participants={championship.participants}
             currentRound={championship.current_round}
