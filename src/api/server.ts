@@ -600,6 +600,8 @@ export function createAPIServer() {
     });
 
     socket.on('leave:championship', (championshipId: string) => {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(championshipId)) return;
       socket.leave(`championship:${championshipId}`);
     });
 
