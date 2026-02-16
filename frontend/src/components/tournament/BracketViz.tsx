@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-interface Match {
+export interface Match {
   id: string;
   round_number: number;
   match_number: number;
@@ -15,7 +15,7 @@ interface Match {
   status: string;
 }
 
-interface Participant {
+export interface Participant {
   agent_id: string;
   seed_number: number | null;
   final_placement: number | null;
@@ -30,13 +30,40 @@ interface BracketVizProps {
   participants: Participant[];
   bracketType: string;
   status: string;
+  onMatchClick?: (match: Match) => void;
+}
+
+// ============================================================================
+// BRACKET CONNECTOR COLUMN
+// ============================================================================
+
+function BracketConnectorColumn({ matchCount }: { matchCount: number }) {
+  const pairCount = Math.max(1, Math.floor(matchCount / 2));
+  return (
+    <div className="flex flex-col justify-around min-w-[32px]">
+      {Array.from({ length: pairCount }).map((_, i) => (
+        <div key={i} className="flex flex-col flex-1">
+          <div className="flex-1 border-r-2 border-t-2 border-white/15 rounded-tr" />
+          <div className="flex-1 border-r-2 border-b-2 border-white/15 rounded-br" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ============================================================================
 // SINGLE ELIMINATION BRACKET
 // ============================================================================
 
-function SingleEliminationBracket({ matches, participants }: { matches: Match[]; participants: Participant[] }) {
+function SingleEliminationBracket({
+  matches,
+  participants,
+  onMatchClick,
+}: {
+  matches: Match[];
+  participants: Participant[];
+  onMatchClick?: (match: Match) => void;
+}) {
   const { rounds, maxRound } = useMemo(() => {
     const roundMap = new Map<number, Match[]>();
     let max = 0;
@@ -51,6 +78,17 @@ function SingleEliminationBracket({ matches, participants }: { matches: Match[];
     }
     return { rounds: roundMap, maxRound: max };
   }, [matches]);
+
+  // Build seed lookup
+  const seedMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of participants) {
+      if (p.seed_number && p.agent_id) {
+        map.set(p.agent_id, p.seed_number);
+      }
+    }
+    return map;
+  }, [participants]);
 
   if (matches.length === 0) {
     return (
@@ -68,20 +106,38 @@ function SingleEliminationBracket({ matches, participants }: { matches: Match[];
     return `Round ${current}`;
   };
 
+  const roundNums = Array.from({ length: maxRound }, (_, i) => i + 1);
+
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="flex gap-8 min-w-max">
-        {Array.from({ length: maxRound }, (_, i) => i + 1).map((roundNum) => {
+      <div className="flex min-w-max">
+        {roundNums.map((roundNum, idx) => {
           const roundMatches = rounds.get(roundNum) || [];
+          const isFirstRound = roundNum === 1;
           return (
-            <div key={roundNum} className="flex flex-col gap-2 min-w-[220px]">
-              <h4 className="text-xs font-semibold text-neon-cyan uppercase tracking-wider mb-2 text-center">
-                {roundNames(maxRound, roundNum)}
-              </h4>
-              <div className="flex flex-col justify-around flex-1 gap-4">
-                {roundMatches.map((match) => (
-                  <MatchCard key={match.id} match={match} />
-                ))}
+            <div key={roundNum} className="flex">
+              {/* Connector from previous round */}
+              {idx > 0 && (
+                <BracketConnectorColumn
+                  matchCount={rounds.get(roundNums[idx - 1])?.length || 0}
+                />
+              )}
+
+              {/* Round column */}
+              <div className="flex flex-col gap-2 min-w-[220px]">
+                <h4 className="text-xs font-semibold text-neon-cyan uppercase tracking-wider mb-2 text-center">
+                  {roundNames(maxRound, roundNum)}
+                </h4>
+                <div className="flex flex-col justify-around flex-1 gap-4">
+                  {roundMatches.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      seedMap={isFirstRound ? seedMap : undefined}
+                      onClick={onMatchClick ? () => onMatchClick(match) : undefined}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           );
@@ -91,26 +147,43 @@ function SingleEliminationBracket({ matches, participants }: { matches: Match[];
   );
 }
 
-function MatchCard({ match }: { match: Match }) {
+// ============================================================================
+// MATCH CARD (exported)
+// ============================================================================
+
+export function MatchCard({
+  match,
+  seedMap,
+  onClick,
+}: {
+  match: Match;
+  seedMap?: Map<string, number>;
+  onClick?: () => void;
+}) {
   const isCompleted = match.status === 'completed';
   const isBye = match.is_bye;
   const isRunning = match.status === 'running';
 
   return (
     <div
-      className={`rounded-lg border overflow-hidden ${
+      className={`bracket-match rounded-lg border overflow-hidden transition-colors ${
         isRunning
-          ? 'border-neon-green/50 bg-neon-green/5'
+          ? 'border-neon-green/50 bg-neon-green/5 animate-glow-pulse'
           : isCompleted
           ? 'border-white/10 bg-cyber-elevated/50'
           : 'border-white/5 bg-cyber-dark/50'
-      }`}
+      } ${onClick ? 'cursor-pointer hover:border-neon-cyan/40 hover:bg-white/5' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
     >
       <MatchSlot
         agent={match.agent_1}
         score={match.agent_1_score}
         isWinner={match.winner_id === match.agent_1_id && match.agent_1_id !== null}
         isBye={false}
+        seed={seedMap?.get(match.agent_1_id || '')}
       />
       <div className="border-t border-white/5" />
       <MatchSlot
@@ -118,6 +191,7 @@ function MatchCard({ match }: { match: Match }) {
         score={match.agent_2_score}
         isWinner={match.winner_id === match.agent_2_id && match.agent_2_id !== null}
         isBye={isBye && !match.agent_2}
+        seed={seedMap?.get(match.agent_2_id || '')}
       />
       {isRunning && (
         <div className="px-2 py-1 bg-neon-green/10 text-neon-green text-[10px] font-medium text-center uppercase tracking-wider">
@@ -128,16 +202,22 @@ function MatchCard({ match }: { match: Match }) {
   );
 }
 
-function MatchSlot({
+// ============================================================================
+// MATCH SLOT (exported)
+// ============================================================================
+
+export function MatchSlot({
   agent,
   score,
   isWinner,
   isBye,
+  seed,
 }: {
   agent: { id: string; name: string; color: string } | null;
   score: number | null;
   isWinner: boolean;
   isBye: boolean;
+  seed?: number;
 }) {
   if (isBye) {
     return (
@@ -162,6 +242,9 @@ function MatchSlot({
       }`}
     >
       <div className="flex items-center gap-2 min-w-0">
+        {seed !== undefined && (
+          <span className="text-[10px] text-white/30 w-4 text-right flex-shrink-0">{seed}</span>
+        )}
         <div
           className="w-2 h-2 rounded-full flex-shrink-0"
           style={{ backgroundColor: agent.color }}
@@ -187,7 +270,7 @@ function MatchSlot({
 // STANDINGS TABLE (for round-robin and swiss)
 // ============================================================================
 
-function StandingsTable({ participants }: { participants: Participant[] }) {
+export function StandingsTable({ participants }: { participants: Participant[] }) {
   const sorted = useMemo(
     () => [...participants].sort((a, b) => (a.final_placement || 999) - (b.final_placement || 999)),
     [participants]
@@ -240,9 +323,9 @@ function StandingsTable({ participants }: { participants: Participant[] }) {
 // MAIN COMPONENT
 // ============================================================================
 
-export function BracketViz({ matches, participants, bracketType, status }: BracketVizProps) {
-  if (bracketType === 'single-elimination') {
-    return <SingleEliminationBracket matches={matches} participants={participants} />;
+export function BracketViz({ matches, participants, bracketType, status, onMatchClick }: BracketVizProps) {
+  if (bracketType === 'single-elimination' || bracketType === 'double-elimination') {
+    return <SingleEliminationBracket matches={matches} participants={participants} onMatchClick={onMatchClick} />;
   }
 
   // Round-robin and swiss show standings table + match results
@@ -259,7 +342,7 @@ export function BracketViz({ matches, participants, bracketType, status }: Brack
             {matches
               .filter(m => !m.is_bye)
               .map((match) => (
-                <MatchCard key={match.id} match={match} />
+                <MatchCard key={match.id} match={match} onClick={onMatchClick ? () => onMatchClick(match) : undefined} />
               ))}
           </div>
         </div>

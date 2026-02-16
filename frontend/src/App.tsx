@@ -38,6 +38,7 @@ const GamesPlay = lazy(() => import('./pages/games/Play').then(m => ({ default: 
 const GamesLeaderboard = lazy(() => import('./pages/games/Leaderboard').then(m => ({ default: m.GamesLeaderboard })));
 const TournamentBrowse = lazy(() => import('./pages/tournaments/Browse').then(m => ({ default: m.TournamentBrowse })));
 const TournamentDetail = lazy(() => import('./pages/tournaments/Detail').then(m => ({ default: m.TournamentDetail })));
+const TournamentBracketPage = lazy(() => import('./pages/tournaments/Bracket').then(m => ({ default: m.TournamentBracketPage })));
 const ChampionshipBrowse = lazy(() => import('./pages/championships/Browse').then(m => ({ default: m.ChampionshipBrowse })));
 const ChampionshipDetail = lazy(() => import('./pages/championships/Detail').then(m => ({ default: m.ChampionshipDetail })));
 const DocsPage = lazy(() => import('./pages/static/Docs').then(m => ({ default: m.DocsPage })));
@@ -101,6 +102,7 @@ export default function App() {
             {/* Tournament Routes */}
             <Route path="/tournaments" element={<TournamentBrowse />} />
             <Route path="/tournaments/:id" element={<TournamentDetail />} />
+            <Route path="/tournaments/:id/bracket" element={<TournamentBracketPage />} />
 
             {/* Championship Routes */}
             <Route path="/championships" element={<ChampionshipBrowse />} />

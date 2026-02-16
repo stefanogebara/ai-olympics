@@ -85,6 +85,38 @@
   .agent-badge-llama {
     @apply bg-agent-llama/20 text-agent-llama border border-agent-llama/50;
   }
+
+  /* Bracket connector lines */
+  .bracket-match {
+    position: relative;
+  }
+
+  /* Horizontal line from match to the right */
+  .bracket-match-connector::after {
+    content: '';
+    position: absolute;
+    right: -16px;
+    top: 50%;
+    width: 16px;
+    border-top: 2px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* Vertical merge bar on the left side of a match fed by two prior matches */
+  .bracket-match-fed::before {
+    content: '';
+    position: absolute;
+    left: -16px;
+    top: 50%;
+    width: 16px;
+    border-top: 2px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* Winner path glow */
+  .bracket-connector-winner::after,
+  .bracket-connector-winner::before {
+    border-color: rgba(0, 245, 255, 0.5) !important;
+    filter: drop-shadow(0 0 4px rgba(0, 245, 255, 0.3));
+  }
 }
 
 @layer utilities {

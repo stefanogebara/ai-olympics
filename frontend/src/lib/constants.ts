@@ -79,6 +79,14 @@ export const SOCKET_EVENTS = {
 
   // Voting
   VOTE_UPDATE: 'vote:update',
+
+  // Tournament events
+  TOURNAMENT_START: 'tournament:start',
+  TOURNAMENT_END: 'tournament:end',
+  ROUND_START: 'round:start',
+  ROUND_END: 'round:end',
+  MATCH_END: 'match:end',
+  BRACKET_UPDATE: 'bracket:update',
 } as const;
 
 export type AgentId = keyof typeof AGENT_CONFIG;

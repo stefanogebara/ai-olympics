@@ -14,6 +14,7 @@ import {
   Clock,
   GitBranch,
   LogOut,
+  Maximize2,
 } from 'lucide-react';
 
 const bracketLabels: Record<string, string> = {
@@ -370,9 +371,16 @@ export function TournamentDetail() {
       {/* Bracket / Matches */}
       {(tournament.status === 'running' || tournament.status === 'completed') && (
         <GlassCard className="p-6 mb-8">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            {tournament.bracket_type === 'single-elimination' ? 'Bracket' : 'Standings & Matches'}
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">
+              {tournament.bracket_type === 'single-elimination' ? 'Bracket' : 'Standings & Matches'}
+            </h3>
+            <Link to={`/tournaments/${id}/bracket`}>
+              <NeonButton size="sm" variant="ghost" icon={<Maximize2 size={16} />}>
+                Full Bracket
+              </NeonButton>
+            </Link>
+          </div>
           <BracketViz
             matches={tournament.matches || []}
             participants={tournament.participants}
