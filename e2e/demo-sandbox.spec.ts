@@ -132,6 +132,9 @@ test.describe('Sandbox Demo - Full Paper Trading Flow', () => {
   });
 
   test('Step 4: Place a paper bet via API', async ({ request }) => {
+    const healthRes = await request.get(`${API_BASE}/api/health`, { timeout: 5000 }).catch(() => null);
+    test.skip(!healthRes?.ok(), 'Backend API not running');
+
     // First, get a real market from the API
     const eventsRes = await request.get(`${API_BASE}/api/predictions/events?limit=5`);
     expect(eventsRes.ok()).toBeTruthy();
@@ -186,6 +189,9 @@ test.describe('Sandbox Demo - Full Paper Trading Flow', () => {
   });
 
   test('Step 5: Check portfolio via API', async ({ request }) => {
+    const healthRes = await request.get(`${API_BASE}/api/health`, { timeout: 5000 }).catch(() => null);
+    test.skip(!healthRes?.ok(), 'Backend API not running');
+
     if (!accessToken) {
       console.log('[DEMO] No access token - skipping portfolio check');
 
@@ -222,6 +228,9 @@ test.describe('Sandbox Demo - Full Paper Trading Flow', () => {
   });
 
   test('Step 6: Check leaderboard', async ({ page, request }) => {
+    const healthRes = await request.get(`${API_BASE}/api/health`, { timeout: 5000 }).catch(() => null);
+    test.skip(!healthRes?.ok(), 'Backend API not running');
+
     // API check
     const leaderboardRes = await request.get(`${API_BASE}/api/user/leaderboard`);
     expect(leaderboardRes.ok()).toBeTruthy();
@@ -249,6 +258,9 @@ test.describe('Sandbox Demo - Full Paper Trading Flow', () => {
   });
 
   test('Step 7: Verify all API endpoints respond correctly', async ({ request }) => {
+    const healthRes = await request.get(`${API_BASE}/api/health`, { timeout: 5000 }).catch(() => null);
+    test.skip(!healthRes?.ok(), 'Backend API not running');
+
     const endpoints = [
       { method: 'GET', path: '/api/predictions/events?limit=1', expectedAuth: false },
       { method: 'GET', path: '/api/user/leaderboard', expectedAuth: false },

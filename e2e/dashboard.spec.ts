@@ -72,10 +72,8 @@ test.describe('Dashboard Overview', () => {
   });
 
   test('stats cards display numeric values', async ({ page }) => {
-    // Wait for data to load
-    await page.waitForFunction(() => {
-      return !document.querySelector('.animate-spin');
-    }, { timeout: 15000 });
+    // Wait for stat values to render (loading state uses animate-pulse skeletons, not animate-spin)
+    await page.locator('.font-mono.font-bold').first().waitFor({ timeout: 20000 }).catch(() => {});
 
     // Each stat card has a value rendered as a <p> with font-mono font-bold
     const statValues = page.locator('.font-mono.font-bold');
@@ -217,7 +215,7 @@ test.describe('Portfolio Dashboard', () => {
   });
 
   test('shows Open Positions section', async ({ page }) => {
-    await expect(page.getByText('Open Positions')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Open Positions' })).toBeVisible({ timeout: 15000 });
 
     // Should show either positions or empty state "No open positions"
     const hasPositions = await page.getByText('active').isVisible().catch(() => false);

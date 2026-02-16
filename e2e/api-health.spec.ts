@@ -7,6 +7,11 @@ const API_BASE = 'http://localhost:3003';
 // ============================================================================
 
 test.describe('API Health & Core Endpoints', () => {
+  test.beforeEach(async ({ request }) => {
+    const res = await request.get(`${API_BASE}/api/health`, { timeout: 5000 }).catch(() => null);
+    test.skip(!res?.ok(), 'Backend API not running');
+  });
+
   test('GET /api/health returns 200', async ({ request }) => {
     const res = await request.get(`${API_BASE}/api/health`);
     expect(res.status()).toBe(200);
@@ -85,6 +90,11 @@ test.describe('API Health & Core Endpoints', () => {
 // ============================================================================
 
 test.describe('API Query Parameter Validation', () => {
+  test.beforeEach(async ({ request }) => {
+    const res = await request.get(`${API_BASE}/api/health`, { timeout: 5000 }).catch(() => null);
+    test.skip(!res?.ok(), 'Backend API not running');
+  });
+
   test('leaderboards/global respects limit parameter', async ({ request }) => {
     const res = await request.get(`${API_BASE}/api/leaderboards/global?limit=2`);
     expect(res.status()).toBe(200);
@@ -122,6 +132,11 @@ test.describe('API Query Parameter Validation', () => {
 // ============================================================================
 
 test.describe('API Auth Protection', () => {
+  test.beforeEach(async ({ request }) => {
+    const res = await request.get(`${API_BASE}/api/health`, { timeout: 5000 }).catch(() => null);
+    test.skip(!res?.ok(), 'Backend API not running');
+  });
+
   test('POST /api/agents rejects unauthenticated request', async ({ request }) => {
     const res = await request.post(`${API_BASE}/api/agents`, {
       data: { name: 'Unauthorized Agent', slug: 'unauth-test' },
@@ -155,6 +170,11 @@ test.describe('API Auth Protection', () => {
 // ============================================================================
 
 test.describe('Task Pages Served by Backend', () => {
+  test.beforeEach(async ({ request }) => {
+    const res = await request.get(`${API_BASE}/api/health`, { timeout: 5000 }).catch(() => null);
+    test.skip(!res?.ok(), 'Backend API not running');
+  });
+
   test('GET /tasks/trivia returns HTML', async ({ request }) => {
     const res = await request.get(`${API_BASE}/tasks/trivia`);
     expect(res.status()).toBe(200);

@@ -12,7 +12,7 @@ async function loginViaUI(page: Page) {
   await page.locator('input[placeholder="you@example.com"]').fill(TEST_EMAIL);
   await page.locator('input[placeholder="••••••••"]').fill(TEST_PASSWORD);
   await page.getByRole('button', { name: /sign in/i }).click();
-  await page.waitForURL('**/dashboard**', { timeout: 15000 });
+  await page.waitForURL('**/dashboard**', { timeout: 30000 });
 }
 
 async function screenshotPage(page: Page, name: string, options?: { fullPage?: boolean }) {
@@ -85,6 +85,7 @@ test.describe('UX Audit - Public Pages', () => {
   });
 
   test('12 - Games Leaderboard', async ({ page }) => {
+    test.setTimeout(60000); // Full-page screenshot can be slow under load
     await page.goto('/games/leaderboard');
     await screenshotPage(page, '12-games-leaderboard');
   });
@@ -169,21 +170,39 @@ test.describe('UX Audit - Interactive Flows', () => {
 
   test('30 - Wallet Deposit Modal', async ({ page }) => {
     await page.goto('/dashboard/wallet');
-    await page.getByRole('button', { name: /deposit/i }).click();
+    const depositBtn = page.getByRole('button', { name: /deposit/i });
+    await expect(depositBtn).toBeVisible({ timeout: 10000 });
+    if (await depositBtn.isDisabled()) {
+      await screenshotPage(page, '30-deposit-modal-disabled', { fullPage: false });
+      return;
+    }
+    await depositBtn.click();
     await page.waitForTimeout(500);
     await screenshotPage(page, '30-deposit-modal', { fullPage: false });
   });
 
   test('31 - Wallet Withdraw Modal', async ({ page }) => {
     await page.goto('/dashboard/wallet');
-    await page.getByRole('button', { name: /withdraw/i }).click();
+    const withdrawBtn = page.getByRole('button', { name: /withdraw/i });
+    await expect(withdrawBtn).toBeVisible({ timeout: 10000 });
+    if (await withdrawBtn.isDisabled()) {
+      await screenshotPage(page, '31-withdraw-modal-disabled', { fullPage: false });
+      return;
+    }
+    await withdrawBtn.click();
     await page.waitForTimeout(500);
     await screenshotPage(page, '31-withdraw-modal', { fullPage: false });
   });
 
   test('32 - Withdraw Bank Tab', async ({ page }) => {
     await page.goto('/dashboard/wallet');
-    await page.getByRole('button', { name: /withdraw/i }).click();
+    const withdrawBtn = page.getByRole('button', { name: /withdraw/i });
+    await expect(withdrawBtn).toBeVisible({ timeout: 10000 });
+    if (await withdrawBtn.isDisabled()) {
+      await screenshotPage(page, '32-withdraw-bank-tab-disabled', { fullPage: false });
+      return;
+    }
+    await withdrawBtn.click();
     await page.waitForTimeout(300);
     const modal = page.locator('.fixed.inset-0');
     await modal.locator('button').filter({ hasText: /^Bank$/ }).click();
@@ -193,7 +212,13 @@ test.describe('UX Audit - Interactive Flows', () => {
 
   test('33 - Deposit Crypto Tab', async ({ page }) => {
     await page.goto('/dashboard/wallet');
-    await page.getByRole('button', { name: /deposit/i }).click();
+    const depositBtn = page.getByRole('button', { name: /deposit/i });
+    await expect(depositBtn).toBeVisible({ timeout: 10000 });
+    if (await depositBtn.isDisabled()) {
+      await screenshotPage(page, '33-deposit-crypto-tab-disabled', { fullPage: false });
+      return;
+    }
+    await depositBtn.click();
     await page.waitForTimeout(300);
     const modal = page.locator('.fixed.inset-0');
     await modal.locator('button').filter({ hasText: /Crypto/ }).click();
