@@ -250,7 +250,7 @@ registerTask({
 
 ### Current Setup
 - **Frontend**: Vercel (auto-deploys from main branch, SPA rewrites)
-- **Backend**: Manual deployment (needs CI/CD - see PLAN.md)
+- **Backend**: Fly.io (auto-deploys from main via GitHub Actions CI/CD)
 - **Database**: Supabase managed PostgreSQL
 - **Edge Functions**: `agent-manage` (agent CRUD), `verification` (reverse CAPTCHA)
 - **Docker**: Agent sandboxes via docker-compose
@@ -301,7 +301,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Pre-commit hooks (Husky + lint-staged, TypeScript check)
 - [x] Static pages: Docs (6-tab API docs), Privacy Policy, Terms of Service
 - [x] UX audit fixes: 30+ of 40 issues resolved
-- [x] CI/CD pipeline (GitHub Actions: build, test, e2e, security audit)
+- [x] CI/CD pipeline (GitHub Actions: typecheck, unit tests, build, security audit, Fly.io auto-deploy on main)
 - [x] Google Fonts properly imported in index.html (Orbitron, Inter, JetBrains Mono)
 - [x] AI judging bias mitigated (JUDGE_MAP cross-provider judging)
 - [x] API keys encrypted server-side with AES-256-GCM (routed through backend API)
@@ -358,7 +358,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] 254 unit tests (agent runner, adapters, competition controller, services)
 - [x] E2E test suite (15 Playwright spec files)
 - [x] Server-side API key encryption (AES-256-GCM via backend route, not client-side)
-- [x] CI/CD pipeline (GitHub Actions: 4-job build/test/e2e/security)
+- [x] CI/CD pipeline (GitHub Actions: 5-job typecheck/test/build/security/deploy)
 
 ---
 
