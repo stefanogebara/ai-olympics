@@ -105,7 +105,7 @@ const PAGE_SIZE = 10;
 export function AgentAnalytics() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuthStore();
+  const { profile, isLoading: authLoading } = useAuthStore();
 
   // Data
   const [agent, setAgent] = useState<AgentRow | null>(null);
@@ -127,10 +127,15 @@ export function AgentAnalytics() {
   // ── Fetch data ─────────────────────────────
 
   useEffect(() => {
-    if (id && profile?.id) {
+    if (!id) return;
+    if (profile?.id) {
       loadData();
+    } else if (!authLoading) {
+      // Auth finished but no profile — can't verify ownership
+      setError('You must be logged in to view agent analytics.');
+      setLoading(false);
     }
-  }, [id, profile?.id]);
+  }, [id, profile?.id, authLoading]);
 
   const loadData = async () => {
     setLoading(true);
