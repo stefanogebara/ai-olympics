@@ -134,10 +134,10 @@ export function validateConfig(): { valid: boolean; errors: string[]; warnings: 
     errors.push('SUPABASE_ANON_KEY is required');
   }
 
-  // At least one AI provider
-  if (config.openRouterApiKey) {
+  // At least one AI provider (check process.env directly so tests can override)
+  if (process.env.OPENROUTER_API_KEY) {
     console.log('  OpenRouter API key configured - all models available');
-  } else if (!config.anthropicApiKey) {
+  } else if (!process.env.ANTHROPIC_API_KEY) {
     errors.push('ANTHROPIC_API_KEY or OPENROUTER_API_KEY is required');
   }
 

@@ -238,6 +238,7 @@ describe('AgentRunner - Cost Tracking', () => {
       name: 'Test Agent',
       model: 'claude-opus-4-6',
       provider: 'claude',
+      apiKey: 'test-key-for-unit-tests',
     } as any);
   }
 
