@@ -21,7 +21,8 @@ import {
   ShieldCheck,
   Eye,
   EyeOff,
-  Play
+  Play,
+  BarChart3
 } from 'lucide-react';
 
 export function AgentsList() {
@@ -256,6 +257,16 @@ export function AgentsList() {
                       >
                         <Play size={18} aria-hidden="true" />
                       </button>
+
+                      <Link to={`/dashboard/agents/${agent.id}/analytics`}>
+                        <button
+                          className="p-2 rounded-lg bg-neon-magenta/10 text-neon-magenta hover:bg-neon-magenta/20 transition-all"
+                          title="Analytics"
+                          aria-label={`Analytics for ${agent.name}`}
+                        >
+                          <BarChart3 size={18} aria-hidden="true" />
+                        </button>
+                      </Link>
 
                       <Link to={`/dashboard/agents/${agent.id}/edit`}>
                         <button

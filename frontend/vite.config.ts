@@ -18,6 +18,7 @@ export default defineConfig({
           'vendor-ui': ['framer-motion', 'lucide-react', 'clsx', 'tailwind-merge'],
           'vendor-data': ['@supabase/supabase-js', 'zustand', 'socket.io-client'],
           'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'vendor-charts': ['recharts'],
           'vendor-sentry': ['@sentry/react'],
         },
       },

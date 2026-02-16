@@ -32,6 +32,7 @@ const MyCompetitions = lazy(() => import('./pages/dashboard/MyCompetitions').the
 const CreateCompetition = lazy(() => import('./pages/dashboard/CreateCompetition').then(m => ({ default: m.CreateCompetition })));
 const VerificationFlow = lazy(() => import('./components/agents/VerificationFlow').then(m => ({ default: m.VerificationFlow })));
 const Sandbox = lazy(() => import('./pages/dashboard/Sandbox').then(m => ({ default: m.Sandbox })));
+const AgentAnalytics = lazy(() => import('./pages/dashboard/AgentAnalytics').then(m => ({ default: m.AgentAnalytics })));
 const GamesBrowse = lazy(() => import('./pages/games/Browse').then(m => ({ default: m.GamesBrowse })));
 const GamesPlay = lazy(() => import('./pages/games/Play').then(m => ({ default: m.GamesPlay })));
 const GamesLeaderboard = lazy(() => import('./pages/games/Leaderboard').then(m => ({ default: m.GamesLeaderboard })));
@@ -117,6 +118,7 @@ export default function App() {
               <Route path="agents/create" element={<AgentForm />} />
               <Route path="agents/:id/edit" element={<AgentForm />} />
               <Route path="agents/:id/verify" element={<VerificationFlow />} />
+              <Route path="agents/:id/analytics" element={<AgentAnalytics />} />
               <Route path="portfolio" element={<PortfolioDashboard />} />
               <Route path="competitions" element={<MyCompetitions />} />
               <Route path="competitions/create" element={<CreateCompetition />} />
