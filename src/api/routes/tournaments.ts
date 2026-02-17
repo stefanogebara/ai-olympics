@@ -156,7 +156,7 @@ router.post('/:id/join', requireAuth, validateBody(joinTournamentSchema), async 
     // Verify tournament is open (public read)
     const { data: tournament } = await supabase
       .from('aio_tournaments')
-      .select('*, participant_count:aio_tournament_participants(count)')
+      .select('id, status, max_participants, created_by, participant_count:aio_tournament_participants(count)')
       .eq('id', id)
       .single();
 
@@ -224,7 +224,7 @@ router.post('/:id/join', requireAuth, validateBody(joinTournamentSchema), async 
     // Fetch the created participant (public read of newly created record)
     const { data: participant } = await supabase
       .from('aio_tournament_participants')
-      .select('*')
+      .select('id, tournament_id, agent_id, user_id, seed, created_at')
       .eq('id', joinId)
       .single();
 
@@ -284,7 +284,7 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
     // Use user-scoped client to verify ownership
     const { data: tournament } = await userDb
       .from('aio_tournaments')
-      .select('*, participant_count:aio_tournament_participants(count)')
+      .select('id, status, created_by, domain_id, bracket_type, task_ids, best_of, max_participants, participant_count:aio_tournament_participants(count)')
       .eq('id', id)
       .single();
 

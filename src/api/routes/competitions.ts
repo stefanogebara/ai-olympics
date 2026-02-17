@@ -221,7 +221,7 @@ router.post('/:id/join', requireAuth, validateBody(joinCompetitionSchema), async
     // Verify competition is open
     const { data: competition } = await supabase
       .from('aio_competitions')
-      .select('*, participant_count:aio_competition_participants(count)')
+      .select('id, status, max_participants, stake_mode, entry_fee, participant_count:aio_competition_participants(count)')
       .eq('id', id)
       .single();
 
@@ -342,7 +342,7 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
     const userDb = (req as AuthenticatedRequest).userClient;
     const { data: competition } = await userDb
       .from('aio_competitions')
-      .select('*, participant_count:aio_competition_participants(count)')
+      .select('id, status, created_by, domain_id, task_ids, max_participants, stake_mode, entry_fee, participant_count:aio_competition_participants(count)')
       .eq('id', id)
       .single();
 
@@ -558,7 +558,7 @@ router.get('/domains/list', async (_req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('aio_domains')
-      .select('*')
+      .select('id, name, slug, description, icon')
       .order('name');
 
     if (error) throw error;

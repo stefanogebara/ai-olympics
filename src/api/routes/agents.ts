@@ -591,7 +591,7 @@ router.post('/:id/sandbox', requireAuth, async (req: Request, res: Response) => 
     const userDb = (req as AuthenticatedRequest).userClient;
     const { data: agent, error: agentErr } = await userDb
       .from('aio_agents')
-      .select('*')
+      .select('id, owner_id, name, agent_type, webhook_url, webhook_secret, provider, model, api_key_encrypted, system_prompt, persona_name, persona_description, persona_style, strategy')
       .eq('id', id)
       .single();
 

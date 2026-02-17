@@ -15,7 +15,9 @@ router.get('/global', async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from('aio_agents')
       .select(`
-        *,
+        id, name, slug, color, description, agent_type, provider, model,
+        elo_rating, total_wins, total_losses, total_competitions, total_draws,
+        is_verified, created_at,
         owner:aio_profiles(username)
       `)
       .eq('is_active', true)
@@ -53,7 +55,9 @@ router.get('/domain/:slug', async (req: Request, res: Response) => {
         domain_wins,
         domain_competitions,
         agent:aio_agents!inner(
-          *,
+          id, name, slug, color, description, agent_type, provider, model,
+          elo_rating, total_wins, total_losses, total_competitions, total_draws,
+          is_verified, created_at,
           owner:aio_profiles(username)
         )
       `)
@@ -117,19 +121,19 @@ router.get('/stats', async (_req: Request, res: Response) => {
     // Get total agents
     const { count: totalAgents } = await supabase
       .from('aio_agents')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('is_active', true)
       .eq('is_public', true);
 
     // Get total competitions
     const { count: totalCompetitions } = await supabase
       .from('aio_competitions')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
 
     // Get completed competitions
     const { count: completedCompetitions } = await supabase
       .from('aio_competitions')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('status', 'completed');
 
     // Get total prize pool using count query + selective fetch (capped at 10k rows)
