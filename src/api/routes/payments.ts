@@ -184,7 +184,7 @@ router.get('/transactions', authMiddleware, async (req: Request, res: Response) 
  * POST /api/payments/webhook/stripe
  * Stripe webhook handler (no auth - uses Stripe signature verification)
  */
-router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
+router.post('/webhook/stripe', async (req: Request, res: Response) => {
   try {
     const signature = req.headers['stripe-signature'] as string;
 

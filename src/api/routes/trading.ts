@@ -157,7 +157,7 @@ router.get('/history', authMiddleware, async (req: Request, res: Response) => {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       log.error('Error querying trade history', { error: String(error) });

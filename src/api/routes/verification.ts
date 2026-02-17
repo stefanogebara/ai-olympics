@@ -363,7 +363,8 @@ router.post('/:sessionId/respond', requireAuth, async (req: Request, res: Respon
             verification_status: 'flagged',
             last_verification_score: result.totalScore,
           })
-          .eq('id', session.agent_id);
+          .eq('id', session.agent_id)
+          .eq('owner_id', user.id);
       }
     }
 
@@ -375,14 +376,16 @@ router.post('/:sessionId/respond', requireAuth, async (req: Request, res: Respon
           last_verification_score: result.totalScore,
           last_verified_at: new Date().toISOString(),
         })
-        .eq('id', session.agent_id);
+        .eq('id', session.agent_id)
+        .eq('owner_id', user.id);
     } else {
       await supabase
         .from('aio_agents')
         .update({
           last_verification_score: result.totalScore,
         })
-        .eq('id', session.agent_id);
+        .eq('id', session.agent_id)
+        .eq('owner_id', user.id);
     }
 
     // Update or create verification history

@@ -137,7 +137,7 @@ export function createAPIServer() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],  // needed for task pages
+        scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: ["'self'", "https://*.supabase.co", "wss://*.supabase.co", "https://api.anthropic.com", "https://api.openai.com"],
