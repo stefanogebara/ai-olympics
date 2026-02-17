@@ -341,6 +341,10 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Security audit: meta-markets route ordering fixed (/user/bets before /:id/bets)
 - [x] Security audit: stats prize pool query capped with limit and null filter
 - [x] Security audit: stray Windows nul file artifacts cleaned up
+- [x] Security audit: admin layout loading guard prevents flash for non-admin users (Layout.tsx)
+- [x] Security audit: admin routes return generic error messages instead of raw err.message (admin.ts, 7 endpoints)
+- [x] Security audit: championships error responses hide internal details on 500s (championships.ts)
+- [x] Security audit: webhook test returns generic failure message (agents.ts)
 
 ---
 
