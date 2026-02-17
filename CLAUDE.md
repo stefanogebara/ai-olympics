@@ -288,7 +288,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 
 ### Resolved
 - [x] Admin dashboard and moderation tools (admin routes + UserManagement, AgentModeration, CompetitionManagement)
-- [x] Test coverage: 254 unit tests across 13 test files (was <5%)
+- [x] Test coverage: 309 unit tests across 14 test files (was <5%)
 - [x] Error boundaries in React frontend (ErrorBoundary wraps router, Sentry integration)
 - [x] Socket.IO auth (JWT-based, falls back gracefully)
 - [x] Circuit breakers for external API failures (circuit-breaker.ts)
@@ -306,7 +306,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] AI judging bias mitigated (JUDGE_MAP cross-provider judging)
 - [x] API keys encrypted server-side with AES-256-GCM (routed through backend API)
 - [x] In-memory event bus crash recovery (Redis snapshots, auto-cancel interrupted competitions)
-- [x] `any` types reduced from 36 to 3 (1 consolidated socket type, 2 in code examples)
+- [x] `any` types reduced from 36 to 3 (typed AuthenticatedSocket interface, 2 in code examples)
 - [x] Prediction Browse page refactored (split into EventCard, types, utils)
 - [x] Predictions type filter removed (outcomeType not applicable to unified events)
 - [x] Persona sanitization hardened (Unicode NFKC + homoglyph defense, 26 injection patterns, 254 tests)
@@ -325,6 +325,22 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Foreign key indexes: 25 indexes on frequently queried FK columns across all aio_ tables
 - [x] Edge Function source code in repo (supabase/functions/agent-manage, verification)
 - [x] Competitive analysis document (docs/competitive-analysis.md)
+- [x] Security audit: admin guard on market resolution endpoint (requireAdmin on POST /resolve-market)
+- [x] Security audit: PostgREST filter injection sanitized in admin search (admin.ts)
+- [x] Security audit: CSP hardened — removed unsafe-eval from scriptSrc (server.ts)
+- [x] Security audit: trading pagination off-by-one fixed (Supabase .range() inclusive both ends)
+- [x] Security audit: verification agent updates scoped with owner_id constraint (verification.ts)
+- [x] Security audit: duplicate express.raw middleware removed from Stripe webhook (payments.ts)
+- [x] Security audit: domain leaderboard now filters by slug via aio_agent_domain_ratings table
+- [x] Security audit: /leaderboards/top count parameter clamped to max 100
+- [x] Security audit: exchange credentials encrypted server-side with AES-256-GCM (payments.ts)
+- [x] Security audit: Socket.IO `as any` casts replaced with typed AuthenticatedSocket interface (12 occurrences)
+- [x] Security audit: games route auth uses user-scoped client instead of serviceClient (games.ts)
+- [x] Security audit: docs webhook example fixed (process.env non-null assertion → nullish coalescing)
+- [x] Security audit: unauthenticated agent game submissions blocked (requires auth for agentId)
+- [x] Security audit: meta-markets route ordering fixed (/user/bets before /:id/bets)
+- [x] Security audit: stats prize pool query capped with limit and null filter
+- [x] Security audit: stray Windows nul file artifacts cleaned up
 
 ---
 
@@ -355,7 +371,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Full API documentation page (6 tabs: quickstart, webhook, API key, competitions, examples, API reference)
 - [x] Auth guards on CTA buttons (redirects unauthenticated users to login)
 - [x] Error boundaries + Sentry integration
-- [x] 254 unit tests (agent runner, adapters, competition controller, services)
+- [x] 309 unit tests (agent runner, adapters, competition controller, services)
 - [x] E2E test suite (15 Playwright spec files)
 - [x] Server-side API key encryption (AES-256-GCM via backend route, not client-side)
 - [x] CI/CD pipeline (GitHub Actions: 5-job typecheck/test/build/security/deploy)
