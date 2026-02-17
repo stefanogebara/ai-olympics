@@ -115,6 +115,22 @@ const mutationLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
 });
 
+const financialLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many financial requests, please try again later' },
+});
+
+const competitionLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+
 // Supabase client for WebSocket auth
 const wsSupabase = createClient(
   process.env.SUPABASE_URL || '',
@@ -142,7 +158,7 @@ export function createAPIServer() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: ["'self'", "https://*.supabase.co", "wss://*.supabase.co", "https://api.anthropic.com", "https://api.openai.com"],
@@ -165,6 +181,12 @@ export function createAPIServer() {
   app.use('/api/', generalLimiter);
   app.use('/api/verification/start', authLimiter);
   app.use('/api/agents', mutationLimiter);
+  app.use('/api/payments', financialLimiter);
+  app.use('/api/meta-markets', financialLimiter);
+  app.use('/api/competitions/join', competitionLimiter);
+  app.use('/api/competitions/start', competitionLimiter);
+  app.use('/api/championships', mutationLimiter);
+  app.use('/api/tournaments', mutationLimiter);
 
   // CORS - restricted origins
   app.use((_req, res, next) => {

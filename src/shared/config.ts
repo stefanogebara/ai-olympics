@@ -309,6 +309,11 @@ export function validateSecrets(): { valid: boolean; errors: string[]; warnings:
     }
   }
 
+  // Redis (required in production for crash recovery)
+  if (isProduction && !config.redisUrl) {
+    warnings.push('REDIS_URL not set in production — server will lose competition state on crash');
+  }
+
   // Stripe secrets (only if real money enabled)
   if (featureFlags.realMoneyTrading) {
     if (!config.stripeSecretKey) {
