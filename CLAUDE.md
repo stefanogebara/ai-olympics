@@ -345,6 +345,19 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Security audit: admin routes return generic error messages instead of raw err.message (admin.ts, 7 endpoints)
 - [x] Security audit: championships error responses hide internal details on 500s (championships.ts)
 - [x] Security audit: webhook test returns generic failure message (agents.ts)
+- [x] Deployment: global uncaughtException + unhandledRejection handlers (index.ts)
+- [x] Deployment: Express catch-all error middleware after Sentry handler (server.ts)
+- [x] Deployment: npm audit fix — resolved `qs` DoS vulnerability
+- [x] Deployment: CI audit uses continue-on-error instead of `|| true` for visibility (.github/workflows/ci.yml)
+- [x] Deployment: route-specific rate limiters — financial (10/min), competition (5/min), mutation (30/min) (server.ts)
+- [x] Deployment: CSP hardened — removed `unsafe-inline` from scriptSrc (server.ts)
+- [x] Deployment: Redis production warning in validateSecrets() (config.ts)
+- [x] Deployment: Docker Chrome flags cleaned up — removed --disable-setuid-sandbox, added --disable-gpu --no-first-run
+- [x] Deployment: Fly.io VM memory bumped from 512MB to 1024MB (fly.toml)
+- [x] Deployment: frontend .env.example port fixed 3050 → 3003
+- [x] Deployment: Zod request body validation on 24 mutation endpoints (validate.ts + schemas.ts)
+- [x] Deployment: select('*') replaced with explicit columns in high-traffic queries (leaderboards, competitions, agents, tournaments)
+- [x] Deployment: RLS audit verified — serviceClient used correctly (public reads only, writes use userClient)
 
 ---
 

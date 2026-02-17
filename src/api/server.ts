@@ -20,7 +20,9 @@ if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
+    tracesSampleRate: process.env.NODE_ENV === 'production'
+      ? parseFloat(process.env.SENTRY_SAMPLE_RATE || '0.1')
+      : 1.0,
     integrations: [
       Sentry.httpIntegration(),
       Sentry.expressIntegration(),
@@ -139,6 +141,10 @@ const wsSupabase = createClient(
 
 export function createAPIServer() {
   const app = express();
+
+  // Trust first proxy (Fly.io / Vercel load balancer) for correct client IP in rate limiting and logs
+  app.set('trust proxy', 1);
+
   const server = createServer(app);
   const io = new SocketServer(server, {
     cors: {
@@ -922,6 +928,11 @@ export function createAPIServer() {
 
     return new Promise((resolve) => {
       server.listen(port, () => {
+        // Set timeouts to prevent hung connections and proxy resets
+        server.setTimeout(120_000);        // 120s max request duration (tournaments need time)
+        server.keepAliveTimeout = 65_000;  // Must exceed proxy timeout (Fly.io default ~60s)
+        server.headersTimeout = 66_000;    // Slightly above keepAliveTimeout per Node.js docs
+
         log.info(`API server running on http://localhost:${port}`);
         log.info(`WebSocket server ready`);
         resolve();
@@ -958,6 +969,11 @@ export function createAPIServer() {
 
     // Close Redis connection
     await closeRedis();
+
+    // Gracefully close WebSocket connections
+    log.info('Notifying WebSocket clients of shutdown...');
+    io.emit('server:shutting-down', { message: 'Server is restarting, please reconnect shortly' });
+    io.disconnectSockets(true);
 
     return new Promise((resolve) => {
       io.close();
