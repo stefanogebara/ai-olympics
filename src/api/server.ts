@@ -836,6 +836,14 @@ export function createAPIServer() {
     Sentry.setupExpressErrorHandler(app);
   }
 
+  // Catch-all Express error handler — prevents unhandled errors from crashing the server
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    log.error('Unhandled Express error', { error: err.message, stack: err.stack });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // ============================================================================
   // SERVER LIFECYCLE
   // ============================================================================
