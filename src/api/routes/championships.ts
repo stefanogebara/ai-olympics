@@ -160,13 +160,18 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
     log.info('User joined championship', { championshipId: id, agentId: agent_id, userId: user.id });
     res.status(201).json(participant);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to join championship';
+    const message = error instanceof Error ? error.message : '';
     const statusCode = message.includes('not found') ? 404
       : message.includes('Not authorized') ? 403
       : message.includes('Already joined') ? 400
       : message.includes('not accepting') || message.includes('full') || message.includes('ELO') ? 400
       : 500;
-    res.status(statusCode).json({ error: message });
+    if (statusCode === 500) {
+      log.error('Failed to join championship', { error });
+      res.status(500).json({ error: 'Failed to join championship' });
+    } else {
+      res.status(statusCode).json({ error: message });
+    }
   }
 });
 
@@ -235,8 +240,8 @@ router.post('/:id/start-round', requireAuth, async (req: Request, res: Response)
     log.info('Championship round starting', { championshipId: id, ...result });
     res.json({ message: 'Round starting', ...result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to start round';
-    res.status(400).json({ error: message });
+    log.error('Failed to start round', { error });
+    res.status(400).json({ error: 'Failed to start championship round' });
   }
 });
 
@@ -272,8 +277,8 @@ router.post('/:id/process-round/:roundNumber', requireAuth, async (req: Request,
     log.info('Championship round processed', { championshipId: id, roundNumber });
     res.json({ message: 'Round results processed', roundNumber });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to process round';
-    res.status(400).json({ error: message });
+    log.error('Failed to process round results', { error });
+    res.status(400).json({ error: 'Failed to process round results' });
   }
 });
 

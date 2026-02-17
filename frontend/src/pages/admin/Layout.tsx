@@ -10,10 +10,15 @@ const adminLinks = [
 ];
 
 export function AdminLayout() {
-  const { profile } = useAuthStore();
+  const { profile, isLoading } = useAuthStore();
+
+  // Show nothing while profile is loading to prevent flash
+  if (isLoading || !profile) {
+    return null;
+  }
 
   // Redirect non-admins
-  if (!profile?.is_admin) {
+  if (!profile.is_admin) {
     return <Navigate to="/dashboard" replace />;
   }
 

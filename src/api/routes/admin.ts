@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient } from '../../shared/utils/supabase.js';
 import { requireAuth, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
+import { createLogger } from '../../shared/utils/logger.js';
 
+const log = createLogger('AdminAPI');
 const router = Router();
 
 // All admin routes require auth + admin
@@ -27,8 +29,8 @@ router.get('/stats', async (_req: Request, res: Response) => {
       pendingAgents: pendingAgents.count || 0,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    log.error('Failed to fetch admin stats', { error: err });
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
@@ -59,8 +61,8 @@ router.get('/users', async (req: Request, res: Response) => {
 
     res.json({ users: data || [], total: count || 0, page, limit });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    log.error('Failed to fetch users', { error: err });
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
@@ -85,8 +87,8 @@ router.patch('/users/:id', async (req: Request, res: Response) => {
     if (error) throw error;
     res.json({ success: true });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    log.error('Failed to update user', { error: err });
+    res.status(500).json({ error: 'Failed to update user' });
   }
 });
 
@@ -121,8 +123,8 @@ router.get('/agents', async (req: Request, res: Response) => {
 
     res.json({ agents: data || [], total: count || 0, page, limit });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    log.error('Failed to fetch agents', { error: err });
+    res.status(500).json({ error: 'Failed to fetch agents' });
   }
 });
 
@@ -149,8 +151,8 @@ router.post('/agents/:id/review', async (req: Request, res: Response) => {
     if (error) throw error;
     res.json({ success: true, status: approved ? 'approved' : 'rejected' });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    log.error('Failed to review agent', { error: err });
+    res.status(500).json({ error: 'Failed to review agent' });
   }
 });
 
@@ -185,8 +187,8 @@ router.get('/competitions', async (req: Request, res: Response) => {
 
     res.json({ competitions: data || [], total: count || 0, page, limit });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    log.error('Failed to fetch competitions', { error: err });
+    res.status(500).json({ error: 'Failed to fetch competitions' });
   }
 });
 
@@ -208,8 +210,8 @@ router.patch('/competitions/:id', async (req: Request, res: Response) => {
     if (error) throw error;
     res.json({ success: true });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    log.error('Failed to update competition', { error: err });
+    res.status(500).json({ error: 'Failed to update competition' });
   }
 });
 

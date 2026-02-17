@@ -483,9 +483,10 @@ router.post('/test-webhook', requireAuth, async (req: Request, res: Response) =>
       response: sanitizedResponse
     });
   } catch (error) {
+    log.error('Webhook test failed', { error });
     res.status(500).json({
       success: false,
-      message: error instanceof Error ? error.message : 'Failed to reach webhook'
+      message: 'Failed to reach webhook'
     });
   }
 });
