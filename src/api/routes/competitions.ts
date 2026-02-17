@@ -3,6 +3,8 @@ import { serviceClient as supabase } from '../../shared/utils/supabase.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { competitionManager } from '../../orchestrator/competition-manager.js';
+import { validateBody } from '../middleware/validate.js';
+import { createCompetitionSchema, joinCompetitionSchema, voteSchema } from '../schemas.js';
 
 const log = createLogger('CompetitionsAPI');
 
@@ -107,7 +109,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Create competition (requires auth)
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post('/', requireAuth, validateBody(createCompetitionSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const userDb = (req as AuthenticatedRequest).userClient;
@@ -205,7 +207,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 });
 
 // Join competition (requires auth)
-router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/join', requireAuth, validateBody(joinCompetitionSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const userDb = (req as AuthenticatedRequest).userClient;
@@ -450,7 +452,7 @@ router.get('/:id/live', async (req: Request, res: Response) => {
 // ============================================================================
 
 // Cast a vote (requires auth)
-router.post('/:id/vote', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/vote', requireAuth, validateBody(voteSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const userDb = (req as AuthenticatedRequest).userClient;

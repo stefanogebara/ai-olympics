@@ -11,6 +11,8 @@ import { stripeService } from '../../services/stripe-service.js';
 import { cryptoWalletService } from '../../services/crypto-wallet-service.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { encrypt } from '../../shared/utils/crypto.js';
+import { validateBody } from '../middleware/validate.js';
+import { stripeDepositSchema, cryptoWithdrawSchema, cryptoWalletSchema, exchangeCredentialsSchema } from '../schemas.js';
 
 const router = Router();
 const log = createLogger('PaymentsAPI');
@@ -72,7 +74,7 @@ router.post('/wallet', authMiddleware, async (req: Request, res: Response) => {
  * POST /api/payments/deposit/stripe
  * Create Stripe checkout session for deposit
  */
-router.post('/deposit/stripe', requireRealMoneyEnabled, authMiddleware, async (req: Request, res: Response) => {
+router.post('/deposit/stripe', requireRealMoneyEnabled, authMiddleware, validateBody(stripeDepositSchema), async (req: Request, res: Response) => {
   try {
     const { user } = req as AuthenticatedRequest;
     const amountCents = req.body.amountCents || req.body.amount_cents;
@@ -127,7 +129,7 @@ router.post('/withdraw/stripe', requireRealMoneyEnabled, authMiddleware, async (
  * POST /api/payments/withdraw/crypto
  * Execute crypto withdrawal
  */
-router.post('/withdraw/crypto', requireRealMoneyEnabled, authMiddleware, async (req: Request, res: Response) => {
+router.post('/withdraw/crypto', requireRealMoneyEnabled, authMiddleware, validateBody(cryptoWithdrawSchema), async (req: Request, res: Response) => {
   try {
     const { user } = req as AuthenticatedRequest;
     const toAddress = req.body.toAddress || req.body.to_address;
@@ -210,7 +212,7 @@ router.post('/webhook/stripe', async (req: Request, res: Response) => {
  * POST /api/payments/crypto-wallets
  * Link a crypto wallet
  */
-router.post('/crypto-wallets', authMiddleware, async (req: Request, res: Response) => {
+router.post('/crypto-wallets', authMiddleware, validateBody(cryptoWalletSchema), async (req: Request, res: Response) => {
   try {
     const { user } = req as AuthenticatedRequest;
     const walletAddress = req.body.walletAddress || req.body.wallet_address;
@@ -252,7 +254,7 @@ router.get('/crypto-wallets', authMiddleware, async (req: Request, res: Response
  * POST /api/payments/exchange-credentials
  * Store exchange API credentials
  */
-router.post('/exchange-credentials', authMiddleware, async (req: Request, res: Response) => {
+router.post('/exchange-credentials', authMiddleware, validateBody(exchangeCredentialsSchema), async (req: Request, res: Response) => {
   try {
     const { user, userClient: userDb } = req as AuthenticatedRequest;
     const { exchange, credentials } = req.body;

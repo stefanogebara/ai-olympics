@@ -7,6 +7,8 @@ import { Router, Request, Response } from 'express';
 import { requireAuth as authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
 import { orderManager } from '../../services/order-manager.js';
 import { createLogger } from '../../shared/utils/logger.js';
+import { validateBody } from '../middleware/validate.js';
+import { createOrderSchema } from '../schemas.js';
 
 const router = Router();
 const log = createLogger('TradingAPI');
@@ -33,7 +35,7 @@ function requireRealMoneyEnabled(_req: Request, res: Response, next: Function) {
  * POST /api/trading/orders
  * Place an order
  */
-router.post('/orders', requireRealMoneyEnabled, authMiddleware, async (req: Request, res: Response) => {
+router.post('/orders', requireRealMoneyEnabled, authMiddleware, validateBody(createOrderSchema), async (req: Request, res: Response) => {
   try {
     const { user } = req as AuthenticatedRequest;
     const { marketId, marketSource, outcome, amountCents } = req.body;

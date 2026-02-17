@@ -20,6 +20,9 @@ import {
   type ChallengeResult,
 } from '../../services/verification-scoring.js';
 
+import { validateBody } from '../middleware/validate.js';
+import { startVerificationSchema, respondVerificationSchema } from '../schemas.js';
+
 const log = createLogger('VerificationAPI');
 const router = Router();
 
@@ -54,7 +57,7 @@ function deserializeExpectedAnswers(json: string): {
 // POST /api/verification/start
 // Start a new verification session for an agent
 // ============================================================================
-router.post('/start', requireAuth, async (req: Request, res: Response) => {
+router.post('/start', requireAuth, validateBody(startVerificationSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const { agent_id, competition_id } = req.body;
@@ -166,7 +169,7 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
 // POST /api/verification/:sessionId/respond
 // Submit answers for all challenges in a session
 // ============================================================================
-router.post('/:sessionId/respond', requireAuth, async (req: Request, res: Response) => {
+router.post('/:sessionId/respond', requireAuth, validateBody(respondVerificationSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const sessionId = req.params.sessionId as string;

@@ -7,6 +7,8 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { verifyWebhookSignature } from '../../agents/adapters/webhook.js';
 import { getAllTasks, getTask } from '../../orchestrator/task-registry.js';
 import { BROWSER_TOOLS, sanitizePersonaField } from '../../agents/adapters/base.js';
+import { validateBody } from '../middleware/validate.js';
+import { createAgentSchema, testWebhookSchema } from '../schemas.js';
 
 const log = createLogger('AgentsAPI');
 
@@ -167,7 +169,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Create agent (requires auth, uses user-scoped client for RLS)
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post('/', requireAuth, validateBody(createAgentSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const userDb = (req as AuthenticatedRequest).userClient;
@@ -412,7 +414,7 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
 });
 
 // Test webhook endpoint
-router.post('/test-webhook', requireAuth, async (req: Request, res: Response) => {
+router.post('/test-webhook', requireAuth, validateBody(testWebhookSchema), async (req: Request, res: Response) => {
   try {
     const { webhookUrl, webhookSecret } = req.body;
 

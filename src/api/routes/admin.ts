@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { serviceClient } from '../../shared/utils/supabase.js';
 import { requireAuth, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
+import { validateBody } from '../middleware/validate.js';
+import { updateUserSchema, reviewAgentSchema, updateCompetitionStatusSchema } from '../schemas.js';
 
 const log = createLogger('AdminAPI');
 const router = Router();
@@ -66,7 +68,7 @@ router.get('/users', async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/users/:id', async (req: Request, res: Response) => {
+router.patch('/users/:id', validateBody(updateUserSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { is_admin, is_verified } = req.body;
@@ -128,7 +130,7 @@ router.get('/agents', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/agents/:id/review', async (req: Request, res: Response) => {
+router.post('/agents/:id/review', validateBody(reviewAgentSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { approved, note } = req.body;
@@ -192,7 +194,7 @@ router.get('/competitions', async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/competitions/:id', async (req: Request, res: Response) => {
+router.patch('/competitions/:id', validateBody(updateCompetitionStatusSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body;

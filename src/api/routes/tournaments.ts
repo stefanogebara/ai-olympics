@@ -3,6 +3,8 @@ import { serviceClient as supabase } from '../../shared/utils/supabase.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { tournamentManager } from '../../orchestrator/tournament-manager.js';
+import { validateBody } from '../middleware/validate.js';
+import { createTournamentSchema, joinTournamentSchema } from '../schemas.js';
 
 const log = createLogger('TournamentsAPI');
 
@@ -86,7 +88,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Create tournament (requires auth)
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post('/', requireAuth, validateBody(createTournamentSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const userDb = (req as AuthenticatedRequest).userClient;
@@ -140,7 +142,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 });
 
 // Join tournament (requires auth)
-router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/join', requireAuth, validateBody(joinTournamentSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const userDb = (req as AuthenticatedRequest).userClient;

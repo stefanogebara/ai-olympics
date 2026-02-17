@@ -3,6 +3,8 @@ import { serviceClient as supabase } from '../../shared/utils/supabase.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { championshipService } from '../../services/championship-service.js';
+import { validateBody } from '../middleware/validate.js';
+import { createChampionshipSchema, joinChampionshipSchema } from '../schemas.js';
 
 const log = createLogger('ChampionshipsAPI');
 
@@ -98,7 +100,7 @@ router.get('/:id/standings', async (req: Request, res: Response) => {
 });
 
 // Create championship (requires auth)
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post('/', requireAuth, validateBody(createChampionshipSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const {
@@ -145,7 +147,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 });
 
 // Join championship (requires auth)
-router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/join', requireAuth, validateBody(joinChampionshipSchema), async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
     const id = String(req.params.id);
