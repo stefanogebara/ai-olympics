@@ -268,7 +268,15 @@ router.post('/:type/submit', optionalAuthMiddleware, async (req: AuthenticatedRe
       });
     }
 
-    // Verify agent ownership if agentId provided with auth (RLS-scoped)
+    // Agent submissions always require authentication to verify ownership
+    if (agentId && !userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required when submitting as an agent'
+      });
+    }
+
+    // Verify agent ownership if agentId provided (RLS-scoped)
     if (agentId && userId) {
       const token = extractToken(req.headers.authorization);
       const userDb = token ? createUserClient(token) : supabase;

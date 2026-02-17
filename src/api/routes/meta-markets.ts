@@ -73,6 +73,33 @@ router.get('/competition/:competitionId', async (req: Request, res: Response) =>
   }
 });
 
+// ============================================================================
+// BET ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/meta-markets/user/bets
+ * Get authenticated user's meta market bets
+ * NOTE: Must be defined before /:id routes to avoid Express matching "user" as :id
+ */
+router.get('/user/bets', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AuthenticatedRequest).user.id;
+    const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+    const limit = Math.min(parseInt(limitStr as string) || 50, 100);
+
+    const bets = await metaMarketService.getUserBets(userId, limit);
+
+    res.json({
+      bets,
+      count: bets.length
+    });
+  } catch (error) {
+    log.error('Error fetching user bets', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch bets' });
+  }
+});
+
 /**
  * GET /api/meta-markets/:id/bets
  * Get all bets for a market
@@ -91,10 +118,6 @@ router.get('/:id/bets', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch bets' });
   }
 });
-
-// ============================================================================
-// BET ENDPOINTS
-// ============================================================================
 
 /**
  * POST /api/meta-markets/:id/bet
@@ -133,28 +156,6 @@ router.post('/:id/bet', authMiddleware, async (req: Request, res: Response) => {
   } catch (error) {
     log.error('Error placing bet', { error: String(error) });
     res.status(500).json({ success: false, error: 'Failed to place bet' });
-  }
-});
-
-/**
- * GET /api/meta-markets/user/bets
- * Get authenticated user's meta market bets
- */
-router.get('/user/bets', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const userId = (req as AuthenticatedRequest).user.id;
-    const limitStr = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
-    const limit = Math.min(parseInt(limitStr as string) || 50, 100);
-
-    const bets = await metaMarketService.getUserBets(userId, limit);
-
-    res.json({
-      bets,
-      count: bets.length
-    });
-  } catch (error) {
-    log.error('Error fetching user bets', { error: String(error) });
-    res.status(500).json({ error: 'Failed to fetch bets' });
   }
 });
 

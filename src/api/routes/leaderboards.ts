@@ -132,11 +132,13 @@ router.get('/stats', async (_req: Request, res: Response) => {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'completed');
 
-    // Get total prize pool
+    // Get total prize pool using count query + selective fetch (capped at 10k rows)
     const { data: prizeData } = await supabase
       .from('aio_competitions')
       .select('prize_pool')
-      .eq('stake_mode', 'real');
+      .eq('stake_mode', 'real')
+      .not('prize_pool', 'is', null)
+      .limit(10000);
 
     const totalPrizePool = prizeData?.reduce((sum: number, c: { prize_pool?: number | null }) => sum + (c.prize_pool || 0), 0) || 0;
 
