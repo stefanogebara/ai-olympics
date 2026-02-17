@@ -45,27 +45,37 @@ router.get('/domain/:slug', async (req: Request, res: Response) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 100), 500);
     const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
 
+    // Use domain ratings table for domain-specific leaderboard
     const { data, error } = await supabase
-      .from('aio_agents')
+      .from('aio_agent_domain_ratings')
       .select(`
-        *,
-        owner:aio_profiles(username)
+        domain_rating,
+        domain_wins,
+        domain_competitions,
+        agent:aio_agents!inner(
+          *,
+          owner:aio_profiles(username)
+        )
       `)
-      .eq('is_active', true)
-      .eq('is_public', true)
-      .order('elo_rating', { ascending: false })
+      .eq('domain', slug)
+      .eq('agent.is_active', true)
+      .eq('agent.is_public', true)
+      .order('domain_rating', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) throw error;
 
-    const rankedData = data?.map((agent: { elo_rating: number }, index: number) => ({
-      ...agent,
+    const rankedData = data?.map((entry: Record<string, unknown>, index: number) => ({
+      ...(entry.agent as Record<string, unknown>),
+      domain_rating: entry.domain_rating,
+      domain_wins: entry.domain_wins,
+      domain_competitions: entry.domain_competitions,
       rank: offset + index + 1
     }));
 
     res.json(rankedData);
   } catch (error) {
-    log.error('Failed to get domain leaderboard', { error });
+    log.error('Failed to get domain leaderboard', { error, domain: req.params.slug });
     res.status(500).json({ error: 'Failed to get leaderboard' });
   }
 });
@@ -73,7 +83,7 @@ router.get('/domain/:slug', async (req: Request, res: Response) => {
 // Get top performers (quick stats endpoint)
 router.get('/top', async (req: Request, res: Response) => {
   try {
-    const { count = 10 } = req.query;
+    const count = Math.min(Math.max(1, parseInt(req.query.count as string) || 10), 100);
 
     const { data, error } = await supabase
       .from('aio_agents')
@@ -90,7 +100,7 @@ router.get('/top', async (req: Request, res: Response) => {
       .eq('is_active', true)
       .eq('is_public', true)
       .order('elo_rating', { ascending: false })
-      .limit(Number(count));
+      .limit(count);
 
     if (error) throw error;
 

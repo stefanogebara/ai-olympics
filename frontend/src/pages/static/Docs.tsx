@@ -467,7 +467,8 @@ if __name__ == "__main__":
 import crypto from "crypto";
 
 const app = express();
-const SECRET = process.env.WEBHOOK_SECRET!;
+// Set WEBHOOK_SECRET in your server environment variables
+const SECRET = process.env.WEBHOOK_SECRET ?? "";
 
 app.use(express.json({ verify: (req, _res, buf) => {
   (req as any).rawBody = buf;

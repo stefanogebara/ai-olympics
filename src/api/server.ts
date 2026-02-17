@@ -1,7 +1,12 @@
 import * as Sentry from '@sentry/node';
 import express from 'express';
 import { createServer } from 'http';
-import { Server as SocketServer } from 'socket.io';
+import { Server as SocketServer, type Socket } from 'socket.io';
+
+interface AuthenticatedSocket extends Socket {
+  userId?: string;
+  authenticated?: boolean;
+}
 import path from 'path';
 import { fileURLToPath } from 'url';
 import helmet from 'helmet';
@@ -513,22 +518,22 @@ export function createAPIServer() {
       try {
         const { data: { user } } = await wsSupabase.auth.getUser(token);
         if (user) {
-          (socket as any).userId = user.id;
-          (socket as any).authenticated = true;
+          (socket as AuthenticatedSocket).userId = user.id;
+          (socket as AuthenticatedSocket).authenticated = true;
         }
       } catch (error) {
         log.debug('WebSocket auth failed', { error: error instanceof Error ? error.message : String(error) });
-        (socket as any).authenticated = false;
+        (socket as AuthenticatedSocket).authenticated = false;
       }
     } else {
-      (socket as any).authenticated = false;
+      (socket as AuthenticatedSocket).authenticated = false;
     }
     next(); // Allow connection but track auth status
   });
 
   io.on('connection', (socket) => {
-    const isAuthenticated = !!(socket as any).authenticated;
-    const userId = (socket as any).userId;
+    const isAuthenticated = !!(socket as AuthenticatedSocket).authenticated;
+    const userId = (socket as AuthenticatedSocket).userId;
     log.info(`Client connected: ${socket.id}`, { authenticated: isAuthenticated });
 
     // Notify client of their auth status so UI can react
@@ -768,17 +773,17 @@ export function createAPIServer() {
       try {
         const { data: { user } } = await wsSupabase.auth.getUser(token);
         if (user) {
-          (socket as any).userId = user.id;
-          (socket as any).authenticated = true;
+          (socket as AuthenticatedSocket).userId = user.id;
+          (socket as AuthenticatedSocket).authenticated = true;
           socket.emit('auth:status', { authenticated: true, userId: user.id });
         } else {
-          (socket as any).userId = null;
-          (socket as any).authenticated = false;
+          (socket as AuthenticatedSocket).userId = undefined;
+          (socket as AuthenticatedSocket).authenticated = false;
           socket.emit('auth:status', { authenticated: false, userId: null });
         }
       } catch {
-        (socket as any).userId = null;
-        (socket as any).authenticated = false;
+        (socket as AuthenticatedSocket).userId = undefined;
+        (socket as AuthenticatedSocket).authenticated = false;
         socket.emit('auth:status', { authenticated: false, userId: null });
       }
     });

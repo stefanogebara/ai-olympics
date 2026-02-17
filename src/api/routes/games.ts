@@ -27,11 +27,12 @@ interface AuthenticatedRequest extends Request {
 
 async function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
   try {
-    // Check for user auth
+    // Check for user auth using anon client (not service client)
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      const { data: { user } } = await supabase.auth.getUser(token);
+      const userClient = createUserClient(token);
+      const { data: { user } } = await userClient.auth.getUser(token);
       if (user) {
         req.userId = user.id;
       }

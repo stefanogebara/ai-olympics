@@ -10,6 +10,7 @@ import { walletService } from '../../services/wallet-service.js';
 import { stripeService } from '../../services/stripe-service.js';
 import { cryptoWalletService } from '../../services/crypto-wallet-service.js';
 import { createLogger } from '../../shared/utils/logger.js';
+import { encrypt } from '../../shared/utils/crypto.js';
 
 const router = Router();
 const log = createLogger('PaymentsAPI');
@@ -266,7 +267,7 @@ router.post('/exchange-credentials', authMiddleware, async (req: Request, res: R
       .upsert({
         user_id: user.id,
         exchange,
-        encrypted_credentials: credentials,
+        encrypted_credentials: encrypt(JSON.stringify(credentials)),
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id,exchange' });
 
