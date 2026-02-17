@@ -8,7 +8,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { marketService, type UnifiedMarket, type MarketCategory, type CategoryInfo } from '../../services/market-service.js';
 import { virtualPortfolioManager } from '../../services/virtual-portfolio.js';
 import { createLogger } from '../../shared/utils/logger.js';
@@ -949,7 +949,7 @@ router.get('/competitions/:id/portfolios', (req: Request, res: Response) => {
  * POST /api/predictions/resolve-market
  * Manually resolve a market (admin only, requires auth)
  */
-router.post('/resolve-market', requireAuth, (req: Request, res: Response) => {
+router.post('/resolve-market', requireAuth, requireAdmin, (req: Request, res: Response) => {
   try {
     const { competitionId, marketId, resolvedOutcome } = req.body;
 

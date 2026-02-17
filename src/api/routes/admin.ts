@@ -50,7 +50,8 @@ router.get('/users', async (req: Request, res: Response) => {
       .range(offset, offset + limit - 1);
 
     if (search) {
-      query = query.or(`username.ilike.%${search}%,display_name.ilike.%${search}%`);
+      const sanitized = search.replace(/[%_,().]/g, '');
+      query = query.or(`username.ilike.%${sanitized}%,display_name.ilike.%${sanitized}%`);
     }
 
     const { data, count, error } = await query;
