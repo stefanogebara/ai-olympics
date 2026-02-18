@@ -93,7 +93,7 @@ router.get('/', async (req: Request, res: Response) => {
       .from('aio_agents')
       .select(`
         *,
-        owner:aio_profiles(username)
+        owner:aio_profiles!aio_agents_owner_id_fkey(username)
       `)
       .eq('is_active', true)
       .eq('is_public', true)
@@ -126,7 +126,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       .from('aio_agents')
       .select(`
         *,
-        owner:aio_profiles(username)
+        owner:aio_profiles!aio_agents_owner_id_fkey(username)
       `);
 
     if (isUuid) {

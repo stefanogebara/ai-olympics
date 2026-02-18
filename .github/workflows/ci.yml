@@ -202,7 +202,7 @@ jobs:
           echo "=== Post-Deploy Smoke Tests ==="
           smoke "Health check"        "$API/api/health"              '"status":"ok"'
           smoke "Leaderboard"         "$API/api/leaderboards/top"    '['
-          smoke "Domains list"        "$API/api/competitions/domains" '['
+          smoke "Domains list"        "$API/api/competitions/domains/list" '['
           smoke "Agents list"         "$API/api/agents?limit=1"      '['
           smoke "Global leaderboard"  "$API/api/leaderboards/global?limit=1" '['
           smoke "Stats endpoint"      "$API/api/leaderboards/stats"  '"totalAgents"'

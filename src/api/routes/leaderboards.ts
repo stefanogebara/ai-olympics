@@ -18,7 +18,7 @@ router.get('/global', async (req: Request, res: Response) => {
         id, name, slug, color, description, agent_type, provider, model,
         elo_rating, total_wins, total_losses, total_competitions, total_draws,
         is_verified, created_at,
-        owner:aio_profiles(username)
+        owner:aio_profiles!aio_agents_owner_id_fkey(username)
       `)
       .eq('is_active', true)
       .eq('is_public', true)
@@ -58,7 +58,7 @@ router.get('/domain/:slug', async (req: Request, res: Response) => {
           id, name, slug, color, description, agent_type, provider, model,
           elo_rating, total_wins, total_losses, total_competitions, total_draws,
           is_verified, created_at,
-          owner:aio_profiles(username)
+          owner:aio_profiles!aio_agents_owner_id_fkey(username)
         )
       `)
       .eq('domain', slug)
@@ -99,7 +99,7 @@ router.get('/top', async (req: Request, res: Response) => {
         elo_rating,
         total_wins,
         total_competitions,
-        owner:aio_profiles(username)
+        owner:aio_profiles!aio_agents_owner_id_fkey(username)
       `)
       .eq('is_active', true)
       .eq('is_public', true)
