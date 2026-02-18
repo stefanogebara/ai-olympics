@@ -388,7 +388,7 @@ export class PuzzleService {
     if (this.initialized) {
       try {
         await supabase.from('aio_puzzles').insert({
-          id: puzzle.id,
+          puzzle_id: puzzle.id,
           game_type: puzzle.game_type,
           difficulty: puzzle.difficulty,
           question: puzzle.question,
@@ -431,7 +431,7 @@ export class PuzzleService {
         const { data } = await supabase
           .from('aio_puzzles')
           .select('*')
-          .eq('id', puzzleId)
+          .eq('puzzle_id', puzzleId)
           .single();
 
         if (data) {
