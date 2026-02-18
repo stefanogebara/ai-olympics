@@ -31,6 +31,7 @@ if (process.env.SENTRY_DSN) {
 }
 import { eventBus } from '../shared/utils/events.js';
 import { createLogger } from '../shared/utils/logger.js';
+import { serviceClient as supabase } from '../shared/utils/supabase.js';
 import { initRedis, getInterruptedCompetitions, removeCompetitionSnapshot, closeRedis } from '../shared/utils/redis.js';
 import type { Competition, StreamEvent, Tournament } from '../shared/types/index.js';
 import fs from 'fs';
@@ -92,46 +93,27 @@ function isAllowedOrigin(origin: string): boolean {
   return false;
 }
 
-// Rate limiters
-const generalLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later' },
-});
+// Rate limiter factory with consistent Retry-After header
+function createLimiter(max: number, windowMs: number, errorMsg: string) {
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      const retryAfterSec = Math.ceil(windowMs / 1000);
+      res.set('Retry-After', String(retryAfterSec));
+      res.status(429).json({ error: errorMsg });
+    },
+  });
+}
 
-const authLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many auth attempts, please try again later' },
-});
-
-const mutationLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later' },
-});
-
-const financialLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many financial requests, please try again later' },
-});
-
-const competitionLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later' },
-});
+const MINUTE = 60 * 1000;
+const generalLimiter = createLimiter(100, MINUTE, 'Too many requests, please try again later');
+const authLimiter = createLimiter(10, MINUTE, 'Too many auth attempts, please try again later');
+const mutationLimiter = createLimiter(30, MINUTE, 'Too many requests, please try again later');
+const financialLimiter = createLimiter(10, MINUTE, 'Too many financial requests, please try again later');
+const competitionLimiter = createLimiter(5, MINUTE, 'Too many requests, please try again later');
 
 // Supabase client for WebSocket auth
 const wsSupabase = createClient(
@@ -168,6 +150,7 @@ export function createAPIServer() {
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: ["'self'", "https://*.supabase.co", "wss://*.supabase.co", "https://api.anthropic.com", "https://api.openai.com"],
+        frameAncestors: ["'none'"],  // Prevent clickjacking (replaces X-Frame-Options: DENY)
         frameSrc: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
@@ -338,12 +321,30 @@ export function createAPIServer() {
   // API ENDPOINTS
   // ============================================================================
 
-  // Health check
-  app.get('/api/health', (_req, res) => {
-    res.json({
-      status: 'ok',
+  // Health check — verifies critical dependencies
+  app.get('/api/health', async (_req, res) => {
+    const checks: Record<string, 'ok' | 'error'> = {};
+
+    // Verify Supabase connectivity
+    try {
+      const { error } = await supabase.from('aio_domains').select('id', { count: 'exact', head: true });
+      checks.database = error ? 'error' : 'ok';
+    } catch {
+      checks.database = 'error';
+    }
+
+    const allOk = Object.values(checks).every(v => v === 'ok');
+    res.status(allOk ? 200 : 503).json({
+      status: allOk ? 'ok' : 'degraded',
       timestamp: Date.now(),
-      version: '0.1.0'
+      version: '0.1.0',
+      checks,
+      services: {
+        marketSync: featureFlags.marketSync ? 'enabled' : 'disabled',
+        activeCompetitions: competitionManager.activeCount,
+        activeTournaments: tournamentManager.activeCount,
+        wsConnections: io.engine?.clientsCount ?? 0,
+      },
     });
   });
 

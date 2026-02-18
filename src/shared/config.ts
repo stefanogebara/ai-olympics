@@ -1,5 +1,8 @@
 import 'dotenv/config';
 import type { AgentConfig, AgentProvider } from './types/index.js';
+import { createLogger } from './utils/logger.js';
+
+const configLog = createLogger('Config');
 
 // Environment configuration with defaults
 export const config = {
@@ -136,7 +139,7 @@ export function validateConfig(): { valid: boolean; errors: string[]; warnings: 
 
   // At least one AI provider (check process.env directly so tests can override)
   if (process.env.OPENROUTER_API_KEY) {
-    console.log('  OpenRouter API key configured - all models available');
+    configLog.info('OpenRouter API key configured - all models available');
   } else if (!process.env.ANTHROPIC_API_KEY) {
     errors.push('ANTHROPIC_API_KEY or OPENROUTER_API_KEY is required');
   }
@@ -215,15 +218,13 @@ export function validateConfig(): { valid: boolean; errors: string[]; warnings: 
 
   // Print summary
   if (errors.length > 0) {
-    console.error('\n  Configuration errors:');
-    errors.forEach(e => console.error(`    ${e}`));
+    configLog.error('Configuration errors', { errors });
   }
   if (warnings.length > 0) {
-    console.warn('\n  Configuration warnings:');
-    warnings.forEach(w => console.warn(`    ${w}`));
+    configLog.warn('Configuration warnings', { warnings });
   }
   if (errors.length === 0 && warnings.length === 0) {
-    console.log('  All configuration checks passed');
+    configLog.info('All configuration checks passed');
   }
 
   return {
@@ -326,15 +327,13 @@ export function validateSecrets(): { valid: boolean; errors: string[]; warnings:
 
   // Print summary
   if (errors.length > 0) {
-    console.error('\n  Secret validation errors:');
-    errors.forEach(e => console.error(`    ${e}`));
+    configLog.error('Secret validation errors', { errors });
   }
   if (warnings.length > 0) {
-    console.warn('\n  Secret validation warnings:');
-    warnings.forEach(w => console.warn(`    ${w}`));
+    configLog.warn('Secret validation warnings', { warnings });
   }
   if (errors.length === 0 && warnings.length === 0) {
-    console.log('  All secret checks passed');
+    configLog.info('All secret checks passed');
   }
 
   return { valid: errors.length === 0, errors, warnings };
