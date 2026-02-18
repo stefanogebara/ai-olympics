@@ -176,6 +176,40 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-      - name: Health check
+      - name: Post-deploy smoke tests
         if: steps.check-token.outputs.skip != 'true'
-        run: sleep 10 && curl -sf https://ai-olympics-api.fly.dev/api/health || exit 1
+        run: |
+          API="https://ai-olympics-api.fly.dev"
+          PASS=0
+          FAIL=0
+
+          smoke() {
+            local name="$1" url="$2" expect="$3"
+            BODY=$(curl -sf --max-time 15 "$url" 2>/dev/null) || { echo "FAIL: $name (request failed)"; FAIL=$((FAIL+1)); return; }
+            if echo "$BODY" | grep -q "$expect"; then
+              echo "PASS: $name"
+              PASS=$((PASS+1))
+            else
+              echo "FAIL: $name (expected '$expect')"
+              FAIL=$((FAIL+1))
+            fi
+          }
+
+          echo "Waiting for deployment to stabilize..."
+          sleep 15
+
+          echo ""
+          echo "=== Post-Deploy Smoke Tests ==="
+          smoke "Health check"        "$API/api/health"              '"status":"ok"'
+          smoke "Leaderboard"         "$API/api/leaderboards/top"    '['
+          smoke "Domains list"        "$API/api/competitions/domains" '['
+          smoke "Agents list"         "$API/api/agents?limit=1"      '['
+          smoke "Global leaderboard"  "$API/api/leaderboards/global?limit=1" '['
+          smoke "Stats endpoint"      "$API/api/leaderboards/stats"  '"totalAgents"'
+
+          echo ""
+          echo "=== Results: $PASS passed, $FAIL failed ==="
+          if [ "$FAIL" -gt 0 ]; then
+            echo "::error::$FAIL smoke test(s) failed after deploy"
+            exit 1
+          fi
