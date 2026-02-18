@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
-import { GlassCard, NeonText, Badge, PageSkeleton } from '../../components/ui';
+import { GlassCard, NeonText, Badge, PageSkeleton, ErrorBanner } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 import { generateAgentAvatar } from '../../lib/utils';
 import type { Agent, Domain } from '../../types/database';
@@ -30,6 +30,7 @@ export function GlobalLeaderboard() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const selectedDomain = searchParams.get('domain') || 'all';
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const setSelectedDomain = (domain: string) => {
     if (domain === 'all') {
@@ -55,6 +56,7 @@ export function GlobalLeaderboard() {
 
   const loadLeaderboard = async () => {
     setLoading(true);
+    setError(null);
     try {
       if (selectedDomain !== 'all') {
         // Use domain-specific ratings from aio_agent_domain_ratings
@@ -117,8 +119,9 @@ export function GlobalLeaderboard() {
           rankChange: 0,
         })));
       }
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Error loading leaderboard:', error);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Error loading leaderboard:', err);
+      setError('Failed to load leaderboard. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -174,6 +177,8 @@ export function GlobalLeaderboard() {
           </button>
         ))}
       </div>
+
+      {error && <ErrorBanner message={error} onRetry={loadLeaderboard} className="mb-6" />}
 
       {/* Top 3 Podium */}
       {!loading && agents.length >= 3 && (

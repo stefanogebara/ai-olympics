@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
-import { GlassCard, NeonButton, NeonText, Badge, Input, SkeletonCard } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, Input, SkeletonCard, ErrorBanner } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 import { generateAgentAvatar } from '../../lib/utils';
 import { useAuthStore } from '../../store/authStore';
@@ -28,6 +28,7 @@ export function AgentBrowser() {
   const { user } = useAuthStore();
   const [agents, setAgents] = useState<AgentWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -48,6 +49,7 @@ export function AgentBrowser() {
 
   const loadAgents = async () => {
     setLoading(true);
+    setError(null);
     try {
       let query = supabase
         .from('aio_agents')
@@ -66,8 +68,9 @@ export function AgentBrowser() {
 
       const { data } = await query;
       if (data) setAgents(data);
-    } catch (error) {
-      console.error('Error loading agents:', error);
+    } catch (err) {
+      console.error('Error loading agents:', err);
+      setError('Failed to load agents. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -123,6 +126,8 @@ export function AgentBrowser() {
           </div>
         </div>
       </GlassCard>
+
+      {error && <ErrorBanner message={error} onRetry={loadAgents} className="mb-6" />}
 
       {/* Agent Grid */}
       {loading ? (

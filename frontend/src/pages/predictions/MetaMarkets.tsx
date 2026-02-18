@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton, ErrorBanner } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import {
   Bot,
@@ -187,6 +187,7 @@ export function MetaMarkets() {
   const { user, isAuthenticated, session } = useAuthStore();
   const [matchups, setMatchups] = useState<AgentMatchup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedBet, setSelectedBet] = useState<{ matchup: AgentMatchup; agentId: string } | null>(null);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'live' | 'completed'>('all');
 
@@ -196,6 +197,7 @@ export function MetaMarkets() {
 
   const loadMatchups = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase
         .from('aio_meta_markets')
@@ -232,8 +234,9 @@ export function MetaMarkets() {
       });
 
       setMatchups(mapped);
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Error loading matchups:', error);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Error loading matchups:', err);
+      setError('Failed to load meta markets. Please try again.');
       setMatchups([]);
     } finally {
       setLoading(false);
@@ -385,6 +388,8 @@ export function MetaMarkets() {
               </button>
             ))}
           </div>
+
+          {error && <ErrorBanner message={error} onRetry={loadMatchups} className="mb-6" />}
 
           {/* Matchups Grid */}
           {loading ? (

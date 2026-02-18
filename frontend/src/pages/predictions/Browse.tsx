@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
-import { GlassCard, NeonButton, NeonText, SkeletonCard } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, SkeletonCard, ErrorBanner } from '../../components/ui';
 import {
   TrendingUp,
   RefreshCw,
@@ -62,6 +62,7 @@ export function PredictionBrowse() {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadCategories();
@@ -112,6 +113,7 @@ export function PredictionBrowse() {
     } else {
       setLoadingMore(true);
     }
+    setError(null);
     try {
       // Select only needed columns (skip description to reduce payload)
       // Use estimated count to avoid slow exact count on 91K+ rows
@@ -150,8 +152,9 @@ export function PredictionBrowse() {
       setTotal(totalCount);
       setHasMore(newEvents.length === PAGE_SIZE);
       setOffset(newOffset);
-    } catch (error) {
-      console.error('Error loading events:', error);
+    } catch (err) {
+      console.error('Error loading events:', err);
+      setError('Failed to load prediction markets. Please try again.');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -335,6 +338,8 @@ export function PredictionBrowse() {
           </NeonButton>
         </div>
       </div>
+
+      {error && <ErrorBanner message={error} onRetry={() => loadEvents(0)} className="mb-6" />}
 
       {/* Event Cards */}
       {loading ? (

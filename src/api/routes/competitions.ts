@@ -379,7 +379,8 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    // Update status (RLS-scoped - user can only update their competitions)
+    // Atomic status update: only transitions from 'lobby' to 'running'
+    // Prevents race condition where two simultaneous requests both pass the check
     const { data, error } = await userDb
       .from('aio_competitions')
       .update({
@@ -387,9 +388,13 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
         started_at: new Date().toISOString()
       })
       .eq('id', id)
+      .eq('status', 'lobby')
       .select()
       .single();
 
+    if (!data) {
+      return res.status(409).json({ error: 'Competition has already been started' });
+    }
     if (error) throw error;
 
     log.info('Competition started', { competitionId: id, userId: user.id });

@@ -325,9 +325,15 @@ export function createAPIServer() {
   app.get('/api/health', async (_req, res) => {
     const checks: Record<string, 'ok' | 'error'> = {};
 
-    // Verify Supabase connectivity
+    // Verify Supabase connectivity (3s timeout prevents hanging when Supabase is down)
     try {
-      const { error } = await supabase.from('aio_domains').select('id', { count: 'exact', head: true });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      const { error } = await supabase
+        .from('aio_domains')
+        .select('id', { count: 'exact', head: true })
+        .abortSignal(controller.signal);
+      clearTimeout(timeout);
       checks.database = error ? 'error' : 'ok';
     } catch {
       checks.database = 'error';

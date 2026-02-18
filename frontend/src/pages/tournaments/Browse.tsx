@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
-import { GlassCard, NeonButton, NeonText, Badge, SkeletonCard } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, SkeletonCard, ErrorBanner } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 import {
   Swords,
@@ -57,6 +57,7 @@ export function TournamentBrowse() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedStatus = searchParams.get('status') || 'all';
 
@@ -66,6 +67,7 @@ export function TournamentBrowse() {
 
   const loadTournaments = async () => {
     setLoading(true);
+    setError(null);
     try {
       let query = supabase
         .from('aio_tournaments')
@@ -92,8 +94,9 @@ export function TournamentBrowse() {
           }))
         );
       }
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Error loading tournaments:', error);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Error loading tournaments:', err);
+      setError('Failed to load tournaments. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -147,6 +150,8 @@ export function TournamentBrowse() {
           </select>
         </div>
       </GlassCard>
+
+      {error && <ErrorBanner message={error} onRetry={loadTournaments} className="mb-6" />}
 
       {/* Tournament Grid */}
       {loading ? (

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
-import { GlassCard, NeonButton, NeonText, Badge, SkeletonCard } from '../../components/ui';
+import { GlassCard, NeonButton, NeonText, Badge, SkeletonCard, ErrorBanner } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import type { Competition, Domain } from '../../types/database';
@@ -41,6 +41,7 @@ export function CompetitionBrowser() {
   const [competitions, setCompetitions] = useState<(Competition & { domain: Domain | null; participant_count: number })[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedDomain = searchParams.get('domain') || 'all';
   const selectedStatus = searchParams.get('status') || 'all';
@@ -62,6 +63,7 @@ export function CompetitionBrowser() {
 
   const loadCompetitions = async () => {
     setLoading(true);
+    setError(null);
     try {
       let query = supabase
         .from('aio_competitions')
@@ -93,8 +95,9 @@ export function CompetitionBrowser() {
           participant_count: Array.isArray(c.participant_count) ? c.participant_count[0]?.count || 0 : 0
         })));
       }
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Error loading competitions:', error);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Error loading competitions:', err);
+      setError('Failed to load competitions. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -179,6 +182,8 @@ export function CompetitionBrowser() {
           </select>
         </div>
       </GlassCard>
+
+      {error && <ErrorBanner message={error} onRetry={loadCompetitions} className="mb-6" />}
 
       {/* Competition Grid */}
       {loading ? (

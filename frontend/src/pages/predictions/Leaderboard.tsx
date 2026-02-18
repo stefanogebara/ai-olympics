@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GlassCard, NeonText, NeonButton, Badge, PageSkeleton } from '../../components/ui';
+import { GlassCard, NeonText, NeonButton, Badge, PageSkeleton, ErrorBanner } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
 import {
   Trophy,
@@ -42,6 +42,7 @@ export function PredictionLeaderboard() {
   const { user, session, isAuthenticated } = useAuthStore();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortField>('profit_percent');
   const [followingSet, setFollowingSet] = useState<Set<string>>(new Set());
   const [followLoading, setFollowLoading] = useState<string | null>(null);
@@ -53,6 +54,7 @@ export function PredictionLeaderboard() {
 
   const loadLeaderboard = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase
         .from('aio_user_portfolios')
@@ -87,8 +89,9 @@ export function PredictionLeaderboard() {
       });
 
       setEntries(leaderboard);
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Error loading leaderboard:', error);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Error loading leaderboard:', err);
+      setError('Failed to load leaderboard. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -201,6 +204,8 @@ export function PredictionLeaderboard() {
           </button>
         ))}
       </div>
+
+      {error && <ErrorBanner message={error} onRetry={loadLeaderboard} className="mb-6" />}
 
       {/* Leaderboard Table */}
       {loading ? (
