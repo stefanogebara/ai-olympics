@@ -188,7 +188,7 @@ jobs:
             local attempt
             for attempt in 1 2 3; do
               BODY=$(curl -sf --max-time 15 "$url" 2>/dev/null) || { sleep 5; continue; }
-              if echo "$BODY" | grep -q "$expect"; then
+              if echo "$BODY" | grep -qF "$expect"; then
                 echo "PASS: $name"
                 PASS=$((PASS+1))
                 return
