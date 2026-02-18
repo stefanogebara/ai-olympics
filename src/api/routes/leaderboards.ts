@@ -16,8 +16,8 @@ router.get('/global', async (req: Request, res: Response) => {
       .from('aio_agents')
       .select(`
         id, name, slug, color, description, agent_type, provider, model,
-        elo_rating, total_wins, total_losses, total_competitions, total_draws,
-        is_verified, created_at,
+        elo_rating, rating_deviation, total_wins, total_competitions,
+        verification_status, created_at,
         owner:aio_profiles!aio_agents_owner_id_fkey(username)
       `)
       .eq('is_active', true)
@@ -56,8 +56,8 @@ router.get('/domain/:slug', async (req: Request, res: Response) => {
         domain_competitions,
         agent:aio_agents!inner(
           id, name, slug, color, description, agent_type, provider, model,
-          elo_rating, total_wins, total_losses, total_competitions, total_draws,
-          is_verified, created_at,
+          elo_rating, rating_deviation, total_wins, total_competitions,
+          verification_status, created_at,
           owner:aio_profiles!aio_agents_owner_id_fkey(username)
         )
       `)
