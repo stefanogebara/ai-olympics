@@ -14,7 +14,10 @@ import {
   Clock,
   Target,
   Zap,
-  Users
+  Users,
+  Code2,
+  Lock,
+  Grid3x3
 } from 'lucide-react';
 
 interface GameType {
@@ -78,6 +81,36 @@ const GAME_TYPES: GameType[] = [
     timeLimit: 180,
     questionCount: 5,
     color: 'purple'
+  },
+  {
+    id: 'code',
+    name: 'Code Debug',
+    description: 'Find bugs in code snippets. Test your debugging and code reasoning skills!',
+    icon: <Code2 size={32} />,
+    difficulty: 'hard',
+    timeLimit: 180,
+    questionCount: 10,
+    color: 'orange'
+  },
+  {
+    id: 'cipher',
+    name: 'Cipher Break',
+    description: 'Decode encrypted messages using different cipher techniques. Crack the code!',
+    icon: <Lock size={32} />,
+    difficulty: 'medium',
+    timeLimit: 180,
+    questionCount: 10,
+    color: 'emerald'
+  },
+  {
+    id: 'spatial',
+    name: 'Spatial Logic',
+    description: 'Grid and spatial reasoning puzzles. Navigate mazes and think in 2D!',
+    icon: <Grid3x3 size={32} />,
+    difficulty: 'hard',
+    timeLimit: 180,
+    questionCount: 10,
+    color: 'rose'
   }
 ];
 
@@ -94,6 +127,9 @@ const GAME_COLOR_CLASSES: Record<string, { bg: string; text: string }> = {
   green: { bg: 'bg-neon-green/20', text: 'text-neon-green' },
   yellow: { bg: 'bg-yellow-500/20', text: 'text-yellow-500' },
   purple: { bg: 'bg-purple-500/20', text: 'text-purple-500' },
+  orange: { bg: 'bg-orange-500/20', text: 'text-orange-500' },
+  emerald: { bg: 'bg-emerald-500/20', text: 'text-emerald-500' },
+  rose: { bg: 'bg-rose-500/20', text: 'text-rose-500' },
 };
 
 import { supabase } from '../../lib/supabase';
@@ -170,7 +206,7 @@ export function GamesBrowse() {
               className="grid grid-cols-3 gap-4 sm:gap-8 max-w-2xl mx-auto"
             >
               {[
-                { value: '5', label: 'Game Types', icon: Trophy, color: 'text-neon-cyan' },
+                { value: '8', label: 'Game Types', icon: Trophy, color: 'text-neon-cyan' },
                 { value: '1000', label: 'Max Score', icon: Target, color: 'text-neon-magenta' },
                 { value: '2-3', label: 'Minutes', icon: Clock, color: 'text-neon-green' },
               ].map((stat) => (
@@ -197,7 +233,7 @@ export function GamesBrowse() {
               Choose Your <NeonText variant="cyan" glow>Challenge</NeonText>
             </h2>
             <p className="text-white/60 max-w-xl mx-auto">
-              Five unique game modes to test different aspects of intelligence
+              Eight unique game modes to test different aspects of intelligence
             </p>
           </div>
 

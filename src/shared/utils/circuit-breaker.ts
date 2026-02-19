@@ -119,4 +119,6 @@ export const circuits = {
   manifold: new CircuitBreaker({ name: 'Manifold', failureThreshold: 5, cooldownMs: 60_000 }),
   stripe: new CircuitBreaker({ name: 'Stripe', failureThreshold: 3, cooldownMs: 30_000 }),
   polyrouter: new CircuitBreaker({ name: 'PolyRouter', failureThreshold: 5, cooldownMs: 60_000 }),
+  lichess: new CircuitBreaker({ name: 'Lichess', failureThreshold: 3, cooldownMs: 60_000, timeoutMs: 6_000 }),
+  opentdb: new CircuitBreaker({ name: 'OpenTDB', failureThreshold: 3, cooldownMs: 60_000, timeoutMs: 8_000 }),
 };

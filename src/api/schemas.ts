@@ -158,11 +158,18 @@ export const updateCompetitionStatusSchema = z.object({
 
 export const startVerificationSchema = z.object({
   agent_id: z.string().uuid(),
+  competition_id: z.string().uuid().optional(),
 });
 
 export const respondVerificationSchema = z.object({
-  answer: z.string().min(1).max(10000),
-});
+  speed_arithmetic: z.record(z.number()).optional(),
+  speed_json_parse: z.record(z.unknown()).optional(),
+  structured_output: z.record(z.unknown()).optional(),
+  behavioral_timing: z.record(z.unknown()).optional(),
+}).refine(data =>
+  data.speed_arithmetic || data.speed_json_parse || data.structured_output || data.behavioral_timing,
+  { message: 'At least one challenge response is required' }
+);
 
 // ============================================================================
 // TRADING
@@ -186,4 +193,18 @@ export const gameSubmitSchema = z.object({
   answers: z.unknown().optional(),
   agentId: z.string().uuid().optional(),
   metadata: z.record(z.unknown()).optional(),
+});
+
+export const puzzleSubmitSchema = z.object({
+  puzzleId: z.string().min(1).max(200),
+  answer: z.string().min(1).max(500),
+  timeMs: z.number().int().min(0).max(600000).optional(),
+  agentId: z.string().uuid().optional(),
+});
+
+export const sessionSubmitSchema = z.object({
+  score: z.number().int().min(0).max(100000),
+  correctCount: z.number().int().min(0).max(1000),
+  totalQuestions: z.number().int().min(1).max(1000),
+  timeSpentMs: z.number().int().min(0).max(3600000),
 });

@@ -3,17 +3,19 @@
  * Endpoints for puzzle games playable by both humans and AI agents
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { serviceClient as supabase, createUserClient, extractToken } from '../../shared/utils/supabase.js';
-import { puzzleService, type GameType, type Difficulty } from '../../services/puzzle-service.js';
+import { puzzleService, GAME_TYPES, DIFFICULTIES, type GameType, type Difficulty } from '../../services/puzzle-service/index.js';
 import { createLogger } from '../../shared/utils/logger.js';
+import { validateBody } from '../middleware/validate.js';
+import { puzzleSubmitSchema, sessionSubmitSchema } from '../schemas.js';
 
 const router = Router();
 const log = createLogger('GamesAPI');
 
-// Valid game types and difficulties
-const VALID_GAME_TYPES: GameType[] = ['trivia', 'math', 'chess', 'word', 'logic'];
-const VALID_DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
+// Derived from the canonical GAME_TYPES/DIFFICULTIES — single source of truth
+const VALID_GAME_TYPES: readonly GameType[] = GAME_TYPES;
+const VALID_DIFFICULTIES: readonly Difficulty[] = DIFFICULTIES;
 
 // ============================================================================
 // OPTIONAL AUTH MIDDLEWARE
@@ -25,7 +27,7 @@ interface AuthenticatedRequest extends Request {
   agentId?: string;
 }
 
-async function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
+async function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     // Check for user auth using anon client (not service client)
     const authHeader = req.headers.authorization;
@@ -38,15 +40,15 @@ async function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response, 
       }
     }
 
-    // Check for agent ID in body or query
+    // Check for agent ID in body or query (validate UUID format)
     const agentId = req.body?.agentId || req.query?.agentId;
-    if (agentId) {
-      req.agentId = agentId as string;
+    if (agentId && typeof agentId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(agentId)) {
+      req.agentId = agentId;
     }
 
     next();
   } catch (error) {
-    // Continue without auth
+    log.debug('Optional auth failed, continuing without auth', { error: String(error) });
     next();
   }
 }
@@ -89,8 +91,11 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
     // Get top scores for each game type
     const leaderboard: Array<{ gameType: string; userId?: string; agentId?: string; score: number; username?: string }> = [];
 
-    for (const gameType of VALID_GAME_TYPES) {
-      const gameLeaderboard = await puzzleService.getLeaderboard(gameType, limit);
+    const results = await Promise.all(
+      VALID_GAME_TYPES.map(gameType => puzzleService.getLeaderboard(gameType, limit))
+    );
+    results.forEach((gameLeaderboard, idx) => {
+      const gameType = VALID_GAME_TYPES[idx];
       leaderboard.push(...gameLeaderboard.map(entry => ({
         gameType,
         userId: entry.player_type === 'user' ? entry.player_id : undefined,
@@ -98,7 +103,7 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
         score: entry.total_score,
         username: entry.player_name,
       })));
-    }
+    });
 
     // Sort by score descending
     leaderboard.sort((a, b) => b.score - a.score);
@@ -252,21 +257,32 @@ router.get('/:type/puzzle', async (req: Request, res: Response) => {
  * POST /api/games/:type/submit
  * Submit answer for a puzzle
  */
-router.post('/:type/submit', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/:type/submit', optionalAuthMiddleware, validateBody(puzzleSubmitSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const gameType = req.params.type as GameType;
     const { puzzleId, answer, timeMs, agentId: bodyAgentId } = req.body;
+
+    // Validate inputs before any DB calls
+    if (!puzzleId || answer === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: puzzleId, answer'
+      });
+    }
+
+    if (!VALID_GAME_TYPES.includes(gameType)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid game type. Valid types: ${VALID_GAME_TYPES.join(', ')}`
+      });
+    }
 
     // Use auth middleware results or body params
     const userId = req.userId;
     const agentId = req.agentId || bodyAgentId;
 
-    if (!userId && !agentId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Either user authentication or agentId is required'
-      });
-    }
+    // Allow anonymous puzzle checking (no leaderboard recording)
+    const isAnonymous = !userId && !agentId;
 
     // Agent submissions always require authentication to verify ownership
     if (agentId && !userId) {
@@ -293,32 +309,48 @@ router.post('/:type/submit', optionalAuthMiddleware, async (req: AuthenticatedRe
       }
     }
 
-    if (!puzzleId || answer === undefined) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: puzzleId, answer'
-      });
-    }
-
-    if (!VALID_GAME_TYPES.includes(gameType)) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid game type. Valid types: ${VALID_GAME_TYPES.join(', ')}`
-      });
-    }
-
-    const result = await puzzleService.submitAnswer(
-      puzzleId,
-      String(answer),
-      timeMs || 0,
-      userId,
-      agentId
-    );
+    const result = isAnonymous
+      ? await puzzleService.checkAnswer(puzzleId, String(answer), timeMs || 0)
+      : await puzzleService.submitAnswer(puzzleId, String(answer), timeMs || 0, userId, agentId);
 
     res.json(result);
   } catch (error) {
     log.error('Error submitting answer', { error: String(error) });
     res.status(500).json({ success: false, error: 'Failed to submit answer' });
+  }
+});
+
+/**
+ * POST /api/games/:type/session
+ * Submit a game session result (from iframe game completion)
+ * This replaces the direct Supabase upsert that was in Play.tsx
+ */
+router.post('/:type/session', optionalAuthMiddleware, validateBody(sessionSubmitSchema), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const gameType = req.params.type as GameType;
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required to save scores' });
+    }
+
+    if (!VALID_GAME_TYPES.includes(gameType)) {
+      return res.status(400).json({ success: false, error: `Invalid game type. Valid types: ${VALID_GAME_TYPES.join(', ')}` });
+    }
+
+    const { score, correctCount, totalQuestions, timeSpentMs } = req.body;
+
+    const result = await puzzleService.submitSession(gameType, userId, {
+      score,
+      correctCount,
+      totalQuestions,
+      timeSpentMs,
+    });
+
+    res.json(result);
+  } catch (error) {
+    log.error('Error submitting session', { error: String(error) });
+    res.status(500).json({ success: false, error: 'Failed to submit session' });
   }
 });
 

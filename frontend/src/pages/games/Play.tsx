@@ -30,10 +30,11 @@ const GAME_INFO: Record<string, { name: string; description: string; color: stri
   math: { name: 'Math Challenge', description: 'Solve 10 math problems', color: 'magenta' },
   word: { name: 'Word Logic', description: 'Unscramble 10 words', color: 'green' },
   logic: { name: 'Logic Puzzles', description: 'Solve 5 pattern puzzles', color: 'yellow' },
-  chess: { name: 'Chess Puzzles', description: 'Find the best move in 5 positions', color: 'purple' }
+  chess: { name: 'Chess Puzzles', description: 'Find the best move in 5 positions', color: 'purple' },
+  code: { name: 'Code Debug', description: 'Find bugs in 10 code snippets', color: 'orange' },
+  cipher: { name: 'Cipher Break', description: 'Decode 10 encrypted messages', color: 'emerald' },
+  spatial: { name: 'Spatial Logic', description: 'Solve 10 grid puzzles', color: 'rose' },
 };
-
-import { supabase } from '../../lib/supabase';
 
 // Static class mapping to avoid dynamic Tailwind class generation (purged in production)
 const GAME_COLOR_CLASSES: Record<string, { bg: string; text: string }> = {
@@ -42,6 +43,9 @@ const GAME_COLOR_CLASSES: Record<string, { bg: string; text: string }> = {
   green: { bg: 'bg-neon-green/20', text: 'text-neon-green' },
   yellow: { bg: 'bg-yellow-500/20', text: 'text-yellow-500' },
   purple: { bg: 'bg-purple-500/20', text: 'text-purple-500' },
+  orange: { bg: 'bg-orange-500/20', text: 'text-orange-500' },
+  emerald: { bg: 'bg-emerald-500/20', text: 'text-emerald-500' },
+  rose: { bg: 'bg-rose-500/20', text: 'text-rose-500' },
 };
 
 export function GamesPlay() {
@@ -64,9 +68,16 @@ export function GamesPlay() {
     }
   }, [gameInfo, navigate]);
 
+  const gameStateRef = useRef(gameState);
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+
   useEffect(() => {
     // Listen for completion messages from the game iframe via postMessage
     const handleMessage = (event: MessageEvent) => {
+      // Only accept messages from same origin (game iframes are same-origin)
+      if (event.origin !== window.location.origin) return;
+      if (gameStateRef.current === 'finished') return;
+
       if (event.data && typeof event.data === 'object') {
         const { type: msgType, data } = event.data;
 
@@ -108,33 +119,28 @@ export function GamesPlay() {
   };
 
   const submitScore = async (gameResult: GameResult) => {
-    if (!type || !user) return;
+    if (!type || !user || !session) return;
 
     setSubmitting(true);
     try {
-      // Upsert score to leaderboard via Supabase
-      const accuracy = gameResult.totalQuestions > 0
-        ? (gameResult.correctCount / gameResult.totalQuestions) * 100
-        : 0;
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${apiUrl}/api/games/${type}/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          score: gameResult.score,
+          correctCount: gameResult.correctCount,
+          totalQuestions: gameResult.totalQuestions,
+          timeSpentMs: Math.round(gameResult.timeSpent * 1000),
+        }),
+      });
 
-      const { error } = await supabase
-        .from('aio_game_leaderboards')
-        .upsert({
-          game_type: type,
-          user_id: user.id,
-          total_score: gameResult.score,
-          puzzles_attempted: gameResult.totalQuestions,
-          puzzles_solved: gameResult.correctCount,
-          accuracy,
-          average_time_ms: Math.round(gameResult.timeSpent * 1000),
-          sessions_completed: 1,
-          last_played_at: new Date().toISOString(),
-        }, {
-          onConflict: 'game_type,user_id',
-        });
-
-      if (error && import.meta.env.DEV) {
-        console.error('Failed to submit score:', error);
+      if (!response.ok && import.meta.env.DEV) {
+        const err = await response.json().catch(() => ({}));
+        console.error('Failed to submit score:', err);
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error submitting score:', error);

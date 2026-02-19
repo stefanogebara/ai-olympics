@@ -41,7 +41,7 @@ import { createClient } from '@supabase/supabase-js';
 import agentsRouter from './routes/agents.js';
 import competitionsRouter from './routes/competitions.js';
 import leaderboardsRouter from './routes/leaderboards.js';
-import predictionMarketsRouter from './routes/prediction-markets.js';
+import predictionMarketsRouter from './routes/prediction-markets/index.js';
 import userPredictionsRouter from './routes/user-predictions.js';
 import gamesRouter from './routes/games.js';
 import metaMarketsRouter from './routes/meta-markets.js';
@@ -176,6 +176,7 @@ export function createAPIServer() {
   app.use('/api/competitions/start', competitionLimiter);
   app.use('/api/championships', mutationLimiter);
   app.use('/api/tournaments', mutationLimiter);
+  app.use('/api/games', mutationLimiter);
 
   // CORS - restricted origins
   app.use((_req, res, next) => {
@@ -195,8 +196,15 @@ export function createAPIServer() {
   // ============================================================================
   // TASK PAGES (served to agents)
   // Task HTML files are in src/tasks/, not dist/tasks/
+  // Relax CSP for task pages — self-contained HTML with inline scripts
   // ============================================================================
   const tasksDir = path.join(__dirname, '../../src/tasks');
+
+  app.use('/tasks', (_req, res, next) => {
+    res.setHeader('Content-Security-Policy',
+      "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
+    next();
+  });
 
   // Form Blitz task
   app.get('/tasks/form-blitz', (_req, res) => {
@@ -277,6 +285,21 @@ export function createAPIServer() {
   // Chess Puzzles
   app.get('/tasks/chess', (_req, res) => {
     res.sendFile(path.join(tasksDir, 'chess/index.html'));
+  });
+
+  // Code Debug Challenge
+  app.get('/tasks/code', (_req, res) => {
+    res.sendFile(path.join(tasksDir, 'code/index.html'));
+  });
+
+  // Cipher Break Challenge
+  app.get('/tasks/cipher', (_req, res) => {
+    res.sendFile(path.join(tasksDir, 'cipher/index.html'));
+  });
+
+  // Spatial Logic Challenge
+  app.get('/tasks/spatial', (_req, res) => {
+    res.sendFile(path.join(tasksDir, 'spatial/index.html'));
   });
 
   // ============================================================================

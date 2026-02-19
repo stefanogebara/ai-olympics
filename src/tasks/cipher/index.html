@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Olympics - Cipher Break Challenge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0A0A0F;
+      min-height: 100vh;
+      padding: 30px;
+      color: #fff;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(0, 245, 255, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(255, 0, 255, 0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 80%, rgba(0, 102, 255, 0.04) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body > * { position: relative; z-index: 1; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.2rem; font-weight: 700;
+      background: linear-gradient(90deg, #00F5FF, #FF00FF, #00F5FF);
+      background-size: 200% auto;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      animation: gradientShift 3s linear infinite;
+      filter: drop-shadow(0 0 10px rgba(0, 245, 255, 0.4));
+      margin-bottom: 10px;
+    }
+    @keyframes gradientShift { to { background-position: 200% center; } }
+    .header p { color: rgba(255, 255, 255, 0.6); font-size: 0.95rem; }
+    .timer {
+      position: fixed; top: 20px; right: 20px; z-index: 100;
+      background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(12px);
+      padding: 12px 22px; border-radius: 12px;
+      border: 1px solid rgba(0, 245, 255, 0.3);
+      font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; color: #00F5FF;
+      box-shadow: 0 0 15px rgba(0, 245, 255, 0.15);
+    }
+    .progress-bar { max-width: 700px; margin: 0 auto 30px; background: rgba(255, 255, 255, 0.06); height: 6px; border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #00F5FF, #0066FF); transition: width 0.4s ease; box-shadow: 0 0 10px rgba(0, 245, 255, 0.5); }
+    .stats-bar { display: flex; justify-content: center; gap: 40px; margin-bottom: 24px; }
+    .stat { text-align: center; }
+    .stat-value { font-family: 'Orbitron', sans-serif; font-size: 1.5rem; font-weight: 700; color: #00F5FF; filter: drop-shadow(0 0 6px rgba(0, 245, 255, 0.4)); }
+    .stat-label { font-size: 0.75rem; color: rgba(255, 255, 255, 0.5); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+    .puzzle-container { max-width: 700px; margin: 0 auto; }
+    .puzzle-card {
+      background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+      padding: 30px; margin-bottom: 20px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .puzzle-card:hover { border-color: rgba(0, 245, 255, 0.3); box-shadow: 0 0 20px rgba(0, 245, 255, 0.08), 0 4px 24px rgba(0, 0, 0, 0.3); }
+    .puzzle-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .puzzle-number { font-family: 'Orbitron', sans-serif; color: #00F5FF; font-size: 0.85rem; font-weight: 600; }
+    .difficulty-badge { font-family: 'Inter', sans-serif; padding: 5px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .diff-easy { background: rgba(0, 255, 136, 0.15); color: #00FF88; border: 1px solid rgba(0, 255, 136, 0.3); }
+    .diff-medium { background: rgba(255, 170, 0, 0.15); color: #FFAA00; border: 1px solid rgba(255, 170, 0, 0.3); }
+    .diff-hard { background: rgba(255, 0, 255, 0.15); color: #FF00FF; border: 1px solid rgba(255, 0, 255, 0.3); }
+    .cipher-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.3rem; line-height: 1.6;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 25px; border-radius: 10px; text-align: center;
+      color: #FF00FF; margin-bottom: 15px; letter-spacing: 4px;
+      border: 1px solid rgba(255, 0, 255, 0.25);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3), 0 0 15px rgba(255, 0, 255, 0.08);
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .puzzle-description { color: rgba(255, 255, 255, 0.8); line-height: 1.6; font-size: 1rem; margin-bottom: 20px; }
+    .hint-text { color: rgba(255, 255, 255, 0.4); font-size: 0.85rem; text-align: center; margin-bottom: 15px; font-style: italic; }
+    .input-section { margin-top: 25px; }
+    .input-label { color: rgba(255, 255, 255, 0.5); font-size: 0.85rem; margin-bottom: 10px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
+    .input-group { display: flex; gap: 10px; }
+    .answer-input {
+      flex: 1; padding: 14px;
+      background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px; color: white; font-size: 1.1rem; text-align: center;
+      font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 2px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .answer-input:focus { outline: none; border-color: #00F5FF; box-shadow: 0 0 10px rgba(0, 245, 255, 0.2); }
+    .answer-input::placeholder { color: rgba(255, 255, 255, 0.25); text-transform: none; letter-spacing: normal; }
+    .submit-btn {
+      padding: 14px 30px; background: linear-gradient(135deg, #00F5FF, #0066FF);
+      border: none; border-radius: 10px; color: #000; font-size: 1rem; font-weight: 700;
+      font-family: 'Inter', sans-serif; cursor: pointer;
+      transition: box-shadow 0.3s, transform 0.15s; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .submit-btn:hover { box-shadow: 0 0 20px rgba(0, 245, 255, 0.4); }
+    .submit-btn:active { transform: scale(0.95); }
+    .submit-btn:disabled { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.3); cursor: not-allowed; box-shadow: none; transform: none; }
+    .feedback { margin-top: 15px; padding: 14px; border-radius: 10px; text-align: center; font-weight: 500; backdrop-filter: blur(8px); }
+    .feedback.correct { background: rgba(0, 255, 136, 0.12); color: #00FF88; border: 1px solid rgba(0, 255, 136, 0.3); }
+    .feedback.incorrect { background: rgba(255, 0, 100, 0.12); color: #FF6B6B; border: 1px solid rgba(255, 0, 100, 0.3); }
+    .hidden { display: none; }
+    .loading { text-align: center; padding: 60px; color: rgba(255, 255, 255, 0.5); font-size: 1.1rem; }
+    .success-screen { text-align: center; padding: 40px; max-width: 600px; margin: 0 auto; }
+    .success-icon { font-family: 'JetBrains Mono', monospace; font-size: 3rem; margin-bottom: 20px; color: #FF00FF; filter: drop-shadow(0 0 15px rgba(255, 0, 255, 0.5)); }
+    .success-screen h2 { font-family: 'Orbitron', sans-serif; color: #00FF88; font-size: 2rem; margin-bottom: 15px; filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.4)); }
+    .score-display { font-family: 'Orbitron', sans-serif; font-size: 2.8rem; font-weight: 700; color: #00F5FF; margin: 20px 0; filter: drop-shadow(0 0 12px rgba(0, 245, 255, 0.5)); }
+    .results-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 25px 0; }
+    .result-item { background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(8px); padding: 16px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08); }
+    .result-item-value { font-family: 'Orbitron', sans-serif; font-size: 1.4rem; font-weight: 700; color: #00F5FF; }
+    .result-item-label { font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); margin-top: 4px; }
+    .results-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
+    .result-box { padding: 14px 10px; border-radius: 10px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 600; backdrop-filter: blur(8px); }
+    .result-box.correct { background: rgba(0, 255, 136, 0.12); color: #00FF88; border: 1px solid rgba(0, 255, 136, 0.3); }
+    .result-box.incorrect { background: rgba(255, 0, 100, 0.12); color: #FF6B6B; border: 1px solid rgba(255, 0, 100, 0.3); }
+  </style>
+</head>
+<body>
+  <div class="timer" id="timer">00:00</div>
+  <div class="header">
+    <h1>Cipher Break Challenge</h1>
+    <p>Decode 5 encrypted messages!</p>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width: 0%"></div></div>
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-value" id="scoreDisplay">0</div><div class="stat-label">Score</div></div>
+    <div class="stat"><div class="stat-value" id="correctDisplay">0</div><div class="stat-label">Decoded</div></div>
+    <div class="stat"><div class="stat-value" id="puzzleNum">1/5</div><div class="stat-label">Cipher</div></div>
+  </div>
+  <div class="puzzle-container" id="puzzleContainer"><div class="loading" id="loadingMsg">Loading ciphers...</div></div>
+  <div class="success-screen hidden" id="successScreen">
+    <div class="success-icon">{ ? }</div>
+    <h2>Challenge Complete!</h2>
+    <div class="score-display">Score: <span id="finalScore">0</span></div>
+    <div class="results-summary">
+      <div class="result-item"><div class="result-item-value" id="finalCorrect">0</div><div class="result-item-label">Ciphers Broken</div></div>
+      <div class="result-item"><div class="result-item-value" id="finalTime">0s</div><div class="result-item-label">Total Time</div></div>
+      <div class="result-item"><div class="result-item-value" id="avgTime">0s</div><div class="result-item-label">Avg Per Cipher</div></div>
+      <div class="result-item"><div class="result-item-value" id="accuracy">0%</div><div class="result-item-label">Accuracy</div></div>
+    </div>
+    <div class="results-grid" id="resultsGrid"></div>
+  </div>
+
+  <script>
+    var API_BASE = window.location.origin + '/api/games/cipher';
+    var TOTAL = 5;
+    var DIFFS = ['easy', 'easy', 'medium', 'medium', 'hard'];
+    var puzzles = [], currentPuzzle = 0, answers = [], totalScore = 0, correctCount = 0;
+    var startTime = Date.now(), puzzleStart = 0;
+
+    var timerEl = document.getElementById('timer');
+    var progressFill = document.getElementById('progressFill');
+    var puzzleContainer = document.getElementById('puzzleContainer');
+    var successScreen = document.getElementById('successScreen');
+    var scoreDisplay = document.getElementById('scoreDisplay');
+    var correctDisplay = document.getElementById('correctDisplay');
+    var puzzleNum = document.getElementById('puzzleNum');
+
+    setInterval(function() {
+      var e = Math.floor((Date.now() - startTime) / 1000);
+      timerEl.textContent = String(Math.floor(e / 60)).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0');
+    }, 1000);
+
+    function fetchWithTimeout(url) {
+      var controller = new AbortController();
+      var timeoutId = setTimeout(function() { controller.abort(); }, 15000);
+      return fetch(url, { signal: controller.signal }).then(function(r) { clearTimeout(timeoutId); return r.json(); });
+    }
+    Promise.all(DIFFS.map(function(d) {
+      return fetchWithTimeout(API_BASE + '/puzzle?difficulty=' + d);
+    })).then(function(results) {
+      puzzles = results;
+      document.getElementById('loadingMsg').classList.add('hidden');
+      puzzleStart = Date.now();
+      renderPuzzle(0);
+    }).catch(function() {
+      document.getElementById('loadingMsg').textContent = 'Failed to load ciphers. Refresh to retry.';
+    });
+
+    function renderPuzzle(index) {
+      var p = puzzles[index];
+      progressFill.style.width = ((index / TOTAL) * 100) + '%';
+      puzzleNum.textContent = (index + 1) + '/' + TOTAL;
+      while (puzzleContainer.firstChild) puzzleContainer.removeChild(puzzleContainer.firstChild);
+
+      var card = document.createElement('div');
+      card.className = 'puzzle-card';
+
+      var header = document.createElement('div');
+      header.className = 'puzzle-header';
+      var numSpan = document.createElement('span');
+      numSpan.className = 'puzzle-number';
+      numSpan.textContent = 'Cipher ' + (index + 1);
+      var diffSpan = document.createElement('span');
+      diffSpan.className = 'difficulty-badge diff-' + p.difficulty;
+      diffSpan.textContent = p.difficulty.charAt(0).toUpperCase() + p.difficulty.slice(1);
+      header.appendChild(numSpan);
+      header.appendChild(diffSpan);
+
+      var descDiv = document.createElement('div');
+      descDiv.className = 'puzzle-description';
+      var parts = p.question.split(': ');
+      if (parts.length > 1) {
+        descDiv.textContent = parts[0] + ':';
+        var cipherDiv = document.createElement('div');
+        cipherDiv.className = 'cipher-display';
+        cipherDiv.textContent = parts.slice(1).join(': ');
+        card.appendChild(header);
+        card.appendChild(descDiv);
+        card.appendChild(cipherDiv);
+      } else {
+        descDiv.textContent = p.question;
+        card.appendChild(header);
+        card.appendChild(descDiv);
+      }
+
+      if (p.hint) {
+        var hintDiv = document.createElement('div');
+        hintDiv.className = 'hint-text';
+        hintDiv.textContent = p.hint;
+        card.appendChild(hintDiv);
+      }
+
+      var inputSection = document.createElement('div');
+      inputSection.className = 'input-section';
+      var inputLabel = document.createElement('label');
+      inputLabel.className = 'input-label';
+      inputLabel.textContent = 'Enter the decoded message:';
+      var inputGroup = document.createElement('div');
+      inputGroup.className = 'input-group';
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'answer-input';
+      input.id = 'answerInput';
+      input.placeholder = 'Type decoded message...';
+      input.setAttribute('autocomplete', 'off');
+      var submitBtn = document.createElement('button');
+      submitBtn.className = 'submit-btn';
+      submitBtn.id = 'submitBtn';
+      submitBtn.textContent = 'Decode';
+      inputGroup.appendChild(input);
+      inputGroup.appendChild(submitBtn);
+      inputSection.appendChild(inputLabel);
+      inputSection.appendChild(inputGroup);
+
+      var feedbackDiv = document.createElement('div');
+      feedbackDiv.className = 'feedback hidden';
+      feedbackDiv.id = 'feedback';
+
+      card.appendChild(inputSection);
+      card.appendChild(feedbackDiv);
+      puzzleContainer.appendChild(card);
+
+      submitBtn.onclick = submitAnswer;
+      input.addEventListener('keypress', function(e) { if (e.key === 'Enter') submitAnswer(); });
+      input.focus();
+      puzzleStart = Date.now();
+    }
+
+    function submitAnswer() {
+      var input = document.getElementById('answerInput');
+      var btn = document.getElementById('submitBtn');
+      var userAnswer = input.value.trim();
+      if (!userAnswer) { input.style.borderColor = '#FF00FF'; return; }
+      input.disabled = true;
+      btn.disabled = true;
+
+      var p = puzzles[currentPuzzle];
+      fetch(API_BASE + '/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ puzzleId: p.id, answer: userAnswer, timeMs: Date.now() - puzzleStart })
+      }).then(function(r) { return r.json(); }).then(function(result) {
+        totalScore += (result.score || 0);
+        if (result.is_correct) { correctCount++; }
+        answers.push({ puzzleIndex: currentPuzzle, correct: result.is_correct, points: result.score || 0 });
+        scoreDisplay.textContent = totalScore;
+        correctDisplay.textContent = correctCount;
+
+        var feedback = document.getElementById('feedback');
+        feedback.classList.remove('hidden', 'correct', 'incorrect');
+        feedback.classList.add(result.is_correct ? 'correct' : 'incorrect');
+        feedback.textContent = result.is_correct
+          ? 'Correct! ' + (result.explanation || '')
+          : 'Incorrect.' + (result.correct_answer ? ' Answer: ' + result.correct_answer + '.' : '') + (result.explanation ? ' ' + result.explanation : '');
+
+        setTimeout(function() {
+          if (currentPuzzle < TOTAL - 1) { currentPuzzle++; renderPuzzle(currentPuzzle); }
+          else showResults();
+        }, 2500);
+      }).catch(function() {
+        input.disabled = false; btn.disabled = false;
+        var feedback = document.getElementById('feedback');
+        feedback.classList.remove('hidden');
+        feedback.classList.add('incorrect');
+        feedback.textContent = 'Network error. Try again.';
+      });
+    }
+
+    function showResults() {
+      var totalTime = (Date.now() - startTime) / 1000;
+      puzzleContainer.classList.add('hidden');
+      progressFill.style.width = '100%';
+      successScreen.classList.remove('hidden');
+      document.getElementById('finalScore').textContent = totalScore;
+      document.getElementById('finalCorrect').textContent = correctCount + '/' + TOTAL;
+      document.getElementById('finalTime').textContent = totalTime.toFixed(1) + 's';
+      document.getElementById('avgTime').textContent = (totalTime / TOTAL).toFixed(1) + 's';
+      document.getElementById('accuracy').textContent = Math.round((correctCount / TOTAL) * 100) + '%';
+
+      var grid = document.getElementById('resultsGrid');
+      while (grid.firstChild) grid.removeChild(grid.firstChild);
+      answers.forEach(function(a, i) {
+        var box = document.createElement('div');
+        box.className = 'result-box ' + (a.correct ? 'correct' : 'incorrect');
+        var l = document.createElement('div'); l.textContent = 'C' + (i + 1);
+        var r = document.createElement('div'); r.textContent = a.correct ? 'OK' : 'X';
+        box.appendChild(l); box.appendChild(r); grid.appendChild(box);
+      });
+      console.log('CIPHER_COMPLETE', { completionTime: totalTime, timestamp: Date.now(), correctCount: correctCount, totalPuzzles: TOTAL, answers: answers, score: totalScore });
+    }
+  </script>
+</body>
+</html>
