@@ -114,6 +114,7 @@ const authLimiter = createLimiter(10, MINUTE, 'Too many auth attempts, please tr
 const mutationLimiter = createLimiter(30, MINUTE, 'Too many requests, please try again later');
 const financialLimiter = createLimiter(10, MINUTE, 'Too many financial requests, please try again later');
 const competitionLimiter = createLimiter(5, MINUTE, 'Too many requests, please try again later');
+const puzzleSubmitLimiter = createLimiter(10, MINUTE, 'Too many puzzle submissions, please try again later');
 
 // Supabase client for WebSocket auth
 const wsSupabase = createClient(
@@ -176,6 +177,7 @@ export function createAPIServer() {
   app.use('/api/competitions/start', competitionLimiter);
   app.use('/api/championships', mutationLimiter);
   app.use('/api/tournaments', mutationLimiter);
+  app.use('/api/games/:type/submit', puzzleSubmitLimiter);
   app.use('/api/games', mutationLimiter);
 
   // CORS - restricted origins

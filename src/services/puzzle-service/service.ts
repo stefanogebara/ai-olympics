@@ -30,6 +30,11 @@ export class PuzzleService {
   private readonly anonymousAttempts = new Map<string, number>();
   private static readonly MAX_ANONYMOUS_ATTEMPTS = 2;
 
+  /** In-memory cache for game types (rarely changes, only via migrations) */
+  private gameTypesCache: GameTypeInfo[] | null = null;
+  private gameTypesCacheExpiry = 0;
+  private static readonly GAME_TYPES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
   constructor() {
     this.initialized = !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY);
     if (!this.initialized) {
@@ -40,6 +45,11 @@ export class PuzzleService {
   /** Get available game types */
   async getGameTypes(): Promise<GameTypeInfo[]> {
     if (this.initialized) {
+      // Return cached data if still valid
+      if (this.gameTypesCache && Date.now() < this.gameTypesCacheExpiry) {
+        return this.gameTypesCache;
+      }
+
       try {
         const { data, error } = await supabase
           .from('aio_game_types')
@@ -47,7 +57,9 @@ export class PuzzleService {
           .order('name');
 
         if (!error && data) {
-          return data as GameTypeInfo[];
+          this.gameTypesCache = data as GameTypeInfo[];
+          this.gameTypesCacheExpiry = Date.now() + PuzzleService.GAME_TYPES_CACHE_TTL_MS;
+          return this.gameTypesCache;
         }
       } catch (error) {
         log.error('Error fetching game types', { error: String(error) });
@@ -153,8 +165,8 @@ export class PuzzleService {
     return safePuzzle;
   }
 
-  /** Fetch a stored puzzle by ID */
-  private async fetchPuzzle(puzzleId: string): Promise<PuzzleWithAnswer | null> {
+  /** Fetch a stored puzzle by ID (includes created_at for server-side time validation) */
+  private async fetchPuzzle(puzzleId: string): Promise<(PuzzleWithAnswer & { created_at?: string }) | null> {
     if (!this.initialized) return null;
     try {
       const { data } = await supabase
@@ -162,7 +174,7 @@ export class PuzzleService {
         .select('*')
         .eq('puzzle_id', puzzleId)
         .single();
-      return data ? (data as PuzzleWithAnswer) : null;
+      return data ? (data as PuzzleWithAnswer & { created_at?: string }) : null;
     } catch (error) {
       log.error('Error fetching puzzle', { error: String(error) });
       return null;
@@ -173,16 +185,26 @@ export class PuzzleService {
   private scoreAnswer(
     puzzle: PuzzleWithAnswer,
     answer: string,
-    timeMs: number
+    timeMs: number,
+    puzzleCreatedAt?: string
   ): { isCorrect: boolean; score: number } {
     const normalizedAnswer = answer.trim().toUpperCase();
     const normalizedCorrect = puzzle.correct_answer.trim().toUpperCase();
     const isCorrect = normalizedAnswer === normalizedCorrect
       || normalizedAnswer.replace(/\s/g, '') === normalizedCorrect.replace(/\s/g, '');
 
+    // Use server-side time when available to prevent cheating.
+    // Take the greater of server and client time: prevents claiming 0ms
+    // while being fair to users with slow connections (client measured longer).
+    let effectiveTimeMs = timeMs;
+    if (puzzleCreatedAt) {
+      const serverTimeMs = Date.now() - new Date(puzzleCreatedAt).getTime();
+      effectiveTimeMs = Math.max(serverTimeMs, timeMs);
+    }
+
     const baseScore = puzzle.points;
     const timeLimit = puzzle.time_limit_seconds ? puzzle.time_limit_seconds * 1000 : 60000;
-    const clampedTimeMs = Math.max(0, Math.min(timeMs, timeLimit));
+    const clampedTimeMs = Math.max(0, Math.min(effectiveTimeMs, timeLimit));
     let score = 0;
     if (isCorrect) {
       const timeBonus = Math.max(0, 1 - (clampedTimeMs / timeLimit)) * 0.5;
@@ -212,7 +234,7 @@ export class PuzzleService {
       return { success: false, is_correct: false, score: 0, error: 'Puzzle not found' };
     }
 
-    const { isCorrect, score } = this.scoreAnswer(puzzle, answer, timeMs);
+    const { isCorrect, score } = this.scoreAnswer(puzzle, answer, timeMs, puzzle.created_at);
 
     // Only reveal explanation on correct submissions
     // to prevent answer harvesting by anonymous callers
@@ -243,7 +265,7 @@ export class PuzzleService {
       return { success: false, is_correct: false, score: 0, error: 'Puzzle not found' };
     }
 
-    const { isCorrect, score } = this.scoreAnswer(puzzle, answer, timeMs);
+    const { isCorrect, score } = this.scoreAnswer(puzzle, answer, timeMs, puzzle.created_at);
 
     // Record attempt
     if (this.initialized) {
@@ -293,8 +315,52 @@ export class PuzzleService {
     }
 
     try {
+      // Cross-reference submitted session data against actual recorded attempts
+      // to prevent clients from submitting inflated scores
+      let validatedScore = sessionData.score;
+      let validatedCorrect = sessionData.correctCount;
+
+      try {
+        const { data: attempts } = await supabase
+          .from('aio_puzzle_attempts')
+          .select('is_correct, score, time_ms, created_at')
+          .eq('user_id', userId)
+          .eq('game_type', gameType)
+          .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(sessionData.totalQuestions);
+
+        if (attempts && attempts.length > 0) {
+          const serverCorrectCount = attempts.filter(a => a.is_correct).length;
+          const serverScore = attempts.reduce((sum, a) => sum + (a.score ?? 0), 0);
+
+          // Use the minimum of client-reported and server-verified values
+          validatedScore = Math.min(sessionData.score, serverScore);
+          validatedCorrect = Math.min(sessionData.correctCount, serverCorrectCount);
+
+          // Log large discrepancies for cheating detection
+          if (sessionData.score > serverScore * 10 && serverScore > 0) {
+            log.warn('Large score discrepancy detected — possible cheating attempt', {
+              userId, gameType,
+              clientScore: sessionData.score, serverScore,
+              clientCorrect: sessionData.correctCount, serverCorrect: serverCorrectCount,
+            });
+          }
+        } else {
+          // No attempts found (e.g., DB lag) — trust client data but log warning
+          log.warn('No recorded attempts found for session validation, trusting client data', {
+            userId, gameType, totalQuestions: sessionData.totalQuestions,
+          });
+        }
+      } catch (validationError) {
+        // Don't block legitimate users because of validation query failure
+        log.warn('Session validation query failed, trusting client data', {
+          error: String(validationError), userId, gameType,
+        });
+      }
+
       const accuracy = sessionData.totalQuestions > 0
-        ? (sessionData.correctCount / sessionData.totalQuestions) * 100
+        ? (validatedCorrect / sessionData.totalQuestions) * 100
         : 0;
 
       // Use atomic database function (INSERT ... ON CONFLICT with GREATEST)
@@ -302,21 +368,25 @@ export class PuzzleService {
       const { data, error } = await supabase.rpc('aio_upsert_game_leaderboard', {
         p_game_type: gameType,
         p_user_id: userId,
-        p_score: sessionData.score,
+        p_score: validatedScore,
         p_puzzles_attempted: sessionData.totalQuestions,
-        p_puzzles_solved: sessionData.correctCount,
+        p_puzzles_solved: validatedCorrect,
         p_accuracy: accuracy,
         p_average_time_ms: Math.round(sessionData.timeSpentMs),
       });
 
       if (error) {
         log.warn('Atomic upsert failed, falling back to read-then-write', { error: error.message });
-        return this.submitSessionFallback(gameType, userId, sessionData, accuracy);
+        return this.submitSessionFallback(gameType, userId, {
+          ...sessionData,
+          score: validatedScore,
+          correctCount: validatedCorrect,
+        }, accuracy);
       }
 
       const bestScore = Array.isArray(data) && data.length > 0
         ? (data[0] as { best_score: number }).best_score
-        : sessionData.score;
+        : validatedScore;
 
       return { success: true, bestScore };
     } catch (error) {

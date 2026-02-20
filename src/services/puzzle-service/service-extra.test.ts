@@ -6,7 +6,7 @@
  * puzzle-service.test.ts.  All external dependencies are mocked.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -35,6 +35,7 @@ vi.mock('../../shared/utils/supabase.js', () => {
     explanation: 'Basic addition',
     points: 50,
     time_limit_seconds: 30,
+    created_at: new Date(Date.now() - 5000).toISOString(), // 5 seconds ago
   };
 
   return {
@@ -55,6 +56,7 @@ vi.mock('../../shared/utils/supabase.js', () => {
             select: vi.fn().mockReturnThis(),
             insert: vi.fn().mockResolvedValue({ data: null, error: null }),
             eq: vi.fn().mockReturnThis(),
+            gte: vi.fn().mockReturnThis(),
             order: vi.fn().mockReturnThis(),
             limit: vi.fn().mockResolvedValue({ data: [], error: null }),
           };
@@ -476,9 +478,10 @@ describe('PuzzleService.submitSession()', () => {
         select: vi.fn().mockReturnThis(),
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         eq: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
         order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: null, error: null }),
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       } as unknown as ReturnType<typeof serviceClient.from>;
     });
 
@@ -505,9 +508,10 @@ describe('PuzzleService.submitSession()', () => {
         select: vi.fn().mockReturnThis(),
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         eq: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
         order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: null, error: null }),
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       } as unknown as ReturnType<typeof serviceClient.from>;
     });
 
@@ -534,9 +538,10 @@ describe('PuzzleService.submitSession()', () => {
         select: vi.fn().mockReturnThis(),
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         eq: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
         order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: null, error: null }),
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       } as unknown as ReturnType<typeof serviceClient.from>;
     });
 
@@ -568,9 +573,10 @@ describe('PuzzleService.submitSession()', () => {
         select: vi.fn().mockReturnThis(),
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         eq: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
         order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: null, error: null }),
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       } as unknown as ReturnType<typeof serviceClient.from>;
     });
 
@@ -603,6 +609,7 @@ describe('PuzzleService.submitSession()', () => {
         select: vi.fn().mockReturnThis(),
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         eq: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
         order: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -615,5 +622,315 @@ describe('PuzzleService.submitSession()', () => {
 
     expect(capturedData).not.toBeNull();
     expect((capturedData as unknown as Record<string, unknown>).accuracy).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Game type caching
+// ---------------------------------------------------------------------------
+
+describe('PuzzleService.getGameTypes() — caching', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns cached data on second call without querying DB again', async () => {
+    const service = makeInitializedService();
+    const { serviceClient } = await import('../../shared/utils/supabase.js');
+
+    const mockGameTypes = [
+      { id: 'math', name: 'Math', description: 'd', instructions: 'i', category: 'c', difficulty_levels: ['easy'], time_limit_seconds: 30, max_score: 100, supports_human: true, supports_ai: true, icon: '+' },
+    ];
+
+    const orderMock = vi.fn().mockResolvedValue({ data: mockGameTypes, error: null });
+    vi.mocked(serviceClient.from).mockImplementation((table: string) => {
+      if (table === 'aio_game_types') {
+        return {
+          select: vi.fn().mockReturnValue({ order: orderMock }),
+        } as unknown as ReturnType<typeof serviceClient.from>;
+      }
+      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() } as unknown as ReturnType<typeof serviceClient.from>;
+    });
+
+    const first = await service.getGameTypes();
+    const second = await service.getGameTypes();
+
+    expect(first).toEqual(mockGameTypes);
+    expect(second).toEqual(mockGameTypes);
+    // DB should only be queried once — second call hits cache
+    expect(orderMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-fetches from DB after cache expires', async () => {
+    const service = makeInitializedService();
+    const { serviceClient } = await import('../../shared/utils/supabase.js');
+
+    const mockGameTypes = [
+      { id: 'trivia', name: 'Trivia', description: 'd', instructions: 'i', category: 'c', difficulty_levels: ['easy'], time_limit_seconds: 30, max_score: 100, supports_human: true, supports_ai: true, icon: '?' },
+    ];
+
+    const orderMock = vi.fn().mockResolvedValue({ data: mockGameTypes, error: null });
+    vi.mocked(serviceClient.from).mockImplementation((table: string) => {
+      if (table === 'aio_game_types') {
+        return {
+          select: vi.fn().mockReturnValue({ order: orderMock }),
+        } as unknown as ReturnType<typeof serviceClient.from>;
+      }
+      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() } as unknown as ReturnType<typeof serviceClient.from>;
+    });
+
+    await service.getGameTypes(); // populate cache
+
+    // Expire the cache by manipulating the expiry field
+    (service as unknown as { gameTypesCacheExpiry: number }).gameTypesCacheExpiry = 0;
+
+    await service.getGameTypes(); // should re-fetch
+
+    expect(orderMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does NOT cache fallback data when not initialized', async () => {
+    const uninitialized = new PuzzleService();
+    (uninitialized as unknown as { initialized: boolean }).initialized = false;
+
+    const first = await uninitialized.getGameTypes();
+    const second = await uninitialized.getGameTypes();
+
+    // Both calls return fallback — cache should be null
+    expect(first.length).toBeGreaterThan(0);
+    expect(second.length).toBeGreaterThan(0);
+    expect((uninitialized as unknown as { gameTypesCache: unknown }).gameTypesCache).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Server-side time calculation (via scoreAnswer)
+// ---------------------------------------------------------------------------
+
+describe('Server-side time calculation', () => {
+  it('uses server time when client claims 0ms (prevents cheating)', async () => {
+    const service = makeInitializedService();
+    const { serviceClient } = await import('../../shared/utils/supabase.js');
+
+    // Mock puzzle created 10 seconds ago
+    const createdAt = new Date(Date.now() - 10000).toISOString();
+    vi.mocked(serviceClient.from).mockImplementation(() => ({
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          puzzle_id: 'timing-test',
+          game_type: 'math',
+          difficulty: 'easy',
+          question: '1+1',
+          correct_answer: '2',
+          explanation: 'addition',
+          points: 50,
+          time_limit_seconds: 30,
+          created_at: createdAt,
+        },
+        error: null,
+      }),
+    } as unknown as ReturnType<typeof serviceClient.from>));
+
+    // Client claims 0ms but server knows ~10s elapsed
+    const result = await service.checkAnswer('timing-test', '2', 0);
+    expect(result.success).toBe(true);
+    expect(result.is_correct).toBe(true);
+    // Score should NOT be max (75) — server time (~10s) prevents 0ms cheat
+    // With 10s elapsed on a 30s time limit: timeBonus = max(0, 1 - 10/30) * 0.5 ≈ 0.33
+    // score = round(50 * 1.33) = 67 (approximately, depends on exact timing)
+    expect(result.score).toBeLessThan(75); // Would be 75 if 0ms was accepted
+    expect(result.score).toBeGreaterThan(50); // Still some time bonus
+  });
+
+  it('uses client time when it is larger than server time (slow connection)', async () => {
+    const service = makeInitializedService();
+    const { serviceClient } = await import('../../shared/utils/supabase.js');
+
+    // Mock puzzle created 2 seconds ago
+    const createdAt = new Date(Date.now() - 2000).toISOString();
+    vi.mocked(serviceClient.from).mockImplementation(() => ({
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          puzzle_id: 'slow-client',
+          game_type: 'math',
+          difficulty: 'easy',
+          question: '1+1',
+          correct_answer: '2',
+          explanation: 'addition',
+          points: 50,
+          time_limit_seconds: 30,
+          created_at: createdAt,
+        },
+        error: null,
+      }),
+    } as unknown as ReturnType<typeof serviceClient.from>));
+
+    // Client reports 25s (slow connection), server sees ~2s → use 25s (benefits user fairness)
+    const result = await service.checkAnswer('slow-client', '2', 25000);
+    expect(result.success).toBe(true);
+    expect(result.is_correct).toBe(true);
+    // With 25s on 30s limit: timeBonus = max(0, 1 - 25/30) * 0.5 ≈ 0.083
+    // score = round(50 * 1.083) = 54
+    expect(result.score).toBeLessThanOrEqual(55);
+  });
+
+  it('scoreAnswer without created_at falls back to client time (backward compat)', async () => {
+    const service = makeInitializedService();
+    const { serviceClient } = await import('../../shared/utils/supabase.js');
+
+    // Mock puzzle WITHOUT created_at
+    vi.mocked(serviceClient.from).mockImplementation(() => ({
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          puzzle_id: 'no-created-at',
+          game_type: 'math',
+          difficulty: 'easy',
+          question: '1+1',
+          correct_answer: '2',
+          explanation: 'addition',
+          points: 50,
+          time_limit_seconds: 30,
+        },
+        error: null,
+      }),
+    } as unknown as ReturnType<typeof serviceClient.from>));
+
+    // Without created_at, client time of 0 should still give max score
+    const result = await service.checkAnswer('no-created-at', '2', 0);
+    expect(result.score).toBe(75); // max score: round(50 * 1.5)
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Session score validation
+// ---------------------------------------------------------------------------
+
+describe('PuzzleService.submitSession() — server-side validation', () => {
+  it('caps score to server-verified total when client inflates', async () => {
+    const service = makeInitializedService();
+    const { serviceClient } = await import('../../shared/utils/supabase.js');
+
+    // Track the RPC call parameters
+    let capturedRpcParams: Record<string, unknown> | null = null;
+
+    vi.mocked(serviceClient.rpc).mockImplementation((_fn: string, params: unknown) => {
+      capturedRpcParams = params as Record<string, unknown>;
+      return Promise.resolve({ data: [{ best_score: 150 }], error: null }) as unknown as ReturnType<typeof serviceClient.rpc>;
+    });
+
+    vi.mocked(serviceClient.from).mockImplementation((table: string) => {
+      if (table === 'aio_puzzle_attempts') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockResolvedValue({
+            data: [
+              { is_correct: true, score: 75, time_ms: 5000, created_at: new Date().toISOString() },
+              { is_correct: true, score: 75, time_ms: 3000, created_at: new Date().toISOString() },
+              { is_correct: false, score: -13, time_ms: 2000, created_at: new Date().toISOString() },
+            ],
+            error: null,
+          }),
+        } as unknown as ReturnType<typeof serviceClient.from>;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      } as unknown as ReturnType<typeof serviceClient.from>;
+    });
+
+    // Client claims 99999 score, but server only recorded 137 (75+75-13)
+    const result = await service.submitSession('math', 'user-cheater', {
+      score: 99999, correctCount: 100, totalQuestions: 3, timeSpentMs: 10000,
+    });
+
+    expect(result.success).toBe(true);
+    // The RPC should have been called with validated (capped) values
+    expect(capturedRpcParams).not.toBeNull();
+    expect(capturedRpcParams!.p_score).toBe(137); // min(99999, 75+75-13)
+    expect(capturedRpcParams!.p_puzzles_solved).toBe(2); // min(100, 2)
+  });
+
+  it('trusts client data when no attempts found (DB lag edge case)', async () => {
+    const service = makeInitializedService();
+    const { serviceClient } = await import('../../shared/utils/supabase.js');
+
+    let capturedRpcParams: Record<string, unknown> | null = null;
+
+    vi.mocked(serviceClient.rpc).mockImplementation((_fn: string, params: unknown) => {
+      capturedRpcParams = params as Record<string, unknown>;
+      return Promise.resolve({ data: [{ best_score: 200 }], error: null }) as unknown as ReturnType<typeof serviceClient.rpc>;
+    });
+
+    vi.mocked(serviceClient.from).mockImplementation((table: string) => {
+      if (table === 'aio_puzzle_attempts') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockResolvedValue({ data: [], error: null }), // No attempts found
+        } as unknown as ReturnType<typeof serviceClient.from>;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      } as unknown as ReturnType<typeof serviceClient.from>;
+    });
+
+    await service.submitSession('math', 'user-legit', {
+      score: 200, correctCount: 4, totalQuestions: 5, timeSpentMs: 30000,
+    });
+
+    // With no attempts found, client data is trusted
+    expect(capturedRpcParams!.p_score).toBe(200);
+    expect(capturedRpcParams!.p_puzzles_solved).toBe(4);
+  });
+
+  it('still succeeds when validation query throws (graceful degradation)', async () => {
+    const service = makeInitializedService();
+    const { serviceClient } = await import('../../shared/utils/supabase.js');
+
+    vi.mocked(serviceClient.rpc).mockImplementation((_fn: string, _params: unknown) => {
+      return Promise.resolve({ data: [{ best_score: 300 }], error: null }) as unknown as ReturnType<typeof serviceClient.rpc>;
+    });
+
+    vi.mocked(serviceClient.from).mockImplementation((table: string) => {
+      if (table === 'aio_puzzle_attempts') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockRejectedValue(new Error('DB connection lost')),
+        } as unknown as ReturnType<typeof serviceClient.from>;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      } as unknown as ReturnType<typeof serviceClient.from>;
+    });
+
+    const result = await service.submitSession('code', 'user-123', {
+      score: 300, correctCount: 3, totalQuestions: 3, timeSpentMs: 15000,
+    });
+
+    // Should still succeed — validation failure doesn't block submission
+    expect(result.success).toBe(true);
   });
 });
