@@ -2,11 +2,6 @@ import * as Sentry from '@sentry/node';
 import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketServer, type Socket } from 'socket.io';
-
-interface AuthenticatedSocket extends Socket {
-  userId?: string;
-  authenticated?: boolean;
-}
 import path from 'path';
 import { fileURLToPath } from 'url';
 import helmet from 'helmet';
@@ -65,6 +60,11 @@ import { marketSyncService } from '../services/market-sync.js';
 
 // Register meta-market event listeners for auto market creation/resolution
 metaMarketService.registerEventListeners();
+
+interface AuthenticatedSocket extends Socket {
+  userId?: string;
+  authenticated?: boolean;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

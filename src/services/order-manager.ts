@@ -66,9 +66,8 @@ class OrderManager {
           exchangeOrderId = result.order.order_id;
         }
       } catch (exchangeError) {
-        // If exchange order fails, unlock funds by reversing the lock
         log.error('Exchange order failed, unlocking funds', { error: String(exchangeError) });
-        // Note: In production, implement an unlock_funds_for_bet RPC
+        await walletService.unlockForBet(wallet.id, amountCents);
         throw exchangeError;
       }
 
@@ -210,16 +209,23 @@ class OrderManager {
         const amount = Math.floor(netPool * splits[i]);
         if (amount > 0) {
           const wallet = await walletService.getOrCreateWallet(rankings[i].userId);
-          // Credit wallet (negative lock = credit)
+          // Credit wallet with prize payout
           await serviceClient
-            .from('aio_wallet_transactions')
+            .from('aio_transactions')
             .insert({
               wallet_id: wallet.id,
               type: 'prize',
               amount_cents: amount,
-              description: `Competition prize (rank #${rankings[i].rank})`,
-              reference_id: competitionId,
+              status: 'completed',
+              provider: 'internal',
+              provider_ref: competitionId,
             });
+
+          // Also update wallet balance
+          await serviceClient
+            .from('aio_wallets')
+            .update({ balance_cents: wallet.balance_cents + amount })
+            .eq('id', wallet.id);
 
           payouts.push({ userId: rankings[i].userId, amount });
         }

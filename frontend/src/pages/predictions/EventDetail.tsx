@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonText, NeonButton, Badge, PageSkeleton } from '../../components/ui';
@@ -109,13 +109,14 @@ function formatTimeLeft(timestamp: number): string {
 interface BetPanelProps {
   marketId: string;
   marketQuestion: string;
+  marketSource: string;
   outcome: string;
   probability: number;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function BetPanel({ marketId, marketQuestion, outcome, probability, onClose, onSuccess }: BetPanelProps) {
+function BetPanel({ marketId, marketQuestion, marketSource, outcome, probability, onClose, onSuccess }: BetPanelProps) {
   const { session } = useAuthStore();
   const [amount, setAmount] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -154,7 +155,9 @@ function BetPanel({ marketId, marketQuestion, outcome, probability, onClose, onS
               maxPositions: 50,
             });
           }
-        } catch {}
+        } catch (err) {
+          setError('Unable to load account limits. Please refresh and try again.');
+        }
       })();
     }
   }, [session]);
@@ -204,7 +207,7 @@ function BetPanel({ marketId, marketQuestion, outcome, probability, onClose, onS
           user_id: authUser.id,
           portfolio_id: portfolio.id,
           market_id: marketId,
-          market_source: 'polymarket',
+          market_source: marketSource,
           market_question: marketId,
           outcome,
           amount: betAmount,
@@ -651,6 +654,7 @@ export function EventDetail() {
                     <BetPanel
                       marketId={market.id}
                       marketQuestion={market.question}
+                      marketSource={event.source}
                       outcome={activeBet.outcome}
                       probability={
                         market.outcomes?.find(o => o.name.toUpperCase() === activeBet.outcome)?.probability || 0.5

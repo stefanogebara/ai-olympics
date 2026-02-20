@@ -154,23 +154,28 @@ router.get('/history', authMiddleware, async (req: Request, res: Response) => {
     const offset = (page - 1) * limit;
 
     // Use user-scoped client for trade history (RLS enforced)
-    const { data: trades, error } = await userDb
+    // Fetch limit+1 to determine if more pages exist
+    const { data: rawTrades, error } = await userDb
       .from('aio_real_bets')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limit);
 
     if (error) {
       log.error('Error querying trade history', { error: String(error) });
       return res.status(500).json({ error: 'Failed to fetch trade history' });
     }
 
+    const allRows = rawTrades || [];
+    const hasMore = allRows.length > limit;
+    const trades = hasMore ? allRows.slice(0, limit) : allRows;
+
     res.json({
-      trades: trades || [],
+      trades,
       page,
       limit,
-      hasMore: (trades || []).length === limit + 1
+      hasMore,
     });
   } catch (error) {
     log.error('Error fetching trade history', { error: String(error) });

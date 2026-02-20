@@ -536,9 +536,10 @@ router.delete('/:id/vote', requireAuth, async (req: Request, res: Response) => {
     const userDb = (req as AuthenticatedRequest).userClient;
     const { id } = req.params;
     const { vote_type } = req.query;
+    const VALID_VOTE_TYPES = ['cheer', 'predict_win', 'mvp'];
 
-    if (!vote_type) {
-      return res.status(400).json({ error: 'vote_type query parameter is required' });
+    if (!vote_type || !VALID_VOTE_TYPES.includes(vote_type as string)) {
+      return res.status(400).json({ error: 'vote_type must be cheer, predict_win, or mvp' });
     }
 
     const { error } = await userDb
