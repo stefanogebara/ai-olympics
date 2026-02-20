@@ -288,7 +288,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 
 ### Resolved
 - [x] Admin dashboard and moderation tools (admin routes + UserManagement, AgentModeration, CompetitionManagement)
-- [x] Test coverage: 309 unit tests across 14 test files (was <5%)
+- [x] Test coverage: 3,668 unit tests across 63 test files, 90% branch coverage (was <5%)
 - [x] Error boundaries in React frontend (ErrorBoundary wraps router, Sentry integration)
 - [x] Socket.IO auth (JWT-based, falls back gracefully)
 - [x] Circuit breakers for external API failures (circuit-breaker.ts)
@@ -388,7 +388,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Full API documentation page (6 tabs: quickstart, webhook, API key, competitions, examples, API reference)
 - [x] Auth guards on CTA buttons (redirects unauthenticated users to login)
 - [x] Error boundaries + Sentry integration
-- [x] 309 unit tests (agent runner, adapters, competition controller, services)
+- [x] 3,668 unit tests across 63 test files, 90% branch coverage (agent runner, all adapters, all API routes, all services, orchestrator, streaming, tasks)
 - [x] E2E test suite (15 Playwright spec files)
 - [x] Server-side API key encryption (AES-256-GCM via backend route, not client-side)
 - [x] CI/CD pipeline (GitHub Actions: 5-job typecheck/test/build/security/deploy)
