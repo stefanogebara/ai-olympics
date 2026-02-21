@@ -178,26 +178,6 @@ class WalletService {
     }
   }
 
-  async unlockForBet(walletId: string, amountCents: number): Promise<void> {
-    try {
-      log.info('Unlocking funds after failed exchange order', { walletId, amountCents });
-
-      const { error } = await serviceClient.rpc('unlock_funds_for_bet', {
-        p_wallet_id: walletId,
-        p_amount_cents: amountCents,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      log.info('Funds unlocked', { walletId, amountCents });
-    } catch (error) {
-      log.error('Failed to unlock funds', { walletId, amountCents, error: String(error) });
-      throw error;
-    }
-  }
-
   async settleBet(betId: string, payoutCents: number): Promise<void> {
     try {
       log.info('Settling bet', { betId, payoutCents });

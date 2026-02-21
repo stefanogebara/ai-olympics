@@ -209,17 +209,18 @@ export class MetaMarketService {
         return null;
       }
 
-      // Update agent betting stats (batch upsert instead of N+1 loop)
-      await supabase
-        .from('aio_agent_betting_stats')
-        .upsert(
-          competition.agents.map(agent => ({
+      // Update agent betting stats
+      for (const agent of competition.agents) {
+        await supabase
+          .from('aio_agent_betting_stats')
+          .upsert({
             agent_id: agent.id,
             markets_featured: 1,
-            last_featured_at: new Date().toISOString(),
-          })),
-          { onConflict: 'agent_id' }
-        );
+            last_featured_at: new Date().toISOString()
+          }, {
+            onConflict: 'agent_id'
+          });
+      }
 
       log.info(`Created meta market for competition ${competition.id}`);
       return data as MetaMarket;
@@ -343,46 +344,60 @@ export class MetaMarketService {
         return { success: false, error: `Maximum bet size is M$${maxBetSize}` };
       }
 
+      // Get user's portfolio
+      const { data: portfolio, error: portfolioError } = await supabase
+        .from('aio_user_portfolios')
+        .select('virtual_balance')
+        .eq('user_id', userId)
+        .single();
+
+      if (portfolioError || !portfolio) {
+        return { success: false, error: 'Portfolio not found' };
+      }
+
+      if (portfolio.virtual_balance < amount) {
+        return { success: false, error: `Insufficient balance. Available: M$${portfolio.virtual_balance}` };
+      }
+
       // Get current odds for outcome
       const odds = market.current_odds?.[outcomeId] || outcome.initial_odds;
       const potentialPayout = calculatePayout(amount, odds);
 
-      // Atomic bet placement: balance check + deduction + insert in single transaction
-      const { data: result, error: rpcError } = await supabase
-        .rpc('place_meta_market_bet_atomic', {
-          p_user_id: userId,
-          p_market_id: marketId,
-          p_outcome_id: outcomeId,
-          p_outcome_name: outcome.name,
-          p_amount: amount,
-          p_odds: odds,
-          p_potential_payout: potentialPayout,
-        });
+      // Place bet
+      const betData = {
+        market_id: marketId,
+        user_id: userId,
+        outcome_id: outcomeId,
+        outcome_name: outcome.name,
+        amount,
+        odds_at_bet: odds,
+        potential_payout: potentialPayout
+      };
 
-      if (rpcError) {
-        log.error('Error placing bet', { error: rpcError.message });
+      const { data: bet, error: betError } = await supabase
+        .from('aio_meta_market_bets')
+        .insert(betData)
+        .select()
+        .single();
+
+      if (betError) {
+        log.error('Error placing bet', { error: betError.message });
         return { success: false, error: 'Failed to place bet' };
       }
 
-      const row = Array.isArray(result) ? result[0] : result;
-
-      if (!row?.success) {
-        return { success: false, error: row?.error_msg || 'Failed to place bet' };
-      }
+      // Get updated balance
+      const { data: updatedPortfolio } = await supabase
+        .from('aio_user_portfolios')
+        .select('virtual_balance')
+        .eq('user_id', userId)
+        .single();
 
       log.info(`User ${userId} bet M$${amount} on ${outcome.name} in market ${marketId}`);
 
-      // Fetch the created bet for the response
-      const { data: bet } = await supabase
-        .from('aio_meta_market_bets')
-        .select('*')
-        .eq('id', row.bet_id)
-        .single();
-
       return {
         success: true,
-        bet: (bet || { id: row.bet_id, market_id: marketId, user_id: userId, outcome_id: outcomeId, outcome_name: outcome.name, amount, odds_at_bet: odds, potential_payout: potentialPayout, status: 'active', created_at: new Date().toISOString() }) as MetaMarketBet,
-        newBalance: row.new_balance,
+        bet: bet as MetaMarketBet,
+        newBalance: updatedPortfolio?.virtual_balance
       };
     } catch (error) {
       log.error('Error in placeBet', { error: String(error) });

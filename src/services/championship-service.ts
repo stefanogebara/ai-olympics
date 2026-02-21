@@ -346,11 +346,8 @@ class ChampionshipService {
     const pointsConfig = (championship.points_config as Record<string, number>) || DEFAULT_POINTS;
     const champParticipantMap = new Map(champParticipants.map(p => [p.agent_id, p]));
 
-    // 4. Award points and record round results (batched to avoid N+1)
+    // 4. Award points and record round results
     const roundId = round.id;
-    const roundResults: { round_id: string; participant_id: string; round_rank: number; points_awarded: number }[] = [];
-    const pointsIncrements: { participantId: string; points: number }[] = [];
-
     for (const cp of compParticipants) {
       const champP = champParticipantMap.get(cp.agent_id);
       if (!champP) continue;
@@ -358,33 +355,24 @@ class ChampionshipService {
       const rank = cp.final_rank || compParticipants.length;
       const pointsAwarded = pointsForRank(rank, pointsConfig);
 
-      roundResults.push({
-        round_id: roundId,
-        participant_id: champP.id,
-        round_rank: rank,
-        points_awarded: pointsAwarded,
-      });
-
-      pointsIncrements.push({ participantId: champP.id, points: pointsAwarded });
-    }
-
-    // Batch upsert all round results in one query
-    if (roundResults.length > 0) {
+      // Insert round result
       await supabase
         .from('aio_championship_round_results')
-        .upsert(roundResults, { onConflict: 'round_id,participant_id' });
-    }
+        .upsert({
+          round_id: roundId,
+          participant_id: champP.id,
+          round_rank: rank,
+          points_awarded: pointsAwarded,
+        }, { onConflict: 'round_id,participant_id' });
 
-    // Parallelize all points increments
-    await Promise.all(
-      pointsIncrements.map(({ participantId, points }) =>
-        supabase.rpc('aio_increment_championship_points', {
-          p_participant_id: participantId,
-          p_points: points,
+      // M4: Atomic points increment via RPC
+      await supabase
+        .rpc('aio_increment_championship_points', {
+          p_participant_id: champP.id,
+          p_points: pointsAwarded,
           p_increment_rounds: true,
-        })
-      )
-    );
+        });
+    }
 
     // 5. Update rankings
     await this.updateStandings(championshipId);
@@ -430,12 +418,20 @@ class ChampionshipService {
    * Update current_rank for all participants based on total_points.
    */
   private async updateStandings(championshipId: string): Promise<void> {
-    const { error } = await supabase.rpc('batch_update_championship_ranks', {
-      p_championship_id: championshipId,
-    });
+    const { data: participants } = await supabase
+      .from('aio_championship_participants')
+      .select('id, total_points')
+      .eq('championship_id', championshipId)
+      .eq('is_eliminated', false)
+      .order('total_points', { ascending: false });
 
-    if (error) {
-      log.error('Failed to batch update standings', { championshipId, error: error.message });
+    if (!participants) return;
+
+    for (let i = 0; i < participants.length; i++) {
+      await supabase
+        .from('aio_championship_participants')
+        .update({ current_rank: i + 1 })
+        .eq('id', participants[i].id);
     }
   }
 
@@ -443,18 +439,31 @@ class ChampionshipService {
    * Eliminate the bottom half of remaining participants.
    */
   private async eliminateBottomParticipants(championshipId: string): Promise<void> {
-    const { data: eliminatedCount, error } = await supabase.rpc('batch_eliminate_championship_bottom', {
-      p_championship_id: championshipId,
+    const { data: active } = await supabase
+      .from('aio_championship_participants')
+      .select('id, total_points')
+      .eq('championship_id', championshipId)
+      .eq('is_eliminated', false)
+      .order('total_points', { ascending: false });
+
+    if (!active || active.length <= 2) return;
+
+    // Eliminate bottom half (keep at least top half, minimum 2)
+    const keepCount = Math.max(2, Math.ceil(active.length / 2));
+    const toEliminate = active.slice(keepCount);
+
+    for (const p of toEliminate) {
+      await supabase
+        .from('aio_championship_participants')
+        .update({ is_eliminated: true })
+        .eq('id', p.id);
+    }
+
+    log.info('Eliminated participants', {
+      championshipId,
+      eliminatedCount: toEliminate.length,
+      remainingCount: keepCount,
     });
-
-    if (error) {
-      log.error('Failed to batch eliminate participants', { championshipId, error: error.message });
-      return;
-    }
-
-    if (eliminatedCount > 0) {
-      log.info('Eliminated participants', { championshipId, eliminatedCount });
-    }
   }
 
   /**

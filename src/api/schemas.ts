@@ -12,11 +12,9 @@ export const stripeDepositSchema = z.object({
   message: 'amountCents is required',
 });
 
-const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-
 export const cryptoWithdrawSchema = z.object({
-  toAddress: z.string().regex(ethereumAddressRegex, 'Invalid Ethereum address format').optional(),
-  to_address: z.string().regex(ethereumAddressRegex, 'Invalid Ethereum address format').optional(),
+  toAddress: z.string().min(10).max(100).optional(),
+  to_address: z.string().min(10).max(100).optional(),
   amountCents: z.number().int().min(100).max(10_000_00).optional(),
   amount_cents: z.number().int().min(100).max(10_000_00).optional(),
 }).refine(data => data.toAddress || data.to_address, {
@@ -26,8 +24,8 @@ export const cryptoWithdrawSchema = z.object({
 });
 
 export const cryptoWalletSchema = z.object({
-  walletAddress: z.string().regex(ethereumAddressRegex, 'Invalid Ethereum address format').optional(),
-  wallet_address: z.string().regex(ethereumAddressRegex, 'Invalid Ethereum address format').optional(),
+  walletAddress: z.string().min(10).max(100).optional(),
+  wallet_address: z.string().min(10).max(100).optional(),
 }).refine(data => data.walletAddress || data.wallet_address, {
   message: 'walletAddress is required',
 });
