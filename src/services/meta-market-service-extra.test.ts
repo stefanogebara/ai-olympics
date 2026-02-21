@@ -72,7 +72,7 @@ function createQueryChain(resolvedValue: { data: unknown; error: unknown }) {
   const chain: Record<string, Mock> = {};
   const methods = [
     'select', 'insert', 'update', 'upsert', 'delete',
-    'eq', 'in', 'order', 'limit', 'single',
+    'eq', 'in', 'order', 'limit', 'single', 'gte',
   ];
   for (const method of methods) {
     chain[method] = vi.fn().mockReturnValue(chain);
@@ -445,6 +445,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-1', new_balance: 900 },
         error: null,
@@ -471,6 +476,11 @@ describe('MetaMarketService (extra coverage)', () => {
       });
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
+
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
 
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-1', new_balance: 900 },
@@ -499,6 +509,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-1', new_balance: 900 },
         error: null,
@@ -525,6 +540,11 @@ describe('MetaMarketService (extra coverage)', () => {
       });
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
+
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
 
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-1', new_balance: 900 },
@@ -553,6 +573,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-1', new_balance: 950 },
         error: null,
@@ -580,6 +605,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-1', new_balance: 750 },
         error: null,
@@ -606,6 +636,11 @@ describe('MetaMarketService (extra coverage)', () => {
       });
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
+
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
 
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-1', new_balance: 900 },
@@ -897,6 +932,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-1', new_balance: 0 },
         error: null,
@@ -926,6 +966,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       // RPC returns a single object, not an array
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-single', new_balance: 800 },
@@ -950,6 +995,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       mockSupabase.rpc.mockResolvedValueOnce({
         data: [{ success: false }], // No error_msg
         error: null,
@@ -966,6 +1016,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       mockSupabase.rpc.mockResolvedValueOnce({
         data: null,
         error: null,
@@ -981,6 +1036,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const market = makeMarket();
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
+
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
 
       mockSupabase.rpc.mockResolvedValueOnce({
         data: [],
@@ -1031,6 +1091,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-1', new_balance: 900 },
         error: null,
@@ -1056,6 +1121,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const market = makeMarket();
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
+
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
 
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-fallback', new_balance: 500 },
@@ -1087,6 +1157,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const market = makeMarket();
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
+
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
 
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-fetched', new_balance: 500 },
@@ -1120,6 +1195,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
+
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-beta', new_balance: 700 },
         error: null,
@@ -1141,6 +1221,11 @@ describe('MetaMarketService (extra coverage)', () => {
       const market = makeMarket();
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
+
+      // Guard 1: non-organizer; Guard 2 skipped (total_volume=0)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: { created_by: 'other-user' }, error: null }));
+      // Guard 3: velocity check (< 5 bets)
+      mockSupabase.from.mockReturnValueOnce(createQueryChain({ data: [], error: null }));
 
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-tiny', new_balance: 999 },

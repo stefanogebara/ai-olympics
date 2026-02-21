@@ -343,6 +343,61 @@ export class MetaMarketService {
         return { success: false, error: `Maximum bet size is M$${maxBetSize}` };
       }
 
+      // Guard 1: Organizer prohibition — competition creators cannot bet on their own markets
+      const { data: competition } = await supabase
+        .from('aio_competitions')
+        .select('created_by')
+        .eq('id', market.competition_id)
+        .single();
+
+      if (competition?.created_by === userId) {
+        return {
+          success: false,
+          error: 'Competition organizers may not bet on their own competition markets',
+        };
+      }
+
+      // Guard 2: Position limit — user cannot hold >20% of total market volume
+      const POSITION_LIMIT_PCT = 20;
+      if (market.total_volume > 0) {
+        const { data: existingBets } = await supabase
+          .from('aio_meta_market_bets')
+          .select('amount')
+          .eq('market_id', marketId)
+          .eq('user_id', userId);
+
+        const existingTotal = (existingBets ?? []).reduce(
+          (sum: number, b: { amount: number }) => sum + Number(b.amount),
+          0
+        );
+        const newTotal = existingTotal + amount;
+        const maxAllowed = (market.total_volume * POSITION_LIMIT_PCT) / 100;
+
+        if (newTotal > maxAllowed) {
+          return {
+            success: false,
+            error: `Position limit reached: you cannot hold more than ${POSITION_LIMIT_PCT}% of market volume (max M$${maxAllowed.toFixed(0)})`,
+          };
+        }
+      }
+
+      // Guard 3: Velocity limit — max 5 bets per user per market per hour
+      const MAX_BETS_PER_HOUR = 5;
+      const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
+      const { data: recentBets } = await supabase
+        .from('aio_meta_market_bets')
+        .select('id')
+        .eq('market_id', marketId)
+        .eq('user_id', userId)
+        .gte('created_at', oneHourAgo);
+
+      if ((recentBets ?? []).length >= MAX_BETS_PER_HOUR) {
+        return {
+          success: false,
+          error: `Velocity limit: maximum ${MAX_BETS_PER_HOUR} bets per market per hour`,
+        };
+      }
+
       // Get current odds for outcome
       const odds = market.current_odds?.[outcomeId] || outcome.initial_odds;
       const potentialPayout = calculatePayout(amount, odds);
