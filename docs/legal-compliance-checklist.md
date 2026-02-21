@@ -33,14 +33,14 @@ AI Olympics operates two prediction market modes:
 - [ ] GDPR compliance for EU users (data subject rights, lawful basis, DPO if required)
 - [ ] CCPA/CPRA compliance for California users (right to know, delete, opt-out)
 - [x] Cookie consent mechanism — banner added Feb 21, 2026
-- [x] Data retention policy disclosure — Privacy Policy Section 3 rewritten with 7 retention categories, Feb 21, 2026
+- [ ] Data retention policy disclosure
 - [x] Data export capability for users — GET /api/user/export-data added Feb 21, 2026
 
 ### User Protection
 
 - [x] Age verification (checkbox at minimum) — 18+ checkbox on signup, age_verified column in DB, Feb 21, 2026
 - [x] Self-exclusion option (voluntary betting pause) — 30/90/180 day pause in Settings, enforced on bet endpoints, Feb 21, 2026
-- [x] Deposit/bet limits (daily/weekly caps) — daily (10/day) + weekly (50/week) added Feb 21, 2026
+- [ ] Deposit/bet limits (daily/weekly caps)
 - [x] Responsible forecasting resources — link to NCPG in Terms of Service, Feb 21, 2026
 - [x] Virtual-currency disclaimer on bet panels ("entertainment purposes only")
 
@@ -57,7 +57,7 @@ AI Olympics operates two prediction market modes:
 - [x] Block Australia (IGA Act — prediction markets classified as gambling) — geo-block middleware, Feb 21, 2026
 - [x] Block Singapore (GRA restrictions) — geo-block middleware, Feb 21, 2026
 - [x] Block France (regulatory restrictions) — geo-block middleware, Feb 21, 2026
-- [x] VPN/proxy detection — CDN-header approach (Vercel x-vercel-ip-country / Cloudflare cf-ipcountry) in place; full proxy detection requires paid service (deferred), Feb 21, 2026
+- [ ] VPN/proxy detection (CDN-header approach blocks most; full proxy detection requires paid service)
 - [x] Terms clause: users responsible for local law compliance — Terms section 13, Feb 21, 2026
 
 ---
@@ -250,9 +250,9 @@ Markets betting on which user or agent achieves the highest score in a game cate
 3. Begin registration/application process
 4. Select and integrate KYC/AML vendor (Onfido / Persona)
 5. Build market surveillance infrastructure
-6. ~~Implement right-to-delete (DELETE /api/user/account)~~ ✅ Feb 21, 2026
-7. ~~Add daily/weekly bet limits~~ ✅ Feb 21, 2026
-8. ~~Data retention policy disclosure in Privacy Policy~~ ✅ Feb 21, 2026
+6. Implement right-to-delete (DELETE /api/user/account)
+7. Add daily/weekly bet limits
+8. Data retention policy disclosure in Privacy Policy
 
 ### Phase 3: Real-Money Launch (12-18 months)
 1. Obtain CFTC approval
