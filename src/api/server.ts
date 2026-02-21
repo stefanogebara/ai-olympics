@@ -58,6 +58,7 @@ import { marketService } from '../services/market-service.js';
 import { metaMarketService } from '../services/meta-market-service.js';
 import { startResolver } from '../services/market-resolver.js';
 import { marketSyncService } from '../services/market-sync.js';
+import { startAutoResolver, stopAutoResolver } from '../services/market-auto-resolver.js';
 
 // Register meta-market event listeners for auto market creation/resolution
 metaMarketService.registerEventListeners();
@@ -977,6 +978,10 @@ export function createAPIServer() {
         startResolver();
         log.info('Market resolver started');
 
+        // Start auto-resolver safety net (catches stale markets from crashes/missed events)
+        startAutoResolver();
+        log.info('Market auto-resolver started');
+
         // Start market sync service (background ingestion from Polymarket + Kalshi)
         if (featureFlags.marketSync) {
           marketSyncService.start();
@@ -1002,6 +1007,7 @@ export function createAPIServer() {
     }
 
     marketSyncService.stop();
+    stopAutoResolver();
 
     // Close Redis connection
     await closeRedis();
