@@ -46,6 +46,7 @@ import tradingRouter from './routes/trading.js';
 import tournamentsRouter from './routes/tournaments.js';
 import championshipsRouter from './routes/championships.js';
 import adminRouter from './routes/admin.js';
+import { geoBlock } from './middleware/geo-block.js';
 
 // Competition orchestrator
 import { competitionManager } from '../orchestrator/competition-manager.js';
@@ -166,6 +167,9 @@ export function createAPIServer() {
   // Middleware
   app.use(express.json({ limit: '1mb' }));
   app.use(express.static(path.join(__dirname, '../../public')));
+
+  // Geo-blocking — must come before API routes
+  app.use('/api/', geoBlock);
 
   // Rate limiting
   app.use('/api/', generalLimiter);

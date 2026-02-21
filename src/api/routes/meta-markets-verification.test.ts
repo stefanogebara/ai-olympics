@@ -58,6 +58,7 @@ vi.mock('../../shared/utils/crypto.js', () => ({
 
 vi.mock('../middleware/auth.js', () => ({
   requireAuth: vi.fn((_req: any, _res: any, next: any) => next()),
+  requireNotExcluded: vi.fn((_req: any, _res: any, next: any) => next()),
   AuthenticatedRequest: {},
 }));
 

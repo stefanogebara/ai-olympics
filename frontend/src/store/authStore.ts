@@ -86,6 +86,7 @@ export const useAuthStore = create<AuthState>()(
                 id: data.user.id,
                 username,
                 display_name: username,
+                age_verified: true,
               });
             if (profileError) throw profileError;
           }

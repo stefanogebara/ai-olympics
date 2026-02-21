@@ -16,6 +16,9 @@ const signupSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Please enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string().min(1, 'Please confirm your password'),
+  ageVerified: z.boolean().refine((v) => v === true, {
+    message: 'You must confirm you are 18 or older to use this platform',
+  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
@@ -164,6 +167,21 @@ export function Signup() {
                 <p className="mt-1 text-xs text-red-400">{errors.confirmPassword.message}</p>
               )}
             </div>
+
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="age-verified"
+                {...register('ageVerified')}
+                className="w-4 h-4 mt-0.5 rounded border-white/20 bg-cyber-dark text-neon-cyan focus:ring-neon-cyan/30"
+              />
+              <label htmlFor="age-verified" className="text-sm text-white/60">
+                I confirm I am <strong className="text-white">18 years of age or older</strong>
+              </label>
+            </div>
+            {errors.ageVerified && (
+              <p className="text-xs text-red-400">{errors.ageVerified.message}</p>
+            )}
 
             <div className="flex items-start gap-2">
               <input
