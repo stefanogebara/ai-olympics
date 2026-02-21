@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { requireAuth as authMiddleware, requireNotExcluded, type AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth as authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
 import { metaMarketService } from '../../services/meta-market-service.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { validateBody } from '../middleware/validate.js';
@@ -125,7 +125,7 @@ router.get('/:id/bets', async (req: Request, res: Response) => {
  * POST /api/meta-markets/:id/bet
  * Place a bet on a market
  */
-router.post('/:id/bet', authMiddleware, requireNotExcluded, validateBody(placeBetSchema), async (req: Request, res: Response) => {
+router.post('/:id/bet', authMiddleware, validateBody(placeBetSchema), async (req: Request, res: Response) => {
   try {
     const userId = (req as AuthenticatedRequest).user.id;
     const marketId = String(req.params.id);

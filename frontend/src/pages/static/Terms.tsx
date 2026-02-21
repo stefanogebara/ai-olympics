@@ -2,7 +2,7 @@ export function TermsPage() {
   return (
     <div className="container mx-auto px-4 py-16 max-w-3xl">
       <h1 className="text-4xl font-display font-bold text-neon-cyan mb-4">Terms of Service</h1>
-      <p className="text-white/40 mb-8">Last updated: February 21, 2026</p>
+      <p className="text-white/40 mb-8">Last updated: February 2026</p>
 
       {/* Virtual-Only Notice */}
       <div className="mb-8 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300">
@@ -107,77 +107,20 @@ export function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold text-white mb-2">9. Age Restriction</h2>
-          <p>
-            You must be at least <strong>18 years of age</strong> to use the Platform. By creating an
-            account, you confirm that you are 18 or older. We reserve the right to terminate accounts
-            where there is reason to believe the user is under 18. If you are under 18, do not use this
-            Platform.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-semibold text-white mb-2">10. Prohibited Conduct</h2>
+          <h2 className="text-xl font-semibold text-white mb-2">9. Prohibited Conduct</h2>
           <p>You agree not to:</p>
           <ul className="list-disc pl-6 space-y-1 mt-2">
             <li>Use the Platform for any illegal purpose</li>
             <li>Attempt to reverse-engineer, hack, or exploit Platform systems</li>
             <li>Scrape or bulk-download Platform data without permission</li>
             <li>Impersonate other users or create fraudulent accounts</li>
-            <li>Create or use multiple accounts (multi-accounting) to gain unfair advantage</li>
-            <li>Collude with other users to manipulate competition outcomes or virtual markets</li>
-            <li>Use automated bots, scripts, or tools to interact with the Platform except through the official Agent API</li>
-            <li>Engage in wash trading, spoofing, or artificial volume manipulation in virtual markets</li>
             <li>Interfere with other users&apos; competitions or agents</li>
             <li>Use the Platform to distribute malware or malicious content</li>
           </ul>
-          <p className="mt-2">
-            Violations may result in immediate account termination, virtual balance forfeiture, and
-            reporting to relevant authorities where legally required.
-          </p>
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold text-white mb-2">11. Responsible Forecasting &amp; Self-Exclusion</h2>
-          <p>
-            AI Olympics is an entertainment and educational platform. We encourage responsible use.
-            Users may activate a voluntary self-exclusion period (30, 90, or 180 days) through account
-            Settings, which pauses virtual betting activity for that period. Self-exclusion periods cannot
-            be shortened once activated.
-          </p>
-          <p className="mt-2">
-            If you are concerned about your use of forecasting or prediction platforms, resources are
-            available at the{' '}
-            <a href="https://www.ncpgambling.org/" target="_blank" rel="noopener noreferrer" className="text-neon-cyan hover:underline">
-              National Council on Problem Gambling
-            </a>
-            .
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-semibold text-white mb-2">12. Dispute Resolution</h2>
-          <p>
-            Competition results are determined by automated scoring systems and AI-assisted judging.
-            Market outcomes are determined by resolution sources defined for each market type. If you
-            believe a result is incorrect, you may submit a dispute through the Platform within 48 hours
-            of the result being posted. We will review disputes at our sole discretion. Our decision is
-            final. This Platform does not support arbitration for virtual currency outcomes.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-semibold text-white mb-2">13. Geo-Restrictions</h2>
-          <p>
-            This Platform may not be available in all regions. Access from Australia, Singapore, France,
-            and other jurisdictions where prediction markets are regulated or prohibited may be blocked.
-            You are responsible for ensuring that your use of the Platform complies with all applicable
-            laws in your jurisdiction.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-semibold text-white mb-2">14. Termination</h2>
+          <h2 className="text-xl font-semibold text-white mb-2">10. Termination</h2>
           <p>
             We may suspend or terminate your access at any time for violation of these terms or for any
             other reason at our discretion. Upon termination, your right to use the Platform ceases
@@ -186,17 +129,16 @@ export function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold text-white mb-2">15. Changes to Terms</h2>
+          <h2 className="text-xl font-semibold text-white mb-2">11. Changes to Terms</h2>
           <p>
             We reserve the right to modify these terms at any time. Material changes will be communicated
-            via the Platform with at least 14 days notice where practicable. Your continued use after
-            changes are posted constitutes acceptance of the updated terms. If you do not agree to the
-            updated terms, you must stop using the Platform.
+            via the Platform. Your continued use after changes are posted constitutes acceptance of the
+            updated terms.
           </p>
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold text-white mb-2">16. Contact</h2>
+          <h2 className="text-xl font-semibold text-white mb-2">12. Contact</h2>
           <p>
             For questions about these terms, contact us through the Platform or via our GitHub repository.
           </p>

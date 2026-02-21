@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { GlassCard, NeonButton, NeonText, Input } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
-import { User, Lock, LogOut, Save, AlertTriangle, ShieldOff, Download } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { User, Lock, LogOut, Save, AlertTriangle } from 'lucide-react';
 
 const profileSchema = z.object({
   displayName: z.string().max(100, 'Display name must be under 100 characters').optional().or(z.literal('')),
@@ -34,70 +33,6 @@ export function Settings() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const [pausedUntil, setPausedUntil] = useState<string | null>(null);
-  const [exclusionLoading, setExclusionLoading] = useState(false);
-  const [exclusionMessage, setExclusionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [exportLoading, setExportLoading] = useState(false);
-
-  useEffect(() => {
-    if (profile && 'betting_paused_until' in profile) {
-      setPausedUntil((profile as Record<string, unknown>).betting_paused_until as string | null);
-    }
-  }, [profile]);
-
-  const handleSelfExclude = async (days: 30 | 90 | 180) => {
-    if (!confirm(`Pause betting for ${days} days? This cannot be shortened once set.`)) return;
-
-    setExclusionLoading(true);
-    setExclusionMessage(null);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch('/api/user/self-exclude', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ days }),
-      });
-
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
-
-      setPausedUntil(result.pausedUntil);
-      setExclusionMessage({ type: 'success', text: `Betting paused until ${new Date(result.pausedUntil).toLocaleDateString()}` });
-    } catch (err) {
-      setExclusionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to set exclusion' });
-    } finally {
-      setExclusionLoading(false);
-    }
-  };
-
-  const handleExportData = async () => {
-    setExportLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch('/api/user/export-data', {
-        headers: { 'Authorization': `Bearer ${session?.access_token}` },
-      });
-
-      if (!response.ok) throw new Error('Export failed');
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'ai-olympics-data-export.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert('Failed to export data. Please try again.');
-    } finally {
-      setExportLoading(false);
-    }
-  };
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -247,65 +182,6 @@ export function Settings() {
             Change Password
           </NeonButton>
         </form>
-      </GlassCard>
-
-      {/* Responsible Forecasting */}
-      <GlassCard className="p-6">
-        <h2 className="text-lg font-display font-bold flex items-center gap-2 mb-2">
-          <ShieldOff size={20} className="text-neon-gold" />
-          Responsible Forecasting
-        </h2>
-        <p className="text-sm text-white/50 mb-4">
-          Take a break from virtual betting. Self-exclusion cannot be shortened once activated.
-        </p>
-
-        {pausedUntil && new Date(pausedUntil) > new Date() ? (
-          <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 text-sm mb-4">
-            Betting paused until <strong>{new Date(pausedUntil).toLocaleDateString()}</strong>
-          </div>
-        ) : null}
-
-        {exclusionMessage && (
-          <div className={`p-3 rounded-lg text-sm mb-4 ${
-            exclusionMessage.type === 'success'
-              ? 'bg-neon-green/10 border border-neon-green/30 text-neon-green'
-              : 'bg-red-500/10 border border-red-500/30 text-red-400'
-          }`}>
-            {exclusionMessage.text}
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-3">
-          {([30, 90, 180] as const).map((days) => (
-            <button
-              key={days}
-              onClick={() => handleSelfExclude(days)}
-              disabled={exclusionLoading || (!!pausedUntil && new Date(pausedUntil) > new Date())}
-              className="px-4 py-2 text-sm rounded-lg border border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Pause {days} days
-            </button>
-          ))}
-        </div>
-      </GlassCard>
-
-      {/* Data & Privacy */}
-      <GlassCard className="p-6">
-        <h2 className="text-lg font-display font-bold flex items-center gap-2 mb-2">
-          <Download size={20} className="text-neon-cyan" />
-          Data & Privacy
-        </h2>
-        <p className="text-sm text-white/50 mb-4">
-          Export a copy of all your data (GDPR Article 20 — right to data portability).
-        </p>
-        <NeonButton
-          variant="secondary"
-          onClick={handleExportData}
-          loading={exportLoading}
-          icon={<Download size={16} />}
-        >
-          Download My Data
-        </NeonButton>
       </GlassCard>
 
       {/* Danger Zone */}

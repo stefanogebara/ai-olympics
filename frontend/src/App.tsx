@@ -7,7 +7,6 @@ import { GridOverlay, Header, Footer } from './components/layout';
 import { useAuthStore } from './store/authStore';
 import { PageSkeleton } from './components/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { CookieConsent } from './components/ui/CookieConsent';
 
 // Pages - eagerly loaded (critical path)
 import { Link } from 'react-router-dom';
@@ -162,9 +161,6 @@ export default function App() {
 
         {/* Footer */}
         <Footer />
-
-        {/* Cookie Consent Banner */}
-        <CookieConsent />
       </div>
     </BrowserRouter>
     <Analytics />

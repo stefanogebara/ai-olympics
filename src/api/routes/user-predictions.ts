@@ -5,9 +5,8 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { requireAuth as authMiddleware, requireNotExcluded, type AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth as authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
 import { userPortfolioService } from '../../services/user-portfolio-service.js';
-import { serviceClient } from '../../shared/utils/supabase.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const router = Router();
@@ -89,7 +88,7 @@ router.get('/limits', authMiddleware, async (req: Request, res: Response) => {
  * POST /api/user/bets
  * Place a bet
  */
-router.post('/bets', authMiddleware, requireNotExcluded, async (req: Request, res: Response) => {
+router.post('/bets', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { user, userClient } = req as AuthenticatedRequest;
     const { marketId, outcome, amount } = req.body;
@@ -334,103 +333,6 @@ router.get('/feed', authMiddleware, async (req: Request, res: Response) => {
   } catch (error) {
     log.error('Error fetching feed', { error: String(error) });
     res.status(500).json({ error: 'Failed to fetch feed' });
-  }
-});
-
-// ============================================================================
-// SELF-EXCLUSION ENDPOINT
-// ============================================================================
-
-const SELF_EXCLUSION_DAYS = new Set([30, 90, 180]);
-
-/**
- * POST /api/user/self-exclude
- * Activate a self-exclusion period (pause betting for 30/90/180 days).
- * Once set, cannot be shortened — only extended.
- */
-router.post('/self-exclude', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { user } = req as AuthenticatedRequest;
-    const days = parseInt(req.body?.days);
-
-    if (!SELF_EXCLUSION_DAYS.has(days)) {
-      return res.status(400).json({
-        error: 'Invalid exclusion period. Must be 30, 90, or 180 days.',
-      });
-    }
-
-    const pausedUntil = new Date();
-    pausedUntil.setDate(pausedUntil.getDate() + days);
-
-    // Only allow extending an existing pause, not shortening it
-    const { data: current } = await serviceClient
-      .from('aio_profiles')
-      .select('betting_paused_until')
-      .eq('id', user.id)
-      .single();
-
-    if (
-      current?.betting_paused_until &&
-      new Date(current.betting_paused_until) > pausedUntil
-    ) {
-      return res.status(400).json({
-        error: 'Cannot shorten an active self-exclusion period.',
-        pausedUntil: current.betting_paused_until,
-      });
-    }
-
-    const { error } = await serviceClient
-      .from('aio_profiles')
-      .update({ betting_paused_until: pausedUntil.toISOString() })
-      .eq('id', user.id);
-
-    if (error) throw error;
-
-    log.info(`User ${user.id} activated self-exclusion for ${days} days`);
-
-    res.json({ success: true, pausedUntil: pausedUntil.toISOString(), days });
-  } catch (error) {
-    log.error('Error setting self-exclusion', { error: String(error) });
-    res.status(500).json({ error: 'Failed to set self-exclusion' });
-  }
-});
-
-// ============================================================================
-// GDPR DATA EXPORT ENDPOINT
-// ============================================================================
-
-/**
- * GET /api/user/export-data
- * Export all user data (GDPR Article 20 — right to data portability).
- * Returns profile, bets, positions, portfolio in a single JSON response.
- */
-router.get('/export-data', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { user, userClient } = req as AuthenticatedRequest;
-
-    const [profileResult, betsResult, positionsResult, portfolioResult] = await Promise.all([
-      userClient.from('aio_profiles').select('*').eq('id', user.id).single(),
-      userClient.from('aio_user_bets').select('*').eq('user_id', user.id).limit(1000),
-      userClient.from('aio_user_positions').select('*').eq('user_id', user.id).limit(1000),
-      userClient.from('aio_user_portfolios').select('*').eq('user_id', user.id).single(),
-    ]);
-
-    const exportData = {
-      exportedAt: new Date().toISOString(),
-      userId: user.id,
-      email: user.email,
-      profile: profileResult.data,
-      portfolio: portfolioResult.data,
-      bets: betsResult.data ?? [],
-      positions: positionsResult.data ?? [],
-    };
-
-    res.setHeader('Content-Disposition', 'attachment; filename="ai-olympics-data-export.json"');
-    res.setHeader('Content-Type', 'application/json');
-    res.json(exportData);
-  } catch (error) {
-    log.error('Error exporting user data', { error: String(error) });
-    res.status(500).json({ error: 'Failed to export data' });
   }
 });
 

@@ -36,38 +36,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 }
 
 /**
- * Middleware that blocks betting when the user's self-exclusion period is active.
- * Must be used AFTER requireAuth.
- */
-export async function requireNotExcluded(req: Request, res: Response, next: NextFunction) {
-  const user = (req as AuthenticatedRequest).user;
-  if (!user) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-
-  try {
-    const { data: profile } = await serviceClient
-      .from('aio_profiles')
-      .select('betting_paused_until')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.betting_paused_until && new Date(profile.betting_paused_until) > new Date()) {
-      return res.status(403).json({
-        success: false,
-        error: 'Betting is paused on your account. Self-exclusion period is active.',
-        pausedUntil: profile.betting_paused_until,
-      });
-    }
-
-    next();
-  } catch {
-    // If profile check fails, allow through — don't block on infrastructure errors
-    next();
-  }
-}
-
-/**
  * Middleware that requires the user to be an admin.
  * Must be used AFTER requireAuth.
  */
