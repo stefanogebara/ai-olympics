@@ -479,8 +479,10 @@ describe('MetaMarketService', () => {
       mockSupabase.from.mockReturnValueOnce(existingBetsChain);
 
       // Mock 4: Guard 3 velocity check → 5 recent bets (triggers limit)
+      // The velocity query uses .gte() which is not in the base chain, so we add it manually
       const recentBetsData = [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }];
       const velocityChain = createQueryChain({ data: recentBetsData, error: null });
+      velocityChain.gte = vi.fn().mockReturnValue(velocityChain);
       mockSupabase.from.mockReturnValueOnce(velocityChain);
 
       const result = await service.placeBet('user-1', 'market-1', 'agent-1', 100);

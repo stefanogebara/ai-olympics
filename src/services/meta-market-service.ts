@@ -11,13 +11,6 @@ import { eventBus } from '../shared/utils/events.js';
 const log = createLogger('MetaMarketService');
 
 // ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const POSITION_LIMIT_PCT = 20;
-const MAX_BETS_PER_HOUR = 5;
-
-// ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
@@ -351,42 +344,27 @@ export class MetaMarketService {
       }
 
       // Guard 1: Organizer prohibition — competition creators cannot bet on their own markets
-      if (market.competition_id) {
-        const { data: competition, error: competitionError } = await supabase
-          .from('aio_competitions')
-          .select('created_by')
-          .eq('id', market.competition_id)
-          .single();
+      const { data: competition } = await supabase
+        .from('aio_competitions')
+        .select('created_by')
+        .eq('id', market.competition_id)
+        .single();
 
-        if (competitionError) {
-          return {
-            success: false,
-            error: 'Unable to verify organizer status. Please try again.',
-          };
-        }
-
-        if (competition?.created_by === userId) {
-          return {
-            success: false,
-            error: 'Competition organizers may not bet on their own competition markets',
-          };
-        }
+      if (competition?.created_by === userId) {
+        return {
+          success: false,
+          error: 'Competition organizers may not bet on their own competition markets',
+        };
       }
 
       // Guard 2: Position limit — user cannot hold >20% of total market volume
+      const POSITION_LIMIT_PCT = 20;
       if (market.total_volume > 0) {
-        const { data: existingBets, error: positionError } = await supabase
+        const { data: existingBets } = await supabase
           .from('aio_meta_market_bets')
           .select('amount')
           .eq('market_id', marketId)
           .eq('user_id', userId);
-
-        if (positionError) {
-          return {
-            success: false,
-            error: 'Unable to verify position limits. Please try again.',
-          };
-        }
 
         const existingTotal = (existingBets ?? []).reduce(
           (sum: number, b: { amount: number }) => sum + Number(b.amount),
@@ -404,18 +382,16 @@ export class MetaMarketService {
       }
 
       // Guard 3: Velocity limit — max 5 bets per user per market per hour
+      const MAX_BETS_PER_HOUR = 5;
       const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
-      const { data: recentBets, error: velocityError } = await supabase
+      const { data: recentBets } = await supabase
         .from('aio_meta_market_bets')
         .select('id')
         .eq('market_id', marketId)
         .eq('user_id', userId)
         .gte('created_at', oneHourAgo);
 
-      if (velocityError) {
-        // Fail open for velocity — don't block bets if velocity check fails
-        log.warn('Velocity limit check failed, proceeding', { userId, marketId, error: velocityError.message });
-      } else if ((recentBets ?? []).length >= MAX_BETS_PER_HOUR) {
+      if ((recentBets ?? []).length >= MAX_BETS_PER_HOUR) {
         return {
           success: false,
           error: `Velocity limit: maximum ${MAX_BETS_PER_HOUR} bets per market per hour`,
