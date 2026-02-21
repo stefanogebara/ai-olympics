@@ -47,10 +47,10 @@ AI Olympics operates two prediction market modes:
 ### Market Integrity
 
 - [x] Define resolution sources for each market type — see section 5 below, Feb 21, 2026
-- [x] Transparent resolution timeline (communicate results within 24h of competition end) — auto-resolver scheduler (25h safety net, 30min polling) in market-auto-resolver.ts, Feb 21, 2026
+- [ ] Transparent resolution timeline (communicate results within 24h of competition end)
 - [x] Dispute resolution process for contested outcomes — Terms section 12, Feb 21, 2026
-- [x] Anti-manipulation controls (position limits, velocity limits) — 20% position cap + 5 bets/hr/market in MetaMarketService.placeBet(), Feb 21, 2026
-- [x] Prohibit competition organizers/judges from betting on their own events — organizer check in MetaMarketService.placeBet(), fail-closed on DB error, Feb 21, 2026
+- [ ] Anti-manipulation controls (position limits, velocity limits)
+- [ ] Prohibit competition organizers/judges from betting on their own events
 
 ### Geo-Blocking
 
