@@ -294,8 +294,6 @@ describe('UserPortfolioService', () => {
         minBet: 1,
         dailyBetsUsed: 3,
         dailyBetsMax: 10,
-        weeklyBetsUsed: 3,
-        weeklyBetsMax: 50,
         openPositions: 5,
         maxPositions: 20,
         closeTimeBufferMs: 3600000,

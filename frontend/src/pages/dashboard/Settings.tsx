@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { GlassCard, NeonButton, NeonText, Input } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
-import { User, Lock, LogOut, Save, AlertTriangle, ShieldOff, Download, Trash2 } from 'lucide-react';
+import { User, Lock, LogOut, Save, AlertTriangle, ShieldOff, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const profileSchema = z.object({
@@ -39,7 +39,6 @@ export function Settings() {
   const [exclusionLoading, setExclusionLoading] = useState(false);
   const [exclusionMessage, setExclusionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (profile && 'betting_paused_until' in profile) {
@@ -153,36 +152,6 @@ export function Settings() {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
-  };
-
-  const handleDeleteAccount = async () => {
-    const confirmed = confirm(
-      'Are you sure you want to permanently delete your account?\n\nThis will:\n• Delete all your bets, positions, and portfolio\n• Anonymize your profile\n• Remove your account permanently\n\nThis action CANNOT be undone.'
-    );
-    if (!confirmed) return;
-
-    const doubleConfirmed = confirm('Final confirmation: permanently delete account?');
-    if (!doubleConfirmed) return;
-
-    setDeleteLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch('/api/user/account', {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${session?.access_token}` },
-      });
-
-      if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error ?? 'Failed to delete account');
-      }
-
-      await signOut();
-      navigate('/');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete account. Please try again.');
-      setDeleteLoading(false);
-    }
   };
 
   return (
@@ -350,25 +319,9 @@ export function Settings() {
           Sign out of your account on this device.
         </p>
 
-        <div className="flex flex-col gap-4">
-          <NeonButton variant="ghost" onClick={handleSignOut} icon={<LogOut size={16} />}>
-            Sign Out
-          </NeonButton>
-
-          <div className="border-t border-red-500/20 pt-4">
-            <p className="text-sm text-white/60 mb-3">
-              Permanently delete your account and all associated data. This cannot be undone.
-            </p>
-            <button
-              onClick={handleDeleteAccount}
-              disabled={deleteLoading}
-              className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Trash2 size={16} />
-              {deleteLoading ? 'Deleting...' : 'Delete Account'}
-            </button>
-          </div>
-        </div>
+        <NeonButton variant="ghost" onClick={handleSignOut} icon={<LogOut size={16} />}>
+          Sign Out
+        </NeonButton>
       </GlassCard>
     </div>
   );

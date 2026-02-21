@@ -98,8 +98,6 @@ export interface UserLimits {
   minBet: number;
   dailyBetsUsed: number;
   dailyBetsMax: number;
-  weeklyBetsUsed: number;
-  weeklyBetsMax: number;
   openPositions: number;
   maxPositions: number;
   closeTimeBufferMs: number;
@@ -126,7 +124,6 @@ export interface UserStats {
 const MAX_BET_PERCENT = 10;        // Max 10% of balance per bet
 const MIN_BET = 1;                 // $1 minimum
 const MAX_DAILY_BETS = 10;         // 10 bets per day
-const MAX_WEEKLY_BETS = 50;        // 50 bets per week
 const MAX_OPEN_POSITIONS = 20;     // 20 simultaneous positions
 const CLOSE_TIME_BUFFER_MS = 3600000; // 1 hour buffer before market close
 
@@ -240,27 +237,6 @@ export class UserPortfolioService {
   }
 
   /**
-   * Get weekly bet count for a user (bets placed in the last 7 days)
-   */
-  private async getWeeklyBetCount(userId: string, client?: SupabaseClient): Promise<number> {
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - 7);
-
-    const { count, error } = await this.db(client)
-      .from('aio_user_bets')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', weekStart.toISOString());
-
-    if (error) {
-      log.error('Error getting weekly bet count', { error: error.message });
-      return 0;
-    }
-
-    return count || 0;
-  }
-
-  /**
    * Get open position count for a user
    */
   private async getOpenPositionCount(userId: string, client?: SupabaseClient): Promise<number> {
@@ -288,9 +264,8 @@ export class UserPortfolioService {
       const portfolio = await this.getOrCreatePortfolio(userId, client);
       if (!portfolio) return null;
 
-      const [dailyBetsUsed, weeklyBetsUsed, openPositions] = await Promise.all([
+      const [dailyBetsUsed, openPositions] = await Promise.all([
         this.getDailyBetCount(userId, client),
-        this.getWeeklyBetCount(userId, client),
         this.getOpenPositionCount(userId, client),
       ]);
 
@@ -301,8 +276,6 @@ export class UserPortfolioService {
         minBet: MIN_BET,
         dailyBetsUsed,
         dailyBetsMax: MAX_DAILY_BETS,
-        weeklyBetsUsed,
-        weeklyBetsMax: MAX_WEEKLY_BETS,
         openPositions,
         maxPositions: MAX_OPEN_POSITIONS,
         closeTimeBufferMs: CLOSE_TIME_BUFFER_MS,
@@ -379,16 +352,10 @@ export class UserPortfolioService {
         return { success: false, error: `Insufficient balance. Available: M$${portfolio.virtual_balance.toFixed(2)}` };
       }
 
-      // Check daily and weekly bet limits
-      const [dailyBets, weeklyBets] = await Promise.all([
-        this.getDailyBetCount(userId, client),
-        this.getWeeklyBetCount(userId, client),
-      ]);
+      // Check daily bet limit
+      const dailyBets = await this.getDailyBetCount(userId, client);
       if (dailyBets >= MAX_DAILY_BETS) {
         return { success: false, error: `Daily bet limit reached (${MAX_DAILY_BETS} per day)` };
-      }
-      if (weeklyBets >= MAX_WEEKLY_BETS) {
-        return { success: false, error: `Weekly bet limit reached (${MAX_WEEKLY_BETS} per week)` };
       }
 
       // Check max open positions

@@ -338,61 +338,6 @@ router.get('/feed', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // ============================================================================
-// ACCOUNT DELETION ENDPOINT (GDPR Right to Erasure)
-// ============================================================================
-
-/**
- * DELETE /api/user/account
- * Permanently delete the authenticated user's account and all associated data.
- * GDPR Article 17 — Right to erasure ("right to be forgotten").
- *
- * Process:
- * 1. Anonymize profile data (username, display_name, avatar_url)
- * 2. Delete betting history, positions, and portfolio
- * 3. Delete the Supabase auth user (cascades FK-linked records)
- */
-router.delete('/account', authMiddleware, async (req: Request, res: Response) => {
-  const { user } = req as AuthenticatedRequest;
-  const userId = user.id;
-
-  try {
-    // Step 1: Anonymize profile — replace PII with tombstone values
-    await serviceClient
-      .from('aio_profiles')
-      .update({
-        username: `deleted_${userId.slice(0, 8)}`,
-        display_name: null,
-        avatar_url: null,
-        betting_paused_until: null,
-      })
-      .eq('id', userId);
-
-    // Step 2: Delete user's trading and betting data
-    await Promise.all([
-      serviceClient.from('aio_user_bets').delete().eq('user_id', userId),
-      serviceClient.from('aio_user_positions').delete().eq('user_id', userId),
-      serviceClient.from('aio_user_portfolios').delete().eq('user_id', userId),
-      serviceClient.from('aio_virtual_bets').delete().eq('user_id', userId),
-      serviceClient.from('aio_followed_traders').delete().eq('follower_id', userId),
-      serviceClient.from('aio_followed_traders').delete().eq('following_id', userId),
-    ]);
-
-    // Step 3: Delete the Supabase auth user (triggers cascade on remaining FK relations)
-    const { error: deleteAuthError } = await serviceClient.auth.admin.deleteUser(userId);
-    if (deleteAuthError) {
-      log.error('Error deleting auth user', { userId, error: deleteAuthError.message });
-      return res.status(500).json({ error: 'Failed to delete account. Please try again.' });
-    }
-
-    log.info(`Account deleted: ${userId}`);
-    res.json({ success: true, message: 'Account deleted successfully.' });
-  } catch (error) {
-    log.error('Error deleting account', { userId, error: String(error) });
-    res.status(500).json({ error: 'Failed to delete account. Please try again.' });
-  }
-});
-
-// ============================================================================
 // SELF-EXCLUSION ENDPOINT
 // ============================================================================
 
