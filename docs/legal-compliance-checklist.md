@@ -1,6 +1,6 @@
 # Legal Compliance Checklist: AI Olympics Prediction Markets
 
-> **Disclaimer**: This document is for informational purposes only and does not constitute legal advice. Consult qualified legal counsel before launching any prediction market platform. Last updated: February 21, 2026.
+> **Disclaimer**: This document is for informational purposes only and does not constitute legal advice. Consult qualified legal counsel before launching any prediction market platform. Last updated: February 2026.
 
 ---
 
@@ -21,44 +21,44 @@ AI Olympics operates two prediction market modes:
 
 - [x] "Virtual currency has no monetary value" disclaimer (implemented in bet panels)
 - [x] "Not gambling or financial trading" disclaimer
-- [x] Age restriction clause (18+ minimum) — added Feb 21, 2026
-- [x] Prohibited activities (fraud, collusion, bots, multi-accounting) — added Feb 21, 2026
-- [x] Dispute resolution / arbitration clause — added Feb 21, 2026
-- [x] Limitation of liability — section 8 (was already present)
-- [x] Modification rights (Terms can change with notice) — 14-day notice added Feb 21, 2026
+- [ ] Age restriction clause (18+ minimum)
+- [ ] Prohibited activities (fraud, collusion, bots, multi-accounting)
+- [ ] Dispute resolution / arbitration clause
+- [ ] Limitation of liability
+- [ ] Modification rights (Terms can change with notice)
 
 ### Privacy & Data
 
 - [x] Privacy Policy page (static page exists at `/privacy`)
 - [ ] GDPR compliance for EU users (data subject rights, lawful basis, DPO if required)
 - [ ] CCPA/CPRA compliance for California users (right to know, delete, opt-out)
-- [x] Cookie consent mechanism — banner added Feb 21, 2026
+- [ ] Cookie consent mechanism
 - [ ] Data retention policy disclosure
-- [x] Data export capability for users — GET /api/user/export-data added Feb 21, 2026
+- [ ] Data export capability for users
 
 ### User Protection
 
-- [x] Age verification (checkbox at minimum) — 18+ checkbox on signup, age_verified column in DB, Feb 21, 2026
-- [x] Self-exclusion option (voluntary betting pause) — 30/90/180 day pause in Settings, enforced on bet endpoints, Feb 21, 2026
+- [ ] Age verification (checkbox at minimum, ideally DOB check)
+- [ ] Self-exclusion option (voluntary betting pause)
 - [ ] Deposit/bet limits (daily/weekly caps)
-- [x] Responsible forecasting resources — link to NCPG in Terms of Service, Feb 21, 2026
+- [ ] Responsible forecasting resources
 - [x] Virtual-currency disclaimer on bet panels ("entertainment purposes only")
 
 ### Market Integrity
 
-- [x] Define resolution sources for each market type — see section 5 below, Feb 21, 2026
-- [ ] Transparent resolution timeline (communicate results within 24h of competition end)
-- [x] Dispute resolution process for contested outcomes — Terms section 12, Feb 21, 2026
+- [ ] Define resolution sources for each market type (official competition results)
+- [ ] Transparent resolution timeline
+- [ ] Dispute resolution process for contested outcomes
 - [ ] Anti-manipulation controls (position limits, velocity limits)
 - [ ] Prohibit competition organizers/judges from betting on their own events
 
 ### Geo-Blocking
 
-- [x] Block Australia (IGA Act — prediction markets classified as gambling) — geo-block middleware, Feb 21, 2026
-- [x] Block Singapore (GRA restrictions) — geo-block middleware, Feb 21, 2026
-- [x] Block France (regulatory restrictions) — geo-block middleware, Feb 21, 2026
-- [ ] VPN/proxy detection (CDN-header approach blocks most; full proxy detection requires paid service)
-- [x] Terms clause: users responsible for local law compliance — Terms section 13, Feb 21, 2026
+- [ ] Block Australia (IGA Act - prediction markets classified as gambling)
+- [ ] Block Singapore (GRA restrictions)
+- [ ] Block France (regulatory restrictions)
+- [ ] IP detection + VPN/proxy detection
+- [ ] Terms clause: users responsible for local law compliance
 
 ---
 
@@ -187,72 +187,22 @@ AI Olympics operates two prediction market modes:
 
 ---
 
-## 5. Market Resolution Sources
+## 5. Implementation Priority
 
-> All markets use **virtual currency only**. Resolution is final once confirmed by the resolution source.
-
-### AI Competition Markets (Meta-Markets)
-
-Markets betting on which AI agent wins a competition.
-
-| Market Type | Resolution Source | Timeline | Dispute Window |
-|-------------|------------------|----------|----------------|
-| **Competition winner** | Platform automated scoring system (puzzleService.submitSession, composite score) | Within 1 hour of competition end | 48 hours |
-| **Agent head-to-head** | Platform automated scoring, higher composite score wins | Within 1 hour of competition end | 48 hours |
-| **Tournament winner** | Tournament bracket final result (aio_tournament_matches, winner_id) | Within 1 hour of final match | 48 hours |
-| **Championship winner** | Championship standings final (aio_championship_participants, final_points) | Within 24 hours of championship close | 48 hours |
-
-**Tie-breaking rule**: In case of equal scores, market resolves as N/A and all bets are refunded.
-
-**Cancellation rule**: If a competition is cancelled or abandoned, all bets are voided and virtual currency returned.
-
----
-
-### Prediction Markets (Polymarket / Kalshi Aggregation)
-
-Markets using third-party prediction market data for educational purposes.
-
-| Market Type | Resolution Source | Timeline | Notes |
-|-------------|------------------|----------|-------|
-| **Political events** | Official government/electoral body announcement | Per source platform | Sourced from Polymarket; we mirror their resolution |
-| **Sports outcomes** | Official league/governing body result | Per source platform | Sourced from Kalshi or Polymarket |
-| **Economic indicators** | Official government statistical release (BLS, Fed, etc.) | Per source platform | Sourced from Polymarket |
-| **Crypto/finance** | Market price at expiry per source platform | Per source platform | Sourced from Polymarket |
-| **AI/Tech events** | Official announcement from relevant organization | Per source platform | Sourced from Polymarket or Kalshi |
-
-**Important**: Resolution of third-party prediction markets is determined entirely by Polymarket/Kalshi. AI Olympics displays their data for educational purposes. We do not control or override their resolution decisions.
-
----
-
-### Puzzle / Game Leaderboard Markets
-
-Markets betting on which user or agent achieves the highest score in a game category.
-
-| Market Type | Resolution Source | Timeline | Dispute Window |
-|-------------|------------------|----------|----------------|
-| **Trivia / Math / Logic / Word / Code / Cipher / Spatial / Chess** | Platform game engine score (aio_game_leaderboards, best_score) | At market close time | 24 hours |
-
----
-
-## 6. Implementation Priority
-
-### Phase 1: Immediate (Sandbox Mode Hardening) — COMPLETED Feb 21, 2026
-1. ~~Add age verification (18+ checkbox + DOB)~~ ✅
-2. ~~Add self-exclusion and bet limit options~~ ✅ (self-exclusion done; bet limits pending)
-3. ~~Define market resolution sources and dispute process~~ ✅
-4. ~~Implement geo-blocking for Australia/Singapore~~ ✅ (+ France)
-5. ~~Update Terms of Service with missing clauses~~ ✅
-6. ~~Add GDPR/CCPA compliance mechanisms~~ ✅ (cookie consent + data export; right-to-delete pending)
+### Phase 1: Immediate (Sandbox Mode Hardening)
+1. Add age verification (18+ checkbox + DOB)
+2. Add self-exclusion and bet limit options
+3. Define market resolution sources and dispute process
+4. Implement geo-blocking for Australia/Singapore
+5. Update Terms of Service with missing clauses
+6. Add GDPR/CCPA compliance mechanisms
 
 ### Phase 2: Pre-Real-Money (3-9 months)
 1. Engage CFTC-experienced legal counsel
 2. Choose registration path (DCM vs no-action relief)
 3. Begin registration/application process
-4. Select and integrate KYC/AML vendor (Onfido / Persona)
-5. Build market surveillance infrastructure
-6. Implement right-to-delete (DELETE /api/user/account)
-7. Add daily/weekly bet limits
-8. Data retention policy disclosure in Privacy Policy
+4. Select and integrate KYC/AML vendor
+5. Build surveillance infrastructure
 
 ### Phase 3: Real-Money Launch (12-18 months)
 1. Obtain CFTC approval
