@@ -16,7 +16,8 @@ import {
   DollarSign,
   Filter,
   Plus,
-  Play
+  Play,
+  Video
 } from 'lucide-react';
 
 const domainIcons: Record<string, typeof Globe> = {
@@ -271,6 +272,18 @@ export function CompetitionBrowser() {
                             <Play size={14} />
                             Join Now
                           </div>
+                        </div>
+                      )}
+
+                      {competition.status === 'completed' && (
+                        <div className="mt-4 pt-4 border-t border-white/10" onClick={e => e.preventDefault()}>
+                          <Link
+                            to={`/competitions/${competition.id}/replay`}
+                            className="w-full py-2 px-4 text-center text-sm font-medium rounded-lg bg-neon-magenta/10 border border-neon-magenta/30 text-neon-magenta flex items-center justify-center gap-2 hover:bg-neon-magenta/20 transition-colors"
+                          >
+                            <Video size={14} />
+                            Watch Replay
+                          </Link>
                         </div>
                       )}
                     </GlassCard>

@@ -836,7 +836,7 @@ This allows updating rubrics without code deploys.
 - [x] Redis-backed event resilience (Redis snapshots, auto-cancel interrupted)
 - [x] Glicko-2 rating system (rating-service.ts with RD + volatility, DB migration, multi-player pairwise)
 - [x] Cross-provider AI judging panel (JUDGE_MAP cross-provider judging)
-- [ ] Replay/VOD system
-- [ ] Mobile-responsive competition viewer
+- [x] Replay/VOD system
+- [x] Mobile-responsive competition viewer
 - [x] SEO optimization (react-helmet-async, OpenGraph tags)
 - [x] Sentry error tracking (Sentry APM integration)

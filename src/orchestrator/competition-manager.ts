@@ -237,6 +237,32 @@ class CompetitionManager {
       });
     }
 
+    // Persist replay action logs
+    const competition = controller.getCompetition();
+    if (competition) {
+      const replayRows = competition.events.flatMap(event =>
+        event.results.map(result => ({
+          competition_id: competitionId,
+          event_id: result.taskId,
+          agent_id: result.agentId,
+          action_log: result.actions ?? [],
+        }))
+      );
+
+      if (replayRows.length > 0) {
+        const { error: replayErr } = await supabase
+          .from('aio_competition_replays')
+          .insert(replayRows);
+
+        if (replayErr) {
+          log.error('Failed to persist replay data', {
+            competitionId,
+            error: replayErr.message,
+          });
+        }
+      }
+    }
+
     // Update ELO ratings based on final standings
     await eloService.updateRatingsAfterCompetition(
       competitionId,

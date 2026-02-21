@@ -559,6 +559,33 @@ router.delete('/:id/vote', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// Get replay data for a completed competition (public)
+router.get('/:id/replay', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('aio_competition_replays')
+      .select('agent_id, event_id, action_log')
+      .eq('competition_id', id)
+      .order('created_at');
+
+    if (error) {
+      log.error('Failed to fetch replay', { competitionId: id, error });
+      return res.status(500).json({ error: 'Failed to fetch replay' });
+    }
+
+    if (!data?.length) {
+      return res.status(404).json({ error: 'No replay data found for this competition' });
+    }
+
+    res.json({ competition_id: id, agents: data });
+  } catch (error) {
+    log.error('Failed to get replay', { error });
+    res.status(500).json({ error: 'Failed to get replay' });
+  }
+});
+
 // Get domains
 router.get('/domains/list', async (_req: Request, res: Response) => {
   try {
