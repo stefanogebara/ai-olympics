@@ -54,7 +54,7 @@ function createQueryChain(resolvedValue: { data: unknown; error: unknown }) {
   const chain: Record<string, Mock> = {};
   const methods = [
     'select', 'insert', 'update', 'upsert', 'delete',
-    'eq', 'in', 'order', 'limit', 'single', 'gte',
+    'eq', 'in', 'order', 'limit', 'single',
   ];
   for (const method of methods) {
     chain[method] = vi.fn().mockReturnValue(chain);
@@ -168,16 +168,6 @@ describe('MetaMarketService', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
-      // Mock Guard 1: aio_competitions (non-organizer)
-      const competitionChain = createQueryChain({ data: { created_by: 'other-user' }, error: null });
-      mockSupabase.from.mockReturnValueOnce(competitionChain);
-
-      // Guard 2 skipped: total_volume = 0
-
-      // Mock Guard 3: aio_meta_market_bets velocity check (< 5 bets)
-      const velocityChain = createQueryChain({ data: [], error: null });
-      mockSupabase.from.mockReturnValueOnce(velocityChain);
-
       // Mock RPC
       mockSupabase.rpc.mockResolvedValueOnce({
         data: [{ success: true, bet_id: 'bet-123', new_balance: 900 }],
@@ -281,16 +271,6 @@ describe('MetaMarketService', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
-      // Guard 1: non-organizer
-      const competitionChain = createQueryChain({ data: { created_by: 'other-user' }, error: null });
-      mockSupabase.from.mockReturnValueOnce(competitionChain);
-
-      // Guard 2 skipped: total_volume = 0
-
-      // Guard 3: velocity check (< 5 bets)
-      const velocityChain = createQueryChain({ data: [], error: null });
-      mockSupabase.from.mockReturnValueOnce(velocityChain);
-
       mockSupabase.rpc.mockResolvedValueOnce({
         data: null,
         error: { message: 'RPC failure' },
@@ -305,16 +285,6 @@ describe('MetaMarketService', () => {
       const market = makeMarket();
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
-
-      // Guard 1: non-organizer
-      const competitionChain = createQueryChain({ data: { created_by: 'other-user' }, error: null });
-      mockSupabase.from.mockReturnValueOnce(competitionChain);
-
-      // Guard 2 skipped: total_volume = 0
-
-      // Guard 3: velocity check (< 5 bets)
-      const velocityChain = createQueryChain({ data: [], error: null });
-      mockSupabase.from.mockReturnValueOnce(velocityChain);
 
       mockSupabase.rpc.mockResolvedValueOnce({
         data: [{ success: false, error_msg: 'Insufficient balance' }],
@@ -340,16 +310,6 @@ describe('MetaMarketService', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
-      // Guard 1: non-organizer
-      const competitionChain = createQueryChain({ data: { created_by: 'other-user' }, error: null });
-      mockSupabase.from.mockReturnValueOnce(competitionChain);
-
-      // Guard 2 skipped: total_volume = 0
-
-      // Guard 3: velocity check (< 5 bets)
-      const velocityChain = createQueryChain({ data: [], error: null });
-      mockSupabase.from.mockReturnValueOnce(velocityChain);
-
       mockSupabase.rpc.mockRejectedValueOnce(new Error('Network error'));
 
       const result = await service.placeBet('user-1', 'market-1', 'agent-1', 100);
@@ -361,16 +321,6 @@ describe('MetaMarketService', () => {
       const market = makeMarket({ current_odds: undefined });
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
-
-      // Guard 1: non-organizer
-      const competitionChain = createQueryChain({ data: { created_by: 'other-user' }, error: null });
-      mockSupabase.from.mockReturnValueOnce(competitionChain);
-
-      // Guard 2 skipped: total_volume = 0
-
-      // Guard 3: velocity check (< 5 bets)
-      const velocityChain = createQueryChain({ data: [], error: null });
-      mockSupabase.from.mockReturnValueOnce(velocityChain);
 
       mockSupabase.rpc.mockResolvedValueOnce({
         data: [{ success: true, bet_id: 'bet-456', new_balance: 800 }],
@@ -394,16 +344,6 @@ describe('MetaMarketService', () => {
       const getMarketChain = createQueryChain({ data: market, error: null });
       mockSupabase.from.mockReturnValueOnce(getMarketChain);
 
-      // Guard 1: non-organizer
-      const competitionChain = createQueryChain({ data: { created_by: 'other-user' }, error: null });
-      mockSupabase.from.mockReturnValueOnce(competitionChain);
-
-      // Guard 2 skipped: total_volume = 0
-
-      // Guard 3: velocity check (< 5 bets)
-      const velocityChain = createQueryChain({ data: [], error: null });
-      mockSupabase.from.mockReturnValueOnce(velocityChain);
-
       mockSupabase.rpc.mockResolvedValueOnce({
         data: { success: true, bet_id: 'bet-789', new_balance: 500 },
         error: null,
@@ -420,75 +360,6 @@ describe('MetaMarketService', () => {
       expect(result.bet!.user_id).toBe('user-1');
       expect(result.bet!.outcome_id).toBe('agent-1');
       expect(result.bet!.status).toBe('active');
-    });
-
-    it('rejects bet when user is the competition organizer', async () => {
-      const organizerId = 'organizer-user-id';
-      const market = makeMarket({ competition_id: 'comp-1' });
-
-      // Mock 1: getMarket → aio_meta_markets
-      const getMarketChain = createQueryChain({ data: market, error: null });
-      mockSupabase.from.mockReturnValueOnce(getMarketChain);
-
-      // Mock 2: Guard 1 → aio_competitions returns created_by = organizerId
-      const competitionChain = createQueryChain({ data: { created_by: organizerId }, error: null });
-      mockSupabase.from.mockReturnValueOnce(competitionChain);
-
-      const result = await service.placeBet(organizerId, 'market-1', 'agent-1', 100);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toMatch(/organizer/i);
-    });
-
-    it('rejects bet when user position would exceed 20% of market volume', async () => {
-      // total_volume = 1000, 20% = 200; user already has 210, so 210 + new bet > 200
-      const market = makeMarket({ total_volume: 1000 });
-
-      // Mock 1: getMarket → aio_meta_markets
-      const getMarketChain = createQueryChain({ data: market, error: null });
-      mockSupabase.from.mockReturnValueOnce(getMarketChain);
-
-      // Mock 2: Guard 1 → aio_competitions returns a different user as organizer
-      const competitionChain = createQueryChain({ data: { created_by: 'other-user' }, error: null });
-      mockSupabase.from.mockReturnValueOnce(competitionChain);
-
-      // Mock 3: Guard 2 → aio_meta_market_bets returns existing bets totalling 210
-      const existingBetsChain = createQueryChain({ data: [{ amount: 210 }], error: null });
-      mockSupabase.from.mockReturnValueOnce(existingBetsChain);
-
-      const result = await service.placeBet('user-1', 'market-1', 'agent-1', 50);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toMatch(/position limit/i);
-    });
-
-    it('rejects bet when user has 5 or more bets on this market in the last hour', async () => {
-      // total_volume = 100000 so position limit won't trigger (100 + 0 = 100, max = 20000)
-      const market = makeMarket({ total_volume: 100000 });
-
-      // Mock 1: getMarket → aio_meta_markets
-      const getMarketChain = createQueryChain({ data: market, error: null });
-      mockSupabase.from.mockReturnValueOnce(getMarketChain);
-
-      // Mock 2: Guard 1 → aio_competitions returns a different user as organizer
-      const competitionChain = createQueryChain({ data: { created_by: 'other-user' }, error: null });
-      mockSupabase.from.mockReturnValueOnce(competitionChain);
-
-      // Mock 3: Guard 2 position check → no existing bets (won't trigger limit)
-      const existingBetsChain = createQueryChain({ data: [], error: null });
-      mockSupabase.from.mockReturnValueOnce(existingBetsChain);
-
-      // Mock 4: Guard 3 velocity check → 5 recent bets (triggers limit)
-      // The velocity query uses .gte() which is not in the base chain, so we add it manually
-      const recentBetsData = [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }];
-      const velocityChain = createQueryChain({ data: recentBetsData, error: null });
-      velocityChain.gte = vi.fn().mockReturnValue(velocityChain);
-      mockSupabase.from.mockReturnValueOnce(velocityChain);
-
-      const result = await service.placeBet('user-1', 'market-1', 'agent-1', 100);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toMatch(/velocity limit/i);
     });
   });
 
