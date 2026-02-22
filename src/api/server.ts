@@ -32,7 +32,7 @@ if (process.env.SENTRY_DSN) {
 import { eventBus } from '../shared/utils/events.js';
 import { createLogger } from '../shared/utils/logger.js';
 import { serviceClient as supabase } from '../shared/utils/supabase.js';
-import { initRedis, getInterruptedCompetitions, removeCompetitionSnapshot, closeRedis } from '../shared/utils/redis.js';
+import { initRedis, getInterruptedCompetitions, removeCompetitionSnapshot, closeRedis, getEventsFromLog } from '../shared/utils/redis.js';
 import type { Competition, StreamEvent, Tournament } from '../shared/types/index.js';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
@@ -625,6 +625,34 @@ export function createAPIServer() {
     };
 
     eventBus.on('*', handleEvent);
+
+    // Reconnect catchup: client sends lastEventTimestamp, server replays missed events
+    // Allows seamless reconnection without missing events during brief disconnects
+    socket.on('competition:catchup', async (data: { competitionId: string; sinceTimestamp: number }) => {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!data?.competitionId || !uuidRe.test(data.competitionId)) {
+        socket.emit('catchup:error', { error: 'Invalid competition ID' });
+        return;
+      }
+      const since = typeof data.sinceTimestamp === 'number' ? data.sinceTimestamp : 0;
+
+      // Try Redis event log first, fall back to in-memory history
+      let missedEvents = await getEventsFromLog(data.competitionId, since);
+      if (missedEvents.length === 0) {
+        missedEvents = eventBus.getHistory({ competitionId: data.competitionId, since });
+      }
+
+      for (const event of missedEvents) {
+        const e = event as StreamEvent;
+        socket.emit(e.type, e);
+      }
+
+      socket.emit('catchup:complete', {
+        competitionId: data.competitionId,
+        eventsReplayed: missedEvents.length,
+      });
+      log.debug(`Catchup for ${socket.id}: replayed ${missedEvents.length} events since ${since}`);
+    });
 
     // Join a competition room (auth required for targeted interactions)
     socket.on('join:competition', (competitionId: string) => {

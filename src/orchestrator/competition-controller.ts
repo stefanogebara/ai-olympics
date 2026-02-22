@@ -17,6 +17,7 @@ import { judgingService } from '../services/judging-service.js';
 import {
   saveCompetitionSnapshot,
   removeCompetitionSnapshot,
+  deleteEventLog,
   type CompetitionSnapshot,
 } from '../shared/utils/redis.js';
 
@@ -151,8 +152,9 @@ export class CompetitionController {
       duration: this.globalTimer.elapsed()
     });
 
-    // Remove from Redis active set
+    // Remove from Redis active set and clean up event log
     await removeCompetitionSnapshot(this.competition.id);
+    await deleteEventLog(this.competition.id);
 
     log.info(`Competition completed in ${formatDuration(this.globalTimer.elapsed())}`);
   }
@@ -413,8 +415,9 @@ export class CompetitionController {
       this.competition.status = 'cancelled';
       this.globalTimer.stop();
 
-      // Remove from Redis active set
+      // Remove from Redis active set and clean up event log
       await removeCompetitionSnapshot(this.competition.id);
+      await deleteEventLog(this.competition.id);
 
       // Cleanup agents
       for (const agent of this.agents.values()) {

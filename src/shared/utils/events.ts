@@ -1,5 +1,6 @@
 import EventEmitter from 'eventemitter3';
 import type { StreamEvent, StreamEventType } from '../types/index.js';
+import { appendEventToLog } from './redis.js';
 
 // Typed event emitter for the competition system
 type EventMap = {
@@ -15,10 +16,17 @@ class CompetitionEventBus extends EventEmitter<EventMap> {
   emit<K extends keyof EventMap>(event: K, ...args: Parameters<EventMap[K]>): boolean {
     const streamEvent = args[0] as StreamEvent;
 
-    // Store in history
+    // Store in in-memory history (capped ring buffer)
     this.history.push(streamEvent);
     if (this.history.length > this.maxHistorySize) {
       this.history.shift();
+    }
+
+    // Persist to Redis event log (fire-and-forget — never blocks the emit)
+    if (streamEvent.competitionId) {
+      appendEventToLog(streamEvent.competitionId, streamEvent).catch(() => {
+        // Redis persistence is best-effort; in-memory history is the fallback
+      });
     }
 
     // Emit to specific listeners

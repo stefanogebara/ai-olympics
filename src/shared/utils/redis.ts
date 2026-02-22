@@ -27,6 +27,10 @@ const COMPETITION_KEY_PREFIX = 'aio:competition:';
 const ACTIVE_SET_KEY = 'aio:active-competitions';
 const SNAPSHOT_TTL = 3600; // 1 hour
 
+const EVENT_LOG_PREFIX = 'aio:events:';
+const EVENT_LOG_TTL = 7200; // 2 hours
+const MAX_EVENTS_PER_COMPETITION = 10_000;
+
 let redisClient: Redis | null = null;
 let available = false;
 
@@ -150,6 +154,78 @@ export async function getInterruptedCompetitions(): Promise<CompetitionSnapshot[
       error: err instanceof Error ? err.message : String(err),
     });
     return [];
+  }
+}
+
+/**
+ * Append a single StreamEvent to the competition's event log.
+ * Fire-and-forget safe — silently no-ops if Redis is unavailable.
+ */
+export async function appendEventToLog(competitionId: string, event: unknown): Promise<void> {
+  if (!redisClient || !available) return;
+
+  try {
+    const key = EVENT_LOG_PREFIX + competitionId;
+    await redisClient
+      .multi()
+      .rpush(key, JSON.stringify(event))
+      .expire(key, EVENT_LOG_TTL)
+      .exec();
+
+    // Trim to max size to prevent unbounded growth (only when near limit)
+    const len = await redisClient.llen(key);
+    if (len > MAX_EVENTS_PER_COMPETITION) {
+      await redisClient.ltrim(key, len - MAX_EVENTS_PER_COMPETITION, -1);
+    }
+  } catch (err) {
+    log.warn('Failed to append event to log', {
+      competitionId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Get all events for a competition, optionally filtered to those after sinceTimestamp.
+ * Returns events in chronological order (oldest first).
+ */
+export async function getEventsFromLog(
+  competitionId: string,
+  sinceTimestamp?: number
+): Promise<unknown[]> {
+  if (!redisClient || !available) return [];
+
+  try {
+    const key = EVENT_LOG_PREFIX + competitionId;
+    const raw = await redisClient.lrange(key, 0, -1);
+    const events = raw.map(r => JSON.parse(r) as { timestamp?: number });
+
+    if (sinceTimestamp !== undefined) {
+      return events.filter(e => (e.timestamp ?? 0) > sinceTimestamp);
+    }
+    return events;
+  } catch (err) {
+    log.warn('Failed to get events from log', {
+      competitionId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return [];
+  }
+}
+
+/**
+ * Delete the event log for a competition (call on completion/cancellation cleanup).
+ */
+export async function deleteEventLog(competitionId: string): Promise<void> {
+  if (!redisClient || !available) return;
+
+  try {
+    await redisClient.del(EVENT_LOG_PREFIX + competitionId);
+  } catch (err) {
+    log.warn('Failed to delete event log', {
+      competitionId,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 

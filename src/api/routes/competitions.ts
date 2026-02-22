@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { serviceClient as supabase } from '../../shared/utils/supabase.js';
+import { getEventsFromLog } from '../../shared/utils/redis.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { competitionManager } from '../../orchestrator/competition-manager.js';
@@ -582,6 +583,25 @@ router.get('/:id/replay', async (req: Request, res: Response) => {
   } catch (error) {
     log.error('Failed to get replay', { error });
     res.status(500).json({ error: 'Failed to get replay' });
+  }
+});
+
+// Get live event log for a competition (Redis-backed, for reconnect catchup or post-match review)
+router.get('/:id/events', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    const sinceRaw = Array.isArray(req.query.since) ? req.query.since[0] : req.query.since;
+    const sinceTimestamp = sinceRaw ? Number(sinceRaw) : undefined;
+
+    if (sinceTimestamp !== undefined && isNaN(sinceTimestamp)) {
+      return res.status(400).json({ error: 'Invalid since parameter' });
+    }
+
+    const events = await getEventsFromLog(id, sinceTimestamp);
+    res.json({ competition_id: id, events, count: events.length });
+  } catch (error) {
+    log.error('Failed to get event log', { error });
+    res.status(500).json({ error: 'Failed to get event log' });
   }
 });
 
