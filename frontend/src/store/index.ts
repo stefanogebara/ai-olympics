@@ -63,6 +63,7 @@ interface CompetitionState {
 
   // UI state
   isConnected: boolean;
+  isReconnecting: boolean;
 
   // Actions
   setCompetition: (id: string, name: string) => void;
@@ -75,6 +76,7 @@ interface CompetitionState {
   addCommentary: (commentary: Omit<CommentaryEvent, 'id'>) => void;
   setVoteCounts: (voteCounts: Record<string, { cheers: number; predict_win: number; mvp: number }>) => void;
   setConnected: (connected: boolean) => void;
+  setReconnecting: (reconnecting: boolean) => void;
   reset: () => void;
 }
 
@@ -90,6 +92,7 @@ const initialState = {
   commentary: [],
   voteCounts: {},
   isConnected: false,
+  isReconnecting: false,
 };
 
 export const useStore = create<CompetitionState>((set) => ({
@@ -144,6 +147,8 @@ export const useStore = create<CompetitionState>((set) => ({
   setVoteCounts: (voteCounts) => set({ voteCounts }),
 
   setConnected: (connected) => set({ isConnected: connected }),
+
+  setReconnecting: (reconnecting) => set({ isReconnecting: reconnecting }),
 
   reset: () => set(initialState),
 }));

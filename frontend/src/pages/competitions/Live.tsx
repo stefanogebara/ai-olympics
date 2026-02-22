@@ -21,6 +21,7 @@ export function LiveView() {
     elapsedTime,
     status,
     isConnected,
+    isReconnecting,
     sortedAgents,
     leaderboard,
     commentary,
@@ -236,19 +237,66 @@ export function LiveView() {
 
             {/* Connection Status */}
             <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  'w-2 h-2 rounded-full',
-                  isConnected ? 'bg-neon-green' : 'bg-red-500'
-                )}
-              />
-              <span className="text-sm text-white/60">
-                {isConnected ? 'Connected' : 'Disconnected'}
-              </span>
+              {isReconnecting ? (
+                <>
+                  <svg
+                    className="w-3 h-3 animate-spin text-yellow-400"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                  </svg>
+                  <span className="text-sm text-yellow-400">Reconnecting...</span>
+                </>
+              ) : (
+                <>
+                  <div
+                    className={cn(
+                      'w-2 h-2 rounded-full',
+                      isConnected ? 'bg-neon-green' : 'bg-red-500'
+                    )}
+                  />
+                  <span className="text-sm text-white/60">
+                    {isConnected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
       </GlassCard>
+
+      {/* Reconnecting Banner */}
+      <AnimatePresence>
+        {isReconnecting && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400"
+            role="status"
+            aria-live="polite"
+          >
+            <svg
+              className="w-4 h-4 animate-spin flex-shrink-0"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+            </svg>
+            <span className="text-sm font-medium">
+              Connection lost — reconnecting and replaying missed events...
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Mobile Layout (< md) ── */}
       <div className="md:hidden">

@@ -13,6 +13,7 @@ export function useCompetition() {
     actions,
     commentary,
     isConnected,
+    isReconnecting,
   } = useStore();
 
   // Get agents as sorted array by score
@@ -74,6 +75,7 @@ export function useCompetition() {
     actions,
     commentary,
     isConnected,
+    isReconnecting,
 
     // Computed
     sortedAgents,

@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { getSocket, disconnectSocket } from '../lib/socket';
 import { useStore } from '../store';
 import { SOCKET_EVENTS } from '../lib/constants';
@@ -59,27 +59,72 @@ export function useSocket(competitionId?: string) {
     addCommentary,
     setVoteCounts,
     setConnected,
+    setReconnecting,
     reset,
   } = useStore();
+
+  // Track the timestamp of the last event we processed so we can request
+  // a catchup replay on reconnect covering only what we missed.
+  const lastEventTimestamp = useRef<number>(0);
+
+  // Distinguishes the first connect from subsequent reconnects.
+  const wasConnected = useRef<boolean>(false);
+
+  // Update lastEventTimestamp whenever we process a StreamEvent with a timestamp.
+  const trackTimestamp = useCallback((event: SocketPayload) => {
+    const ts = event?.timestamp;
+    if (typeof ts === 'number' && ts > lastEventTimestamp.current) {
+      lastEventTimestamp.current = ts;
+    }
+  }, []);
 
   const connect = useCallback(() => {
     const socket = getSocket();
 
     socket.on('connect', () => {
       setConnected(true);
-      // Join competition-specific room if an ID is provided
-      if (competitionId) {
+
+      if (wasConnected.current && competitionId) {
+        // Reconnect: re-join the room and request missed events from the server
+        socket.emit('join:competition', competitionId);
+        socket.emit('competition:catchup', {
+          competitionId,
+          sinceTimestamp: lastEventTimestamp.current,
+        });
+      } else if (competitionId) {
+        // First connect: join the competition room
         socket.emit('join:competition', competitionId);
       }
+
+      wasConnected.current = true;
+      setReconnecting(false);
     });
 
-    // If already connected and competitionId is set, join immediately
+    // If already connected when this hook mounts, join immediately
     if (socket.connected && competitionId) {
       socket.emit('join:competition', competitionId);
     }
 
     socket.on('disconnect', () => {
       setConnected(false);
+      // Only show "reconnecting" if we had an established connection — avoids
+      // a flash on initial page load before the first connect fires.
+      if (wasConnected.current) {
+        setReconnecting(true);
+      }
+    });
+
+    // Server confirmed catchup replay is complete
+    socket.on('catchup:complete', (data: { competitionId: string; eventsReplayed: number }) => {
+      setReconnecting(false);
+      if (import.meta.env.DEV) {
+        console.log(`[Socket] Catchup complete: ${data.eventsReplayed} events replayed`);
+      }
+    });
+
+    socket.on('catchup:error', () => {
+      // Best-effort: clear reconnecting state even if catchup failed
+      setReconnecting(false);
     });
 
     // ---------------------------------------------------------------------------
@@ -90,6 +135,7 @@ export function useSocket(competitionId?: string) {
 
     // Competition events
     socket.on(SOCKET_EVENTS.COMPETITION_START, (event: SocketPayload) => {
+      trackTimestamp(event);
       reset();
       const inner = event?.data ?? event;
       const competition = inner?.competition ?? inner;
@@ -114,22 +160,26 @@ export function useSocket(competitionId?: string) {
       }
     });
 
-    socket.on(SOCKET_EVENTS.COMPETITION_END, () => {
+    socket.on(SOCKET_EVENTS.COMPETITION_END, (event: SocketPayload) => {
+      trackTimestamp(event);
       setStatus('completed');
     });
 
     // Event events
     socket.on(SOCKET_EVENTS.EVENT_START, (event: SocketPayload) => {
+      trackTimestamp(event);
       const inner = event?.data ?? event;
       setCurrentEvent(inner?.task?.name || inner?.eventName || '');
     });
 
-    socket.on(SOCKET_EVENTS.EVENT_END, () => {
+    socket.on(SOCKET_EVENTS.EVENT_END, (event: SocketPayload) => {
+      trackTimestamp(event);
       // Event ended, wait for next or competition end
     });
 
     // Agent events
     socket.on(SOCKET_EVENTS.AGENT_STATE, (event: SocketPayload) => {
+      trackTimestamp(event);
       const inner = event?.data ?? event;
       if (inner?.agentId) {
         updateAgent(inner.agentId, inner);
@@ -137,6 +187,7 @@ export function useSocket(competitionId?: string) {
     });
 
     socket.on(SOCKET_EVENTS.AGENT_ACTION, (event: SocketPayload) => {
+      trackTimestamp(event);
       const inner = event?.data ?? event;
       if (inner?.agentId) {
         addAction(inner);
@@ -148,6 +199,7 @@ export function useSocket(competitionId?: string) {
     });
 
     socket.on(SOCKET_EVENTS.AGENT_PROGRESS, (event: SocketPayload) => {
+      trackTimestamp(event);
       const inner = event?.data ?? event;
       if (inner?.agentId) {
         updateAgent(inner.agentId, { progress: inner.progress });
@@ -155,6 +207,7 @@ export function useSocket(competitionId?: string) {
     });
 
     socket.on(SOCKET_EVENTS.AGENT_COMPLETE, (event: SocketPayload) => {
+      trackTimestamp(event);
       const inner = event?.data ?? event;
       const agentId = inner?.agentId;
       if (agentId) {
@@ -167,6 +220,7 @@ export function useSocket(competitionId?: string) {
     });
 
     socket.on(SOCKET_EVENTS.AGENT_ERROR, (event: SocketPayload) => {
+      trackTimestamp(event);
       const inner = event?.data ?? event;
       if (inner?.agentId) {
         updateAgent(inner.agentId, {
@@ -178,12 +232,14 @@ export function useSocket(competitionId?: string) {
 
     // Leaderboard
     socket.on(SOCKET_EVENTS.LEADERBOARD_UPDATE, (event: SocketPayload) => {
+      trackTimestamp(event);
       const entries = event?.data?.leaderboard ?? (Array.isArray(event) ? event : []);
       setLeaderboard(entries);
     });
 
     // Commentary
     socket.on(SOCKET_EVENTS.COMMENTARY_UPDATE, (event: SocketPayload) => {
+      trackTimestamp(event);
       const inner = event?.data ?? event;
       addCommentary(inner);
     });
@@ -195,6 +251,7 @@ export function useSocket(competitionId?: string) {
 
     // Spectator vote updates
     socket.on(SOCKET_EVENTS.VOTE_UPDATE, (event: SocketPayload) => {
+      trackTimestamp(event);
       const voteCounts = event?.voteCounts ?? event?.data?.voteCounts;
       if (voteCounts) {
         setVoteCounts(voteCounts);
@@ -213,14 +270,17 @@ export function useSocket(competitionId?: string) {
     addCommentary,
     setVoteCounts,
     setConnected,
+    setReconnecting,
     reset,
+    trackTimestamp,
     competitionId,
   ]);
 
   const disconnect = useCallback(() => {
     disconnectSocket();
     setConnected(false);
-  }, [setConnected]);
+    setReconnecting(false);
+  }, [setConnected, setReconnecting]);
 
   useEffect(() => {
     const socket = connect();
@@ -228,6 +288,8 @@ export function useSocket(competitionId?: string) {
     return () => {
       socket.off('connect');
       socket.off('disconnect');
+      socket.off('catchup:complete');
+      socket.off('catchup:error');
       Object.values(SOCKET_EVENTS).forEach((event) => {
         socket.off(event);
       });
