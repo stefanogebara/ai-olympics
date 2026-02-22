@@ -66,9 +66,18 @@ class OrderManager {
           exchangeOrderId = result.order.order_id;
         }
       } catch (exchangeError) {
-        // If exchange order fails, unlock funds by reversing the lock
+        // Exchange order failed — reverse the lock so the user's balance is restored
         log.error('Exchange order failed, unlocking funds', { error: String(exchangeError) });
-        // Note: In production, implement an unlock_funds_for_bet RPC
+        try {
+          await walletService.unlockForBet(wallet.id, amountCents);
+        } catch (unlockError) {
+          // Log but don't mask the original exchange error
+          log.error('CRITICAL: Failed to unlock funds after exchange failure — manual reconciliation needed', {
+            walletId: wallet.id,
+            amountCents,
+            unlockError: String(unlockError),
+          });
+        }
         throw exchangeError;
       }
 
@@ -124,13 +133,20 @@ class OrderManager {
 
       const realBet = bet as RealBet;
 
+      // Only cancel bets that still have locked funds
+      const cancellableStatuses = ['pending', 'filled'];
+      if (!cancellableStatuses.includes(realBet.status)) {
+        throw new Error(`Cannot cancel bet with status '${realBet.status}'`);
+      }
+
       // Cancel on the exchange
       if (realBet.market_source === 'kalshi') {
         await kalshiTradingService.cancelOrder(userId, realBet.exchange_order_id);
       }
-      // Note: Polymarket market orders can't be cancelled once filled
+      // Polymarket market orders can't be cancelled once filled on the exchange —
+      // we still cancel the record and release the lock so funds are not frozen.
 
-      // Update bet status
+      // Update bet status first, then release the lock
       const { error: updateError } = await serviceClient
         .from('aio_real_bets')
         .update({ status: 'cancelled' })
@@ -140,7 +156,10 @@ class OrderManager {
         throw updateError;
       }
 
-      log.info('Order cancelled', { betId });
+      // Restore locked funds to user's available balance
+      await walletService.unlockForBet(realBet.wallet_id, realBet.amount_cents);
+
+      log.info('Order cancelled and funds unlocked', { betId, amountCents: realBet.amount_cents });
     } catch (error) {
       log.error('Failed to cancel order', { userId, betId, error: String(error) });
       throw error;

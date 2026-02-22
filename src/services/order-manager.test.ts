@@ -1,6 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ============================================================================
+// Mock dependencies used in unlock path tests
+// ============================================================================
+
+vi.mock('../shared/utils/supabase.js', () => ({
+  serviceClient: {
+    from: vi.fn(),
+    rpc: vi.fn(),
+  },
+}));
+
+vi.mock('./wallet-service.js', () => ({
+  walletService: {
+    getOrCreateWallet: vi.fn(),
+    lockForBet: vi.fn(),
+    unlockForBet: vi.fn(),
+  },
+}));
+
+vi.mock('./polymarket-trading.js', () => ({
+  polymarketTradingService: {
+    placeMarketOrder: vi.fn(),
+  },
+}));
+
+vi.mock('./kalshi-trading.js', () => ({
+  kalshiTradingService: {
+    placeOrder: vi.fn(),
+    cancelOrder: vi.fn(),
+  },
+}));
+
+// ============================================================================
 // Test the platform fee and payout distribution logic
 // These are pure math calculations extracted from settleCompetition()
 // ============================================================================
@@ -102,6 +134,162 @@ describe('Order Manager - Payout Calculations', () => {
       const { payouts } = calculatePayouts(10000, 10, 3);
       expect(payouts[0]).toBeGreaterThan(payouts[1]);
       expect(payouts[1]).toBeGreaterThan(payouts[2]);
+    });
+  });
+});
+
+// ============================================================================
+// unlock_funds_for_bet — funds released on exchange failure and cancellation
+// ============================================================================
+
+describe('Order Manager - Fund Unlock Paths', () => {
+  // Import mocked modules lazily so vi.mock() is applied first
+  let orderManager: Awaited<ReturnType<typeof import('./order-manager.js').default.placeOrder>> extends never
+    ? never
+    : (typeof import('./order-manager.js'))['orderManager'];
+  let walletService: typeof import('./wallet-service.js')['walletService'];
+  let polymarketTradingService: typeof import('./polymarket-trading.js')['polymarketTradingService'];
+  let kalshiTradingService: typeof import('./kalshi-trading.js')['kalshiTradingService'];
+  let serviceClient: typeof import('../shared/utils/supabase.js')['serviceClient'];
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    ({ orderManager } = await import('./order-manager.js'));
+    ({ walletService } = await import('./wallet-service.js'));
+    ({ polymarketTradingService } = await import('./polymarket-trading.js'));
+    ({ kalshiTradingService } = await import('./kalshi-trading.js'));
+    ({ serviceClient } = await import('../shared/utils/supabase.js'));
+  });
+
+  describe('placeOrder — exchange failure unlocks funds', () => {
+    it('calls unlockForBet when Polymarket order throws', async () => {
+      vi.mocked(walletService.getOrCreateWallet).mockResolvedValue({
+        id: 'wallet-1',
+        user_id: 'user-1',
+        balance_cents: 5000,
+        pending_cents: 0,
+        created_at: '',
+        updated_at: '',
+      });
+      vi.mocked(walletService.lockForBet).mockResolvedValue(undefined);
+      vi.mocked(walletService.unlockForBet).mockResolvedValue(undefined);
+      vi.mocked(polymarketTradingService.placeMarketOrder).mockRejectedValue(
+        new Error('Exchange timeout')
+      );
+
+      await expect(
+        orderManager.placeOrder('user-1', 'market-1', 'polymarket', 'YES', 1000)
+      ).rejects.toThrow('Exchange timeout');
+
+      expect(walletService.lockForBet).toHaveBeenCalledWith('wallet-1', 1000);
+      expect(walletService.unlockForBet).toHaveBeenCalledWith('wallet-1', 1000);
+    });
+
+    it('calls unlockForBet when Kalshi order throws', async () => {
+      vi.mocked(walletService.getOrCreateWallet).mockResolvedValue({
+        id: 'wallet-2',
+        user_id: 'user-2',
+        balance_cents: 2000,
+        pending_cents: 0,
+        created_at: '',
+        updated_at: '',
+      });
+      vi.mocked(walletService.lockForBet).mockResolvedValue(undefined);
+      vi.mocked(walletService.unlockForBet).mockResolvedValue(undefined);
+      vi.mocked(kalshiTradingService.placeOrder).mockRejectedValue(
+        new Error('Kalshi unavailable')
+      );
+
+      await expect(
+        orderManager.placeOrder('user-2', 'market-2', 'kalshi', 'yes', 500)
+      ).rejects.toThrow('Kalshi unavailable');
+
+      expect(walletService.unlockForBet).toHaveBeenCalledWith('wallet-2', 500);
+    });
+
+    it('still throws exchange error even if unlockForBet fails', async () => {
+      vi.mocked(walletService.getOrCreateWallet).mockResolvedValue({
+        id: 'wallet-3',
+        user_id: 'user-3',
+        balance_cents: 1000,
+        pending_cents: 0,
+        created_at: '',
+        updated_at: '',
+      });
+      vi.mocked(walletService.lockForBet).mockResolvedValue(undefined);
+      vi.mocked(walletService.unlockForBet).mockRejectedValue(new Error('Redis down'));
+      vi.mocked(polymarketTradingService.placeMarketOrder).mockRejectedValue(
+        new Error('Exchange error')
+      );
+
+      // Original exchange error must propagate, not the unlock error
+      await expect(
+        orderManager.placeOrder('user-3', 'market-3', 'polymarket', 'NO', 200)
+      ).rejects.toThrow('Exchange error');
+    });
+  });
+
+  describe('cancelOrder — unlocks funds after cancellation', () => {
+    const mockBet = {
+      id: 'bet-1',
+      user_id: 'user-1',
+      wallet_id: 'wallet-1',
+      market_id: 'market-1',
+      market_source: 'kalshi' as const,
+      outcome: 'yes',
+      amount_cents: 1000,
+      exchange_order_id: 'kal-order-1',
+      status: 'filled',
+      resolved: false,
+      payout_cents: null,
+      created_at: '',
+    };
+
+    it('calls unlockForBet after successful Kalshi cancellation', async () => {
+      const mockFrom = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: mockBet, error: null }),
+        update: vi.fn().mockReturnThis(),
+      };
+      vi.mocked(serviceClient.from).mockReturnValue(mockFrom as never);
+      vi.mocked(kalshiTradingService.cancelOrder).mockResolvedValue(undefined as never);
+      vi.mocked(walletService.unlockForBet).mockResolvedValue(undefined);
+
+      await orderManager.cancelOrder('user-1', 'bet-1');
+
+      expect(kalshiTradingService.cancelOrder).toHaveBeenCalledWith('user-1', 'kal-order-1');
+      expect(walletService.unlockForBet).toHaveBeenCalledWith('wallet-1', 1000);
+    });
+
+    it('rejects cancellation of already-resolved bets', async () => {
+      const resolvedBet = { ...mockBet, status: 'resolved' };
+      const mockFrom = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: resolvedBet, error: null }),
+      };
+      vi.mocked(serviceClient.from).mockReturnValue(mockFrom as never);
+
+      await expect(orderManager.cancelOrder('user-1', 'bet-1')).rejects.toThrow(
+        "Cannot cancel bet with status 'resolved'"
+      );
+      expect(walletService.unlockForBet).not.toHaveBeenCalled();
+    });
+
+    it('rejects cancellation of already-cancelled bets', async () => {
+      const cancelledBet = { ...mockBet, status: 'cancelled' };
+      const mockFrom = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: cancelledBet, error: null }),
+      };
+      vi.mocked(serviceClient.from).mockReturnValue(mockFrom as never);
+
+      await expect(orderManager.cancelOrder('user-1', 'bet-1')).rejects.toThrow(
+        "Cannot cancel bet with status 'cancelled'"
+      );
+      expect(walletService.unlockForBet).not.toHaveBeenCalled();
     });
   });
 });
