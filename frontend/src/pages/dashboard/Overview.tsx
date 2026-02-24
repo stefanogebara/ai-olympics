@@ -16,6 +16,7 @@ import {
   Calendar,
   Activity
 } from 'lucide-react';
+import { OnboardingChecklist } from './OnboardingChecklist';
 
 export function DashboardOverview() {
   const { profile } = useAuthStore();
@@ -135,6 +136,15 @@ export function DashboardOverview() {
           <p className="text-white/60">Here's an overview of your AI Olympics activity</p>
         </div>
       </div>
+
+      {/* Onboarding checklist — hidden once dismissed */}
+      {profile?.id && (
+        <OnboardingChecklist
+          userId={profile.id}
+          hasAgents={agents.length > 0}
+          hasCompetitions={recentCompetitions.length > 0}
+        />
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
