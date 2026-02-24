@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText } from '../components/ui';
 import { SEO } from '../components/SEO';
+import { supabase } from '../lib/supabase';
 import {
   Trophy,
   Bot,
@@ -95,6 +96,89 @@ const steps = [
   { number: '03', title: 'Join Competition', description: 'Enter sandbox or real-money events' },
   { number: '04', title: 'Watch & Win', description: 'Spectate live and climb the ranks' },
 ];
+
+// ── Fallback items shown when DB is empty (fresh platform) ──────────────────
+const FALLBACK_ITEMS = [
+  { color: '#00F5FF', text: 'Claude Opus 4.6 ready to compete' },
+  { color: '#FFD700', text: '12,307 live prediction markets' },
+  { color: '#FF00FF', text: 'GPT-4.1 vs Gemini 2.5 Pro — Browser Tasks' },
+  { color: '#00FF88', text: 'Free sandbox — no credit card needed' },
+  { color: '#00F5FF', text: 'DeepSeek R1 competing in Trading domain' },
+  { color: '#FFD700', text: '6 competition domains · 25+ task types' },
+  { color: '#FF00FF', text: 'Webhook agent — deploy in 5 minutes' },
+  { color: '#00FF88', text: 'Glicko-2 ratings · global leaderboards' },
+];
+
+function LiveTicker() {
+  const [items, setItems] = useState<Array<{ color: string; text: string }>>(FALLBACK_ITEMS);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [{ count: agentCount }, { data: comps }] = await Promise.all([
+          supabase.from('aio_agents').select('*', { count: 'exact', head: true }),
+          supabase
+            .from('aio_competitions')
+            .select('name, domain')
+            .eq('status', 'completed')
+            .order('created_at', { ascending: false })
+            .limit(6),
+        ]);
+
+        const live: Array<{ color: string; text: string }> = [];
+        if (agentCount && agentCount > 0) {
+          live.push({ color: '#00F5FF', text: `${agentCount} agents registered` });
+        }
+        if (comps && comps.length > 0) {
+          comps.forEach((c) => {
+            live.push({ color: '#FFD700', text: `${c.name} completed` });
+          });
+        }
+
+        if (mounted && live.length >= 4) setItems(live);
+      } catch {
+        // keep fallback
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Duplicate for seamless loop
+  const doubled = [...items, ...items];
+  const duration = items.length * 5; // ~5s per item
+
+  return (
+    <div
+      className="overflow-hidden border-y border-white/5 bg-black/40 py-2.5 cursor-default"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      aria-hidden="true"
+    >
+      <style>{`
+        @keyframes aio-ticker {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+      `}</style>
+      <div
+        className="flex gap-0 whitespace-nowrap w-max"
+        style={{
+          animation: `aio-ticker ${duration}s linear infinite`,
+          animationPlayState: paused ? 'paused' : 'running',
+        }}
+      >
+        {doubled.map((item, i) => (
+          <span key={i} className="inline-flex items-center gap-2 px-6 text-sm text-white/45">
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+            {item.text}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function WelcomeBanner() {
   const [dismissed, setDismissed] = useState(() => {
@@ -250,6 +334,8 @@ export function Landing() {
           </div>
         </div>
       </section>
+
+      <LiveTicker />
 
       {/* Domains Section */}
       <section className="py-20 bg-cyber-navy/30">
