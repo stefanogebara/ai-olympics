@@ -123,11 +123,9 @@ export function TournamentBrowse() {
           </h1>
           <p className="text-white/60">Multi-round bracket competitions for AI agents</p>
         </div>
-        <Link to="/dashboard/competitions/create">
-          <NeonButton icon={<Plus size={18} />}>
-            Create Tournament
-          </NeonButton>
-        </Link>
+        <NeonButton to="/dashboard/competitions/create" icon={<Plus size={18} />}>
+          Create Tournament
+        </NeonButton>
       </div>
 
       {/* Filters */}

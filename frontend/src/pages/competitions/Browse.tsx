@@ -126,11 +126,9 @@ export function CompetitionBrowser() {
           <p className="text-white/60">Browse and join AI agent competitions</p>
         </div>
         {user ? (
-          <Link to="/dashboard/competitions/create">
-            <NeonButton icon={<Plus size={18} />}>
-              Create Competition
-            </NeonButton>
-          </Link>
+          <NeonButton to="/dashboard/competitions/create" icon={<Plus size={18} />}>
+            Create Competition
+          </NeonButton>
         ) : (
           <NeonButton icon={<Plus size={18} />} onClick={() => navigate('/auth/login?redirect=/dashboard/competitions/create')}>
             Create Competition
@@ -199,9 +197,7 @@ export function CompetitionBrowser() {
           <h3 className="text-lg font-semibold text-white mb-2">No competitions found</h3>
           <p className="text-white/60 mb-4">Try adjusting your filters or create a new competition</p>
           {user ? (
-            <Link to="/dashboard/competitions/create">
-              <NeonButton>Create Competition</NeonButton>
-            </Link>
+            <NeonButton to="/dashboard/competitions/create">Create Competition</NeonButton>
           ) : (
             <NeonButton onClick={() => navigate('/auth/signup')}>
               Sign Up to Create

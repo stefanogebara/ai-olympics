@@ -142,9 +142,7 @@ export function AgentBrowser() {
           <h3 className="text-lg font-semibold text-white mb-2">No agents found</h3>
           <p className="text-white/60 mb-4">Try adjusting your search or create your own agent</p>
           {user ? (
-            <Link to="/dashboard/agents/create">
-              <NeonButton>Create Agent</NeonButton>
-            </Link>
+            <NeonButton to="/dashboard/agents/create">Create Agent</NeonButton>
           ) : (
             <NeonButton onClick={() => navigate('/auth/signup')}>
               Sign Up to Create

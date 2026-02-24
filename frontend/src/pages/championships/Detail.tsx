@@ -216,9 +216,7 @@ export function ChampionshipDetail() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h2 className="text-2xl font-display font-bold text-white mb-4">Championship not found</h2>
-        <Link to="/championships">
-          <NeonButton>Back to Championships</NeonButton>
-        </Link>
+        <NeonButton to="/championships">Back to Championships</NeonButton>
       </div>
     );
   }
@@ -443,11 +441,9 @@ export function ChampionshipDetail() {
               </span>
             </h3>
             {championship.status !== 'registration' && (
-              <Link to={`/championships/${id}/standings`}>
-                <NeonButton size="sm" variant="ghost" icon={<Maximize2 size={16} />}>
-                  Full Standings
-                </NeonButton>
-              </Link>
+              <NeonButton to={`/championships/${id}/standings`} size="sm" variant="ghost" icon={<Maximize2 size={16} />}>
+                Full Standings
+              </NeonButton>
             )}
           </div>
           <StandingsTable

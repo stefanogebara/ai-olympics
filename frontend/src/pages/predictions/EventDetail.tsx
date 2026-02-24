@@ -514,15 +514,15 @@ export function EventDetail() {
           </div>
 
           <div className="flex flex-col gap-2 shrink-0">
-            <a
+            <NeonButton
               href={event.eventUrl}
               target="_blank"
               rel="noopener noreferrer"
+              className="text-xs px-3 py-1.5 w-full"
+              icon={<ExternalLink size={14} />}
             >
-              <NeonButton className="text-xs px-3 py-1.5 w-full" icon={<ExternalLink size={14} />}>
-                View on {event.source === 'polymarket' ? 'Polymarket' : 'Kalshi'}
-              </NeonButton>
-            </a>
+              View on {event.source === 'polymarket' ? 'Polymarket' : 'Kalshi'}
+            </NeonButton>
             {!isAuthenticated && (
               <NeonButton
                 onClick={() => navigate('/auth/login')}

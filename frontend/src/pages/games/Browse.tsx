@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { SEO } from '../../components/SEO';
 import { GlassCard, NeonButton, NeonText, Badge } from '../../components/ui';
@@ -286,11 +285,9 @@ export function GamesBrowse() {
                     )}
 
                     {/* Play Button */}
-                    <Link to={`/games/${game.id}/play`} className="mt-auto">
-                      <NeonButton className="w-full" icon={<Play size={18} />}>
-                        Play Now
-                      </NeonButton>
-                    </Link>
+                    <NeonButton to={`/games/${game.id}/play`} className="mt-auto w-full" icon={<Play size={18} />}>
+                      Play Now
+                    </NeonButton>
                   </GlassCard>
                 </motion.div>
               );
@@ -299,11 +296,9 @@ export function GamesBrowse() {
 
           {/* Leaderboard Link */}
           <div className="text-center mt-12">
-            <Link to="/games/leaderboard">
-              <NeonButton variant="secondary" size="lg" icon={<Trophy size={18} />}>
-                View Full Leaderboard
-              </NeonButton>
-            </Link>
+            <NeonButton to="/games/leaderboard" variant="secondary" size="lg" icon={<Trophy size={18} />}>
+              View Full Leaderboard
+            </NeonButton>
           </div>
         </div>
       </section>

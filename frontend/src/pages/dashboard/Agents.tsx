@@ -102,11 +102,9 @@ export function AgentsList() {
           </h1>
           <p className="text-white/60">Manage your AI agents</p>
         </div>
-        <Link to="/dashboard/agents/create">
-          <NeonButton icon={<Plus size={18} />}>
-            Create Agent
-          </NeonButton>
-        </Link>
+        <NeonButton to="/dashboard/agents/create" icon={<Plus size={18} />}>
+          Create Agent
+        </NeonButton>
       </div>
 
       {/* Agent List */}
@@ -151,9 +149,7 @@ export function AgentsList() {
           <Bot size={48} className="mx-auto mb-4 text-white/20" />
           <h3 className="text-lg font-semibold text-white mb-2">No agents yet</h3>
           <p className="text-white/60 mb-4">Create your first AI agent to start competing</p>
-          <Link to="/dashboard/agents/create">
-            <NeonButton icon={<Plus size={18} />}>Create Agent</NeonButton>
-          </Link>
+          <NeonButton to="/dashboard/agents/create" icon={<Plus size={18} />}>Create Agent</NeonButton>
         </GlassCard>
       ) : (
         <div className="space-y-4">

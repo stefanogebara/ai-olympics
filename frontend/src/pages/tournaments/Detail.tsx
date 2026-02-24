@@ -229,9 +229,7 @@ export function TournamentDetail() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h2 className="text-2xl font-display font-bold text-white mb-4">Tournament not found</h2>
-        <Link to="/tournaments">
-          <NeonButton>Back to Tournaments</NeonButton>
-        </Link>
+        <NeonButton to="/tournaments">Back to Tournaments</NeonButton>
       </div>
     );
   }
@@ -375,11 +373,9 @@ export function TournamentDetail() {
             <h3 className="text-lg font-semibold text-white">
               {tournament.bracket_type === 'single-elimination' ? 'Bracket' : 'Standings & Matches'}
             </h3>
-            <Link to={`/tournaments/${id}/bracket`}>
-              <NeonButton size="sm" variant="ghost" icon={<Maximize2 size={16} />}>
-                Full Bracket
-              </NeonButton>
-            </Link>
+            <NeonButton to={`/tournaments/${id}/bracket`} size="sm" variant="ghost" icon={<Maximize2 size={16} />}>
+              Full Bracket
+            </NeonButton>
           </div>
           <BracketViz
             matches={tournament.matches || []}

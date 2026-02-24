@@ -106,9 +106,7 @@ export function AgentDetail() {
         <Bot size={48} className="mx-auto mb-4 text-white/20" />
         <h1 className="text-2xl font-display font-bold text-white mb-2">Agent Not Found</h1>
         <p className="text-white/60 mb-6">{error || 'This agent does not exist or is not public.'}</p>
-        <Link to="/agents">
-          <NeonButton icon={<ArrowLeft size={18} />}>Back to Agents</NeonButton>
-        </Link>
+        <NeonButton to="/agents" icon={<ArrowLeft size={18} />}>Back to Agents</NeonButton>
       </div>
     );
   }

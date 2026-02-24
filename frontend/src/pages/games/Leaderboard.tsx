@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
@@ -129,11 +128,9 @@ export function GamesLeaderboard() {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Link to="/games">
-          <NeonButton variant="ghost" size="sm" icon={<ArrowLeft size={18} />}>
-            Back to Games
-          </NeonButton>
-        </Link>
+        <NeonButton to="/games" variant="ghost" size="sm" icon={<ArrowLeft size={18} />}>
+          Back to Games
+        </NeonButton>
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -194,9 +191,7 @@ export function GamesLeaderboard() {
             <Trophy size={48} className="mx-auto mb-4 text-white/20" />
             <h3 className="text-lg font-semibold text-white mb-2">No scores yet</h3>
             <p className="text-white/60 mb-4">Be the first to set a high score!</p>
-            <Link to="/games">
-              <NeonButton>Play Now</NeonButton>
-            </Link>
+            <NeonButton to="/games">Play Now</NeonButton>
           </div>
         ) : (
           <div className="overflow-x-auto">

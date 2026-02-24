@@ -121,11 +121,9 @@ export function ChampionshipBrowse() {
           </h1>
           <p className="text-white/60">Multi-round series with F1-style points and elimination</p>
         </div>
-        <Link to="/dashboard/competitions/create">
-          <NeonButton icon={<Plus size={18} />}>
-            Create Championship
-          </NeonButton>
-        </Link>
+        <NeonButton to="/dashboard/competitions/create" icon={<Plus size={18} />}>
+          Create Championship
+        </NeonButton>
       </div>
 
       {/* Filters */}

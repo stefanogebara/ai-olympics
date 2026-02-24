@@ -47,11 +47,9 @@ export function ForgotPassword() {
             <p className="text-white/60 mb-6">
               We've sent a password reset link to <strong className="text-white">{email}</strong>
             </p>
-            <Link to="/auth/login">
-              <NeonButton variant="secondary" className="w-full">
-                Back to Sign In
-              </NeonButton>
-            </Link>
+            <NeonButton to="/auth/login" variant="secondary" className="w-full">
+              Back to Sign In
+            </NeonButton>
           </GlassCard>
         </motion.div>
       </div>

@@ -188,11 +188,9 @@ export function GamesPlay() {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Link to="/games">
-          <NeonButton variant="ghost" size="sm" icon={<ArrowLeft size={18} />}>
-            Back
-          </NeonButton>
-        </Link>
+        <NeonButton to="/games" variant="ghost" size="sm" icon={<ArrowLeft size={18} />}>
+          Back
+        </NeonButton>
         <div>
           <h1 className="text-2xl font-display font-bold">
             <NeonText variant={(['cyan', 'magenta', 'green'] as const).includes(gameInfo.color as 'cyan') ? gameInfo.color as 'cyan' | 'magenta' | 'green' : 'cyan'} glow>{gameInfo.name}</NeonText>
@@ -361,11 +359,9 @@ export function GamesPlay() {
               <NeonButton onClick={playAgain} icon={<RefreshCw size={18} />}>
                 Play Again
               </NeonButton>
-              <Link to="/games/leaderboard">
-                <NeonButton variant="secondary" icon={<Trophy size={18} />}>
-                  Leaderboard
-                </NeonButton>
-              </Link>
+              <NeonButton to="/games/leaderboard" variant="secondary" icon={<Trophy size={18} />}>
+                Leaderboard
+              </NeonButton>
             </div>
           </GlassCard>
         </motion.div>

@@ -178,22 +178,18 @@ export function DashboardOverview() {
               <Bot size={20} className="text-neon-cyan" />
               Your Agents
             </h2>
-            <Link to="/dashboard/agents">
-              <NeonButton variant="ghost" size="sm" icon={<ChevronRight size={16} />} iconPosition="right">
-                View All
-              </NeonButton>
-            </Link>
+            <NeonButton to="/dashboard/agents" variant="ghost" size="sm" icon={<ChevronRight size={16} />} iconPosition="right">
+              View All
+            </NeonButton>
           </div>
 
           {agents.length === 0 ? (
             <div className="text-center py-8">
               <Bot size={40} className="mx-auto mb-3 text-white/20" />
               <p className="text-white/60 mb-4">You haven't created any agents yet</p>
-              <Link to="/dashboard/agents/create">
-                <NeonButton size="sm" icon={<Plus size={16} />}>
-                  Create Your First Agent
-                </NeonButton>
-              </Link>
+              <NeonButton to="/dashboard/agents/create" size="sm" icon={<Plus size={16} />}>
+                Create Your First Agent
+              </NeonButton>
             </div>
           ) : (
             <div className="space-y-3">
@@ -237,22 +233,18 @@ export function DashboardOverview() {
               <Trophy size={20} className="text-neon-magenta" />
               Recent Activity
             </h2>
-            <Link to="/competitions">
-              <NeonButton variant="ghost" size="sm" icon={<ChevronRight size={16} />} iconPosition="right">
-                Browse
-              </NeonButton>
-            </Link>
+            <NeonButton to="/competitions" variant="ghost" size="sm" icon={<ChevronRight size={16} />} iconPosition="right">
+              Browse
+            </NeonButton>
           </div>
 
           {recentCompetitions.length === 0 ? (
             <div className="text-center py-8">
               <Activity size={40} className="mx-auto mb-3 text-white/20" />
               <p className="text-white/60 mb-4">No competition activity yet</p>
-              <Link to="/competitions">
-                <NeonButton size="sm" icon={<Trophy size={16} />}>
-                  Browse Competitions
-                </NeonButton>
-              </Link>
+              <NeonButton to="/competitions" size="sm" icon={<Trophy size={16} />}>
+                Browse Competitions
+              </NeonButton>
             </div>
           ) : (
             <div className="space-y-3">

@@ -98,11 +98,9 @@ export function MyCompetitions() {
         <h1 className="text-2xl font-display font-bold">
           My <NeonText variant="magenta" glow>Competitions</NeonText>
         </h1>
-        <Link to="/dashboard/competitions/create">
-          <NeonButton icon={<Plus size={16} />}>
-            Create Competition
-          </NeonButton>
-        </Link>
+        <NeonButton to="/dashboard/competitions/create" icon={<Plus size={16} />}>
+          Create Competition
+        </NeonButton>
       </div>
 
       {entries.length === 0 ? (
@@ -111,16 +109,12 @@ export function MyCompetitions() {
           <h2 className="text-xl font-display font-bold text-white mb-2">No competitions yet</h2>
           <p className="text-white/60 mb-6">Join a competition or create your own to get started.</p>
           <div className="flex items-center justify-center gap-4">
-            <Link to="/competitions">
-              <NeonButton variant="secondary" icon={<Trophy size={16} />}>
-                Browse Competitions
-              </NeonButton>
-            </Link>
-            <Link to="/dashboard/competitions/create">
-              <NeonButton icon={<Plus size={16} />}>
-                Create New
-              </NeonButton>
-            </Link>
+            <NeonButton to="/competitions" variant="secondary" icon={<Trophy size={16} />}>
+              Browse Competitions
+            </NeonButton>
+            <NeonButton to="/dashboard/competitions/create" icon={<Plus size={16} />}>
+              Create New
+            </NeonButton>
           </div>
         </GlassCard>
       ) : (
