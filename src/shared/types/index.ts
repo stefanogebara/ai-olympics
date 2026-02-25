@@ -22,6 +22,7 @@ export interface AgentConfig {
 
 export interface AgentState {
   id: string;
+  name?: string;
   status: 'idle' | 'initializing' | 'running' | 'completed' | 'failed' | 'timeout';
   currentAction?: string;
   progress: number;  // 0-100

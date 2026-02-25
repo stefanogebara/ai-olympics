@@ -347,6 +347,7 @@ export class AgentRunner {
   private createInitialState(): AgentState {
     return {
       id: this.agentConfig.id,
+      name: this.agentConfig.name,
       status: 'idle',
       progress: 0,
       actionCount: 0

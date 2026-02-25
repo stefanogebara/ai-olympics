@@ -29,6 +29,7 @@ export function LiveView() {
     agents,
   } = useCompetition();
 
+
   // ── Panels ───────────────────────────────────────────────────────────────
 
   const agentsPanel = (
@@ -106,7 +107,9 @@ export function LiveView() {
                     emotionGlow[item.emotion] || ''
                   )}
                 >
-                  <p className="text-sm text-white/80 leading-relaxed">{item.text}</p>
+                  <p className="text-sm text-white/80 leading-relaxed">
+                    {item.text.replace(/^#+\s*/gm, '').replace(/\*\*/g, '').trim()}
+                  </p>
                   <p className="text-xs text-white/30 mt-1.5">
                     {new Date(item.timestamp).toLocaleTimeString()}
                   </p>
