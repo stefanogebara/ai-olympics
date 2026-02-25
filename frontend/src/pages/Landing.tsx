@@ -306,7 +306,7 @@ export function Landing() {
               className="grid grid-cols-3 gap-4 sm:gap-8 mt-16 max-w-2xl mx-auto"
             >
               {[
-                { value: '6', label: 'Competition Domains' },
+                { value: '12K+', label: 'Prediction Markets' },
                 { value: '25+', label: 'Task Types' },
                 { value: 'Free', label: 'Sandbox Mode' },
               ].map((stat) => (

@@ -13,7 +13,9 @@ import {
   Trophy,
   Users,
   Clock,
-  DollarSign,
+  BarChart2,
+  Palette,
+  Code2,
   Filter,
   Plus,
   Play,
@@ -23,16 +25,27 @@ import {
 const domainIcons: Record<string, typeof Globe> = {
   'browser-tasks': Globe,
   'prediction-markets': TrendingUp,
-  'trading': TrendingUp,
+  'trading': BarChart2,
   'games': Gamepad2,
+  'creative': Palette,
+  'coding': Code2,
 };
 
-const statusColors: Record<string, { bg: string; text: string }> = {
-  scheduled: { bg: 'bg-yellow-500/20', text: 'text-yellow-400' },
-  lobby: { bg: 'bg-neon-cyan/20', text: 'text-neon-cyan' },
-  running: { bg: 'bg-neon-green/20', text: 'text-neon-green' },
-  completed: { bg: 'bg-white/10', text: 'text-white/60' },
-  cancelled: { bg: 'bg-red-500/20', text: 'text-red-400' },
+const domainColors: Record<string, string> = {
+  'browser-tasks': '#00F5FF',
+  'prediction-markets': '#FF00FF',
+  'trading': '#00FF88',
+  'games': '#FFD700',
+  'creative': '#FF6B6B',
+  'coding': '#7C3AED',
+};
+
+const statusColors: Record<string, { bg: string; text: string; label: string }> = {
+  scheduled: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Scheduled' },
+  lobby: { bg: 'bg-neon-cyan/20', text: 'text-neon-cyan', label: 'Open Lobby' },
+  running: { bg: 'bg-neon-green/20', text: 'text-neon-green', label: 'Live' },
+  completed: { bg: 'bg-white/10', text: 'text-white/60', label: 'Completed' },
+  cancelled: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Cancelled' },
 };
 
 export function CompetitionBrowser() {
@@ -208,9 +221,9 @@ export function CompetitionBrowser() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence>
             {competitions.map((competition, index) => {
-              const DomainIcon = competition.domain?.slug
-                ? domainIcons[competition.domain.slug] || Globe
-                : Globe;
+              const slug = competition.domain?.slug ?? '';
+              const DomainIcon = domainIcons[slug] || Globe;
+              const domainColor = domainColors[slug] || '#00F5FF';
               const status = statusColors[competition.status] || statusColors.scheduled;
 
               return (
@@ -221,11 +234,17 @@ export function CompetitionBrowser() {
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                 >
-                  <Link to={`/competitions/${competition.id}`}>
+                  <Link to={
+                    competition.status === 'running'
+                      ? `/competitions/${competition.id}/live`
+                      : competition.status === 'completed'
+                      ? `/competitions/${competition.id}/replay`
+                      : `/competitions/${competition.id}`
+                  }>
                     <GlassCard hover className="p-6 h-full">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="w-10 h-10 rounded-lg bg-neon-cyan/10 flex items-center justify-center">
-                          <DomainIcon size={20} className="text-neon-cyan" />
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${domainColor}20` }}>
+                          <DomainIcon size={20} style={{ color: domainColor }} />
                         </div>
                         <Badge
                           variant={competition.stake_mode === 'real' ? 'warning' : 'default'}
@@ -238,7 +257,7 @@ export function CompetitionBrowser() {
 
                       <div className="flex items-center gap-2 mb-4">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.text}`}>
-                          {competition.status}
+                          {status.label}
                         </span>
                         {competition.domain && (
                           <span className="text-xs text-white/50">{competition.domain.name}</span>
@@ -251,8 +270,12 @@ export function CompetitionBrowser() {
                           <span>{competition.participant_count}/{competition.max_participants}</span>
                         </div>
                         <div className="flex items-center gap-2 text-white/60">
-                          <DollarSign size={14} />
-                          <span>${Number(competition.prize_pool || 0).toFixed(0)}</span>
+                          <Trophy size={14} />
+                          <span>
+                            {competition.stake_mode === 'sandbox' || !competition.prize_pool || Number(competition.prize_pool) === 0
+                              ? 'Free'
+                              : `$${Number(competition.prize_pool).toLocaleString()}`}
+                          </span>
                         </div>
                         {competition.scheduled_start && (
                           <div className="flex items-center gap-2 text-white/60 col-span-2">
@@ -262,24 +285,26 @@ export function CompetitionBrowser() {
                         )}
                       </div>
 
-                      {competition.status === 'lobby' && (
+                      {(competition.status === 'lobby' || competition.status === 'running' || competition.status === 'completed') && (
                         <div className="mt-4 pt-4 border-t border-white/10">
-                          <div className="w-full py-2 px-4 text-center text-sm font-medium rounded-lg bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan flex items-center justify-center gap-2">
-                            <Play size={14} />
-                            Join Now
-                          </div>
-                        </div>
-                      )}
-
-                      {competition.status === 'completed' && (
-                        <div className="mt-4 pt-4 border-t border-white/10" onClick={e => e.preventDefault()}>
-                          <Link
-                            to={`/competitions/${competition.id}/replay`}
-                            className="w-full py-2 px-4 text-center text-sm font-medium rounded-lg bg-neon-magenta/10 border border-neon-magenta/30 text-neon-magenta flex items-center justify-center gap-2 hover:bg-neon-magenta/20 transition-colors"
-                          >
-                            <Video size={14} />
-                            Watch Replay
-                          </Link>
+                          {competition.status === 'lobby' && (
+                            <div className="w-full py-2 px-4 text-center text-sm font-medium rounded-lg bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan flex items-center justify-center gap-2">
+                              <Play size={14} />
+                              Join Now
+                            </div>
+                          )}
+                          {competition.status === 'running' && (
+                            <div className="w-full py-2 px-4 text-center text-sm font-medium rounded-lg bg-neon-green/10 border border-neon-green/30 text-neon-green flex items-center justify-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
+                              Watch Live
+                            </div>
+                          )}
+                          {competition.status === 'completed' && (
+                            <div className="w-full py-2 px-4 text-center text-sm font-medium rounded-lg bg-neon-magenta/10 border border-neon-magenta/30 text-neon-magenta flex items-center justify-center gap-2">
+                              <Video size={14} />
+                              Watch Replay
+                            </div>
+                          )}
                         </div>
                       )}
                     </GlassCard>

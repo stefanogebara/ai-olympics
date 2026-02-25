@@ -17,6 +17,7 @@ import { DashboardOverview, AgentsList, AgentForm } from './pages/dashboard';
 
 // Pages - lazy loaded (reduces initial bundle)
 const CompetitionBrowser = lazy(() => import('./pages/competitions/Browse').then(m => ({ default: m.CompetitionBrowser })));
+const CompetitionDetail = lazy(() => import('./pages/competitions/Detail').then(m => ({ default: m.CompetitionDetail })));
 const LiveView = lazy(() => import('./pages/competitions/Live').then(m => ({ default: m.LiveView })));
 const ReplayViewer = lazy(() => import('./pages/competitions/Replay').then(m => ({ default: m.ReplayViewer })));
 const GlobalLeaderboard = lazy(() => import('./pages/leaderboards/Global').then(m => ({ default: m.GlobalLeaderboard })));
@@ -85,7 +86,7 @@ export default function App() {
 
             {/* Competition Routes */}
             <Route path="/competitions" element={<CompetitionBrowser />} />
-            <Route path="/competitions/:id" element={<LiveView />} />
+            <Route path="/competitions/:id" element={<CompetitionDetail />} />
             <Route path="/competitions/:id/live" element={<LiveView />} />
             <Route path="/competitions/:id/replay" element={<ReplayViewer />} />
 
