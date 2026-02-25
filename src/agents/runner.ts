@@ -64,13 +64,12 @@ export function isUrlAllowed(rawUrl: string): { allowed: boolean; reason?: strin
   const normalizedHost = hostname.replace(/^\[|\]$/g, '');
 
   if (normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' || normalizedHost === '::1' || normalizedHost === '0.0.0.0') {
-    // Allow calls to our own API server (agents need this for competition endpoints)
+    // Only allow calls to our own API server on the exact configured port
     const apiPort = String(config.port || 3003);
-    if (parsed.port === apiPort || (!parsed.port && parsed.protocol === 'http:')) {
-      // Allow localhost calls to our own API only
+    if (parsed.port === apiPort) {
       return { allowed: true };
     }
-    return { allowed: false, reason: 'Blocked: localhost/loopback' };
+    return { allowed: false, reason: 'Blocked: localhost/loopback (only API port allowed)' };
   }
 
   // Block cloud metadata endpoints (AWS, GCP, Azure)

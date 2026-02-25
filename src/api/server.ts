@@ -116,10 +116,10 @@ const financialLimiter = createLimiter(10, MINUTE, 'Too many financial requests,
 const competitionLimiter = createLimiter(5, MINUTE, 'Too many requests, please try again later');
 const puzzleSubmitLimiter = createLimiter(10, MINUTE, 'Too many puzzle submissions, please try again later');
 
-// Supabase client for WebSocket auth
+// Supabase client for WebSocket auth — uses anon key (only needs auth.getUser)
 const wsSupabase = createClient(
   process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_KEY || ''
+  process.env.SUPABASE_ANON_KEY || ''
 );
 
 export function createAPIServer() {

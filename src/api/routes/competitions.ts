@@ -508,7 +508,8 @@ router.get('/:id/votes', async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from('aio_spectator_votes')
       .select('agent_id, vote_type')
-      .eq('competition_id', id);
+      .eq('competition_id', id)
+      .limit(10000);
 
     if (error) throw error;
 
@@ -538,8 +539,9 @@ router.delete('/:id/vote', requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
     const { vote_type } = req.query;
 
-    if (!vote_type) {
-      return res.status(400).json({ error: 'vote_type query parameter is required' });
+    const VALID_VOTE_TYPES = ['cheer', 'predict_win', 'mvp'];
+    if (!vote_type || !VALID_VOTE_TYPES.includes(vote_type as string)) {
+      return res.status(400).json({ error: 'vote_type must be one of: cheer, predict_win, mvp' });
     }
 
     const { error } = await userDb
