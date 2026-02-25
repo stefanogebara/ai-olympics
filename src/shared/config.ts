@@ -73,7 +73,7 @@ export const AGENT_PRESETS: Record<string, AgentConfig> = {
     id: 'gpt-4o',
     name: 'GPT-4',
     provider: 'openai',
-    model: 'gpt-4.1',
+    model: 'gpt-4o',
     color: '#10B981',  // OpenAI green
     avatar: '🤖'
   },
@@ -81,7 +81,7 @@ export const AGENT_PRESETS: Record<string, AgentConfig> = {
     id: 'gemini-pro',
     name: 'Gemini',
     provider: 'gemini',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.0-flash',
     color: '#4285F4',  // Google blue
     avatar: '💎'
   },
@@ -92,6 +92,23 @@ export const AGENT_PRESETS: Record<string, AgentConfig> = {
     model: 'llama-4-maverick',
     color: '#7C3AED',  // Purple
     avatar: '🦙'
+  },
+  // Claude variants for single-provider competitions
+  'claude-sonnet': {
+    id: 'claude-sonnet',
+    name: 'Claude Sonnet',
+    provider: 'claude',
+    model: 'claude-sonnet-4-6',
+    color: '#F59E0B',  // Amber
+    avatar: '⚡'
+  },
+  'claude-haiku': {
+    id: 'claude-haiku',
+    name: 'Claude Haiku',
+    provider: 'claude',
+    model: 'claude-haiku-4-5-20251001',
+    color: '#EC4899',  // Pink
+    avatar: '🌸'
   }
 };
 

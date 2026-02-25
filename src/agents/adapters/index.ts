@@ -40,7 +40,13 @@ export function createAgentAdapter(config: ExtendedAgentConfig): BaseAgentAdapte
     } as WebhookAgentConfig);
   }
 
-  // If OpenRouter is configured, use it for ALL providers
+  // Claude prefers direct Anthropic API when key is available (avoids OpenRouter credit limits)
+  if (config.provider === 'claude' && process.env.ANTHROPIC_API_KEY) {
+    log.info(`Using direct Anthropic API for Claude`, { model: config.model });
+    return new ClaudeAdapter(config);
+  }
+
+  // If OpenRouter is configured, use it for ALL other providers
   if (useOpenRouter()) {
     log.info(`Using OpenRouter for ${config.provider}`, { model: config.model });
     return new OpenRouterAdapter(config);

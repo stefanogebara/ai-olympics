@@ -6,10 +6,10 @@ import { formatDuration, formatScore, cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonText, Badge } from '../../components/ui';
 import { VotingPanel } from '../../components/competition/VotingPanel';
+import { Zap, Trophy, MessageSquare, Activity } from 'lucide-react';
 
 type MobileTab = 'agents' | 'leaderboard' | 'feed';
 
-// This is essentially the original App.tsx content, now as a page component
 export function LiveView() {
   const { id } = useParams();
   useSocket(id);
@@ -29,31 +29,31 @@ export function LiveView() {
     agents,
   } = useCompetition();
 
-  // ── Shared panel content ──────────────────────────────────────────────────
+  // ── Panels ───────────────────────────────────────────────────────────────
 
   const agentsPanel = (
-    <GlassCard className="p-4">
-      <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
-        <span className="w-2 h-2 bg-neon-cyan rounded-full" />
+    <GlassCard className="p-5">
+      <h2 className="text-sm font-display font-bold uppercase tracking-wider text-white/50 mb-4 flex items-center gap-2">
+        <Zap size={13} className="text-neon-cyan" />
         Agents
       </h2>
       <div className="space-y-3">
         <AnimatePresence>
-          {sortedAgents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
+          {sortedAgents.map((agent, i) => (
+            <AgentCard key={agent.id} agent={agent} rank={i + 1} />
           ))}
         </AnimatePresence>
         {sortedAgents.length === 0 && (
-          <p className="text-center text-white/40 py-8">Waiting for agents...</p>
+          <p className="text-center text-white/30 py-10 text-sm">Waiting for agents...</p>
         )}
       </div>
     </GlassCard>
   );
 
   const leaderboardPanel = (
-    <GlassCard className="p-4 neon-border">
-      <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
-        <span className="w-2 h-2 bg-neon-magenta rounded-full" />
+    <GlassCard className="p-5">
+      <h2 className="text-sm font-display font-bold uppercase tracking-wider text-white/50 mb-4 flex items-center gap-2">
+        <Trophy size={13} className="text-neon-magenta" />
         Leaderboard
       </h2>
       <div className="space-y-2" aria-live="polite" aria-atomic="false">
@@ -63,43 +63,51 @@ export function LiveView() {
           ))}
         </AnimatePresence>
         {leaderboard.length === 0 && (
-          <p className="text-center text-white/40 py-8">No scores yet...</p>
+          <p className="text-center text-white/30 py-10 text-sm">No scores yet...</p>
         )}
       </div>
     </GlassCard>
   );
 
   const feedPanel = (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Commentary */}
-      <GlassCard className="p-4">
-        <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-neon-green rounded-full" />
+      <GlassCard className="p-5">
+        <h2 className="text-sm font-display font-bold uppercase tracking-wider text-white/50 mb-4 flex items-center gap-2">
+          <MessageSquare size={13} className="text-neon-green" />
           Commentary
         </h2>
-        <div className="space-y-3 max-h-64 overflow-y-auto" aria-live="polite" aria-atomic="false">
+        <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1" aria-live="polite" aria-atomic="false">
           <AnimatePresence>
             {commentary.map((item) => {
-              const emotionStyles: Record<string, string> = {
-                neutral: 'border-white/20',
-                excited: 'border-neon-cyan',
-                tense: 'border-yellow-500',
-                celebratory: 'border-neon-green',
-                disappointed: 'border-red-500',
+              const emotionBorder: Record<string, string> = {
+                neutral:      'border-white/15',
+                excited:      'border-neon-cyan/60',
+                tense:        'border-yellow-500/60',
+                celebratory:  'border-neon-green/60',
+                disappointed: 'border-red-500/60',
+              };
+              const emotionGlow: Record<string, string> = {
+                neutral:      '',
+                excited:      'shadow-[0_0_12px_rgba(0,245,255,0.08)]',
+                tense:        'shadow-[0_0_12px_rgba(234,179,8,0.08)]',
+                celebratory:  'shadow-[0_0_12px_rgba(0,255,136,0.08)]',
+                disappointed: 'shadow-[0_0_12px_rgba(239,68,68,0.08)]',
               };
               return (
                 <motion.div
                   key={item.id}
-                  initial={{ opacity: 0, y: -10 }}
+                  initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   className={cn(
-                    'p-3 rounded-lg bg-white/5 border-l-2',
-                    emotionStyles[item.emotion] || emotionStyles.neutral
+                    'p-3 rounded-lg bg-white/4 border-l-2',
+                    emotionBorder[item.emotion] || emotionBorder.neutral,
+                    emotionGlow[item.emotion] || ''
                   )}
                 >
-                  <p className="text-sm">{item.text}</p>
-                  <p className="text-xs text-white/40 mt-1">
+                  <p className="text-sm text-white/80 leading-relaxed">{item.text}</p>
+                  <p className="text-xs text-white/30 mt-1.5">
                     {new Date(item.timestamp).toLocaleTimeString()}
                   </p>
                 </motion.div>
@@ -107,58 +115,57 @@ export function LiveView() {
             })}
           </AnimatePresence>
           {commentary.length === 0 && (
-            <p className="text-center text-white/40 py-4">Waiting for commentary...</p>
+            <p className="text-center text-white/30 py-6 text-sm">Commentary will appear here...</p>
           )}
         </div>
       </GlassCard>
 
       {/* Action Feed */}
-      <GlassCard className="p-4">
-        <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-neon-blue rounded-full" />
+      <GlassCard className="p-5">
+        <h2 className="text-sm font-display font-bold uppercase tracking-wider text-white/50 mb-4 flex items-center gap-2">
+          <Activity size={13} className="text-neon-blue" />
           Action Feed
         </h2>
-        <div className="space-y-2 max-h-64 overflow-y-auto">
+        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
           <AnimatePresence>
             {recentActions.map((action) => {
               const agent = agents[action.agentId];
               return (
                 <motion.div
                   key={action.id}
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0 }}
-                  className="flex items-center gap-3 p-2 rounded-lg bg-white/5 text-sm"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/4 text-sm"
                 >
                   <div
-                    className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0"
                     style={{
                       backgroundColor: `${agent?.color || '#666'}20`,
                       color: agent?.color || '#666',
+                      border: `1px solid ${agent?.color || '#666'}30`,
                     }}
                   >
                     {agent?.name?.charAt(0) || '?'}
                   </div>
-                  <div className="flex-1">
-                    <span className="text-white/80">{action.type}</span>
-                    {action.target && (
-                      <span className="text-white/40 ml-1">: {action.target}</span>
-                    )}
-                  </div>
+                  <span className="text-white/70 font-mono text-xs flex-1 truncate">
+                    <span className="text-white/90 font-semibold">{action.type}</span>
+                    {action.target && <span className="text-white/35 ml-1">→ {action.target.slice(0, 30)}</span>}
+                  </span>
                   <span
                     className={cn(
-                      'text-xs px-2 py-0.5 rounded',
-                      action.success ? 'bg-neon-green/20 text-neon-green' : 'bg-red-500/20 text-red-500'
+                      'text-xs px-1.5 py-0.5 rounded font-mono flex-shrink-0',
+                      action.success ? 'bg-neon-green/15 text-neon-green' : 'bg-red-500/15 text-red-400'
                     )}
                   >
-                    {action.success ? 'OK' : 'FAIL'}
+                    {action.success ? 'OK' : 'ERR'}
                   </span>
                 </motion.div>
               );
             })}
           </AnimatePresence>
           {recentActions.length === 0 && (
-            <p className="text-center text-white/40 py-4">Waiting for actions...</p>
+            <p className="text-center text-white/30 py-6 text-sm">Actions will appear here...</p>
           )}
         </div>
       </GlassCard>
@@ -173,315 +180,289 @@ export function LiveView() {
     </div>
   );
 
-  // ── Mobile tab panels map ─────────────────────────────────────────────────
-
-  const tabPanels: Record<MobileTab, React.ReactNode> = {
-    agents: agentsPanel,
-    leaderboard: leaderboardPanel,
-    feed: feedPanel,
-  };
-
-  const mobileTabs: { id: MobileTab; label: string; dotColor: string }[] = [
-    { id: 'agents', label: 'Agents', dotColor: 'bg-neon-cyan' },
-    { id: 'leaderboard', label: 'Leaderboard', dotColor: 'bg-neon-magenta' },
-    { id: 'feed', label: 'Feed', dotColor: 'bg-neon-green' },
+  const mobileTabs: { id: MobileTab; label: string; icon: typeof Zap }[] = [
+    { id: 'agents',      label: 'Agents',      icon: Zap },
+    { id: 'leaderboard', label: 'Standings',   icon: Trophy },
+    { id: 'feed',        label: 'Feed',         icon: Activity },
   ];
 
+  const tabPanels: Record<MobileTab, React.ReactNode> = { agents: agentsPanel, leaderboard: leaderboardPanel, feed: feedPanel };
+
   return (
-    <div className="container mx-auto px-4 py-6">
-      {/* Competition Header */}
-      <GlassCard className="p-6 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Title & Event */}
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-magenta flex items-center justify-center">
-              <span className="text-2xl font-display font-bold text-black">AI</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-display font-bold neon-text">
-                {competitionName || 'AI Olympics'}
-              </h1>
-              <p className="text-white/60">{currentEventName || 'Waiting for event...'}</p>
-            </div>
-          </div>
-
-          {/* Timer & Status */}
-          <div className="flex items-center gap-6">
-            {/* Timer */}
-            <div className="text-right">
-              <p className="text-sm text-white/60">Elapsed Time</p>
-              <p className="text-3xl font-mono font-bold text-neon-cyan">
-                {formatDuration(elapsedTime)}
-              </p>
+    <div className="min-h-screen">
+      {/* ── Competition Header ── */}
+      <div className="relative overflow-hidden border-b border-white/5">
+        <div className="absolute inset-0 bg-gradient-to-r from-neon-cyan/5 via-transparent to-neon-magenta/5 pointer-events-none" />
+        <div className="container mx-auto px-4 py-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Title block */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-neon-cyan to-neon-magenta flex items-center justify-center flex-shrink-0">
+                <span className="text-xl font-display font-black text-black">AI</span>
+              </div>
+              <div>
+                <h1 className="text-xl md:text-2xl font-display font-bold text-white leading-tight">
+                  {competitionName || 'AI Olympics'}
+                </h1>
+                <p className="text-sm text-white/50">{currentEventName || 'Waiting for event...'}</p>
+              </div>
             </div>
 
-            {/* Status */}
-            <div className="flex items-center gap-2" aria-live="polite">
-              {status === 'running' && (
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75" />
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-neon-green" />
-                </span>
-              )}
-              <span
-                className={cn(
-                  'px-3 py-1 rounded-full text-sm font-semibold uppercase',
-                  status === 'running' && 'bg-neon-green/20 text-neon-green',
-                  status === 'completed' && 'bg-neon-magenta/20 text-neon-magenta',
-                  status === 'idle' && 'bg-white/10 text-white/60'
+            {/* Right metrics */}
+            <div className="flex items-center gap-5">
+              {/* Timer */}
+              <div className="text-right">
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-0.5">Elapsed</p>
+                <p className="text-2xl font-mono font-bold text-neon-cyan tabular-nums">
+                  {formatDuration(elapsedTime)}
+                </p>
+              </div>
+
+              <div className="w-px h-10 bg-white/10" />
+
+              {/* Status badge */}
+              <div className="flex items-center gap-2" aria-live="polite">
+                {status === 'running' && (
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-60" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-neon-green" />
+                  </span>
                 )}
-              >
-                {status}
-              </span>
-            </div>
+                <span
+                  className={cn(
+                    'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border',
+                    status === 'running'   && 'bg-neon-green/10 text-neon-green border-neon-green/30',
+                    status === 'completed' && 'bg-neon-magenta/10 text-neon-magenta border-neon-magenta/30',
+                    status === 'idle'      && 'bg-white/5 text-white/40 border-white/10'
+                  )}
+                >
+                  {status}
+                </span>
+              </div>
 
-            {/* Connection Status */}
-            <div className="flex items-center gap-2">
-              {isReconnecting ? (
-                <>
-                  <svg
-                    className="w-3 h-3 animate-spin text-yellow-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
+              <div className="w-px h-10 bg-white/10" />
+
+              {/* Connection dot */}
+              <div className="flex items-center gap-1.5" aria-label={isConnected ? 'Connected' : 'Disconnected'}>
+                {isReconnecting ? (
+                  <svg className="w-3 h-3 animate-spin text-yellow-400" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
                   </svg>
-                  <span className="text-sm text-yellow-400">Reconnecting...</span>
-                </>
-              ) : (
-                <>
-                  <div
-                    className={cn(
-                      'w-2 h-2 rounded-full',
-                      isConnected ? 'bg-neon-green' : 'bg-red-500'
-                    )}
-                  />
-                  <span className="text-sm text-white/60">
-                    {isConnected ? 'Connected' : 'Disconnected'}
-                  </span>
-                </>
-              )}
+                ) : (
+                  <div className={cn('w-2 h-2 rounded-full', isConnected ? 'bg-neon-green' : 'bg-red-500')} />
+                )}
+                <span className="text-xs text-white/40 hidden sm:inline">
+                  {isReconnecting ? 'Reconnecting' : isConnected ? 'Live' : 'Offline'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </GlassCard>
+      </div>
 
-      {/* Reconnecting Banner */}
+      {/* Reconnecting banner */}
       <AnimatePresence>
         {isReconnecting && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400"
+            className="flex items-center gap-3 px-4 py-2.5 bg-yellow-500/8 border-b border-yellow-500/20 text-yellow-400"
             role="status"
             aria-live="polite"
           >
-            <svg
-              className="w-4 h-4 animate-spin flex-shrink-0"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
+            <svg className="w-3.5 h-3.5 animate-spin flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
             </svg>
-            <span className="text-sm font-medium">
-              Connection lost — reconnecting and replaying missed events...
-            </span>
+            <span className="text-sm">Reconnecting — replaying missed events...</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Mobile Layout (< md) ── */}
-      <div className="md:hidden">
-        {/* Tab Bar */}
-        <div className="flex border border-white/10 rounded-xl overflow-hidden mb-4">
-          {mobileTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setMobileTab(tab.id)}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-all',
-                mobileTab === tab.id
-                  ? 'bg-neon-cyan/10 text-neon-cyan border-b-2 border-neon-cyan'
-                  : 'text-white/50 hover:text-white/80'
-              )}
-              aria-selected={mobileTab === tab.id}
+      <div className="container mx-auto px-4 py-6">
+        {/* ── Mobile Tab Bar ── */}
+        <div className="md:hidden mb-4">
+          <div className="flex border border-white/10 rounded-xl overflow-hidden bg-cyber-elevated/50">
+            {mobileTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setMobileTab(tab.id)}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-all',
+                    mobileTab === tab.id
+                      ? 'bg-neon-cyan/10 text-neon-cyan border-b-2 border-neon-cyan'
+                      : 'text-white/40 hover:text-white/70'
+                  )}
+                  aria-selected={mobileTab === tab.id}
+                >
+                  <Icon size={14} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={mobileTab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+              className="mt-4"
             >
-              <span className={cn('w-2 h-2 rounded-full', tab.dotColor)} />
-              {tab.label}
-            </button>
-          ))}
+              {tabPanels[mobileTab]}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
-        {/* Active Panel */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={mobileTab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
-          >
-            {tabPanels[mobileTab]}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* ── Desktop Layout (≥ md): original 3-column grid unchanged ── */}
-      <div className="hidden md:grid grid-cols-12 gap-4 md:gap-6">
-        {/* Left Column - Agents */}
-        <div className="col-span-12 md:col-span-6 lg:col-span-4">
-          {agentsPanel}
-        </div>
-
-        {/* Center Column - Leaderboard */}
-        <div className="col-span-12 md:col-span-6 lg:col-span-4">
-          {leaderboardPanel}
-        </div>
-
-        {/* Right Column - Feed & Commentary */}
-        <div className="col-span-12 md:col-span-6 lg:col-span-4">
-          {feedPanel}
+        {/* ── Desktop 3-column ── */}
+        <div className="hidden md:grid grid-cols-12 gap-5">
+          <div className="col-span-4">{agentsPanel}</div>
+          <div className="col-span-4">{leaderboardPanel}</div>
+          <div className="col-span-4">{feedPanel}</div>
         </div>
       </div>
     </div>
   );
 }
 
-// Agent Card Component
+// ── Agent Card ────────────────────────────────────────────────────────────────
+
 function AgentCard({
   agent,
+  rank,
 }: {
-  agent: {
-    id: string;
-    name: string;
-    status: string;
-    progress: number;
-    score: number;
-    currentAction?: string;
-    color: string;
-  };
+  agent: { id: string; name: string; status: string; progress: number; score: number; currentAction?: string; color: string };
+  rank: number;
 }) {
-  const statusColors: Record<string, string> = {
-    idle: 'bg-white/20',
-    initializing: 'bg-yellow-500/20 text-yellow-500',
-    running: 'bg-neon-green/20 text-neon-green',
-    completed: 'bg-neon-cyan/20 text-neon-cyan',
-    failed: 'bg-red-500/20 text-red-500',
-    timeout: 'bg-orange-500/20 text-orange-500',
+  const isRunning = agent.status === 'running';
+  const isCompleted = agent.status === 'completed';
+
+  const statusLabel: Record<string, string> = {
+    idle: 'Idle', initializing: 'Starting', running: 'Racing',
+    completed: 'Finished', failed: 'Failed', timeout: 'Timeout',
+  };
+  const statusColor: Record<string, string> = {
+    idle: 'text-white/30', initializing: 'text-yellow-400',
+    running: 'text-neon-green', completed: 'text-neon-cyan',
+    failed: 'text-red-400', timeout: 'text-orange-400',
   };
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="p-4 rounded-lg bg-white/5 border border-white/10"
+      exit={{ opacity: 0, y: -16 }}
+      className={cn(
+        'p-4 rounded-xl border transition-all',
+        isRunning
+          ? 'bg-white/5 border-white/15 shadow-sm'
+          : isCompleted
+          ? 'bg-white/3 border-white/8'
+          : 'bg-white/3 border-white/8'
+      )}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
+          {/* Rank */}
           <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold"
-            style={{ backgroundColor: `${agent.color || '#6B7280'}20`, color: agent.color || '#6B7280' }}
+            className={cn(
+              'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0',
+              rank === 1 ? 'bg-yellow-500/20 text-yellow-400' :
+              rank === 2 ? 'bg-gray-400/20 text-gray-300' :
+              rank === 3 ? 'bg-amber-700/20 text-amber-500' :
+              'bg-white/8 text-white/30'
+            )}
+          >
+            {rank}
+          </div>
+          {/* Avatar */}
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold"
+            style={{ backgroundColor: `${agent.color}18`, border: `1px solid ${agent.color}35`, color: agent.color }}
           >
             {(agent.name || '?').charAt(0)}
           </div>
           <div>
-            <p className="font-semibold">{agent.name || 'Unknown Agent'}</p>
-            <span
-              className={cn(
-                'text-xs px-2 py-0.5 rounded-full',
-                statusColors[agent.status] || statusColors.idle
-              )}
-            >
-              {agent.status}
+            <p className="font-semibold text-white text-sm leading-tight">{agent.name || 'Unknown'}</p>
+            <span className={cn('text-xs font-medium', statusColor[agent.status] || statusColor.idle)}>
+              {statusLabel[agent.status] || agent.status}
+              {isRunning && <span className="ml-1 inline-block w-1 h-1 rounded-full bg-neon-green animate-pulse align-middle" />}
             </span>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-2xl font-mono font-bold" style={{ color: agent.color }}>
+
+        {/* Score */}
+        <div className="text-right flex-shrink-0">
+          <p className="text-xl font-mono font-bold leading-tight tabular-nums" style={{ color: agent.color }}>
             {formatScore(agent.score || 0)}
           </p>
-          <p className="text-xs text-white/40">points</p>
+          <p className="text-xs text-white/30">pts</p>
         </div>
       </div>
 
-      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+      {/* Progress bar */}
+      <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
         <motion.div
           className="h-full rounded-full"
-          style={{ backgroundColor: agent.color || '#6B7280' }}
+          style={{
+            background: isRunning
+              ? `linear-gradient(90deg, ${agent.color}, ${agent.color}aa)`
+              : agent.color,
+            boxShadow: isRunning ? `0 0 8px ${agent.color}60` : 'none',
+          }}
           initial={{ width: 0 }}
           animate={{ width: `${agent.progress || 0}%` }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4 }}
         />
       </div>
 
       {agent.currentAction && (
-        <p className="mt-2 text-sm text-white/60 truncate">{agent.currentAction}</p>
+        <p className="mt-2 text-xs text-white/40 truncate font-mono">{agent.currentAction}</p>
       )}
     </motion.div>
   );
 }
 
-// Leaderboard Entry Component
+// ── Leaderboard Entry ─────────────────────────────────────────────────────────
+
 function LeaderboardEntry({
   entry,
   rank,
 }: {
-  entry: {
-    agentId: string;
-    agentName: string;
-    totalScore: number;
-    eventsWon: number;
-    eventsCompleted: number;
-  };
+  entry: { agentId: string; agentName: string; totalScore: number; eventsWon: number; eventsCompleted: number };
   rank: number;
 }) {
-  const rankColors: Record<number, string> = {
-    1: 'from-yellow-500 to-amber-600',
-    2: 'from-gray-300 to-gray-400',
-    3: 'from-amber-600 to-amber-700',
-  };
+  const medals = ['🥇', '🥈', '🥉'];
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, x: -16 }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      className="flex items-center gap-4 p-3 rounded-lg bg-white/5"
+      exit={{ opacity: 0, x: 16 }}
+      className={cn(
+        'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all',
+        rank === 1 ? 'bg-yellow-500/8 border border-yellow-500/20' : 'bg-white/4'
+      )}
     >
-      <div
-        className={cn(
-          'w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm',
-          rank <= 3
-            ? `bg-gradient-to-br ${rankColors[rank]} text-black`
-            : 'bg-white/10 text-white/60'
-        )}
-      >
-        {rank}
-      </div>
-
-      <div className="flex-1">
-        <p className="font-semibold">{entry.agentName}</p>
-        <p className="text-xs text-white/40">
-          {entry.eventsWon} wins / {entry.eventsCompleted} events
+      <span className="text-lg flex-shrink-0 w-6 text-center">
+        {rank <= 3 ? medals[rank - 1] : <span className="text-xs text-white/30 font-mono">#{rank}</span>}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-white text-sm truncate">{entry.agentName}</p>
+        <p className="text-xs text-white/35">
+          {entry.eventsWon}W / {entry.eventsCompleted} events
         </p>
       </div>
-
-      <div className="text-right">
-        <p className="text-xl font-mono font-bold text-neon-cyan">
-          {formatScore(entry.totalScore)}
-        </p>
-      </div>
+      <p className="text-lg font-mono font-bold text-neon-cyan tabular-nums flex-shrink-0">
+        {formatScore(entry.totalScore)}
+      </p>
     </motion.div>
   );
 }

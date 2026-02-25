@@ -67,32 +67,51 @@ async function runCompetition() {
 
   // Determine available agents
   const availableAgents = [];
+  const hasOpenRouter = !!config.openRouterApiKey;
+  const hasAnthropic = !!config.anthropicApiKey && !config.anthropicApiKey.startsWith('your-');
+  const hasOpenAI = !!config.openaiApiKey && !config.openaiApiKey.startsWith('your-');
+  const hasGoogle = !!config.googleAiApiKey && !config.googleAiApiKey.startsWith('your-');
 
-  // OpenRouter provides access to all models
-  if (config.openRouterApiKey) {
-    console.log(chalk.cyan('\n🌐 OpenRouter configured - all models available!'));
+  // Build agent list based on available credentials
+  // Priority: multi-provider if OpenRouter + direct keys for GPT/Gemini, else Claude-family
+  const hasRealOpenAI = hasOpenAI;
+  const hasRealGoogle = hasGoogle;
+  const openRouterOnlyMode = hasOpenRouter && !hasRealOpenAI && !hasRealGoogle;
+
+  if (hasAnthropic && (hasRealOpenAI || hasRealGoogle)) {
+    // Best case: true multi-provider with real keys
+    console.log(chalk.cyan('\n🌐 Multi-provider competition'));
     availableAgents.push(AGENT_PRESETS.claude);
-    console.log(chalk.green('  ✓ Claude (via OpenRouter)'));
-    availableAgents.push(AGENT_PRESETS['gpt-4']);
-    console.log(chalk.green('  ✓ GPT-4 (via OpenRouter)'));
-    availableAgents.push(AGENT_PRESETS.gemini);
-    console.log(chalk.green('  ✓ Gemini (via OpenRouter)'));
-    availableAgents.push(AGENT_PRESETS.llama);
-    console.log(chalk.green('  ✓ Llama 3 (via OpenRouter)'));
-  } else {
-    // Fallback to individual API keys
-    if (config.anthropicApiKey) {
-      availableAgents.push(AGENT_PRESETS.claude);
-      console.log(chalk.green('  ✓ Claude (Anthropic) available'));
-    }
-    if (config.openaiApiKey) {
+    console.log(chalk.green('  ✓ Claude Opus (Anthropic direct)'));
+    if (hasRealOpenAI) {
       availableAgents.push(AGENT_PRESETS['gpt-4']);
-      console.log(chalk.green('  ✓ GPT-4 (OpenAI) available'));
+      console.log(chalk.green('  ✓ GPT-4 (OpenAI direct)'));
     }
-    if (config.googleAiApiKey) {
+    if (hasRealGoogle) {
       availableAgents.push(AGENT_PRESETS.gemini);
-      console.log(chalk.green('  ✓ Gemini (Google) available'));
+      console.log(chalk.green('  ✓ Gemini (Google direct)'));
     }
+    if (hasOpenRouter) {
+      availableAgents.push(AGENT_PRESETS.llama);
+      console.log(chalk.green('  ✓ Llama 4 (via OpenRouter)'));
+    }
+  } else if (openRouterOnlyMode && !hasAnthropic) {
+    // OpenRouter-only: all via OpenRouter
+    console.log(chalk.cyan('\n🌐 OpenRouter competition (all models via OpenRouter)'));
+    availableAgents.push(AGENT_PRESETS.claude);
+    availableAgents.push(AGENT_PRESETS['gpt-4']);
+    availableAgents.push(AGENT_PRESETS.gemini);
+    availableAgents.push(AGENT_PRESETS.llama);
+  } else if (hasAnthropic) {
+    // Anthropic only: run Claude-family competition
+    console.log(chalk.yellow('\n⚡ Running Claude-family competition (Opus vs Sonnet vs Haiku)'));
+    console.log(chalk.gray('   (Add OPENAI_API_KEY/GOOGLE_AI_API_KEY for cross-provider competition)'));
+    availableAgents.push(AGENT_PRESETS.claude);
+    availableAgents.push(AGENT_PRESETS['claude-sonnet']);
+    availableAgents.push(AGENT_PRESETS['claude-haiku']);
+    console.log(chalk.green('  ✓ Claude Opus   (claude-opus-4-6)'));
+    console.log(chalk.green('  ✓ Claude Sonnet (claude-sonnet-4-6)'));
+    console.log(chalk.green('  ✓ Claude Haiku  (claude-haiku-4-5-20251001)'));
   }
 
   if (availableAgents.length < 2) {

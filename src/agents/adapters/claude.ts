@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { BaseAgentAdapter, BROWSER_TOOLS, type AgentTurnResult, type ToolCall, type PageState } from './base.js';
 import type { AgentConfig } from '../../shared/types/index.js';
-import { getApiKey } from '../../shared/config.js';
+import { getApiKey, config } from '../../shared/config.js';
 import { createLogger } from '../../shared/utils/logger.js';
 
 const log = createLogger('ClaudeAdapter');
@@ -13,7 +13,8 @@ export class ClaudeAdapter extends BaseAgentAdapter {
   constructor(agentConfig: AgentConfig) {
     super(agentConfig);
 
-    const apiKey = agentConfig.apiKey || getApiKey('claude');
+    // Always use Anthropic API key directly (not OpenRouter key) for ClaudeAdapter
+    const apiKey = agentConfig.apiKey || config.anthropicApiKey || getApiKey('claude');
     if (!apiKey) {
       throw new Error('Anthropic API key is required for Claude adapter');
     }
@@ -60,6 +61,7 @@ export class ClaudeAdapter extends BaseAgentAdapter {
           thinking += block.text;
         } else if (block.type === 'tool_use') {
           const toolCall: ToolCall = {
+            id: block.id,  // Capture tool_use_id for tool_result matching
             name: block.name,
             arguments: block.input as Record<string, unknown>
           };
@@ -99,10 +101,10 @@ export class ClaudeAdapter extends BaseAgentAdapter {
   }
 
   // Add tool results to the conversation
-  addToolResults(results: Array<{ toolName: string; result: string; error?: string }>): void {
-    const toolResultBlocks: Anthropic.ToolResultBlockParam[] = results.map((r, i) => ({
+  addToolResults(results: Array<{ toolCallId: string; toolName: string; result: string; error?: string }>): void {
+    const toolResultBlocks: Anthropic.ToolResultBlockParam[] = results.map((r) => ({
       type: 'tool_result' as const,
-      tool_use_id: `tool_${i}`,  // This should match the actual tool_use_id from the response
+      tool_use_id: r.toolCallId,  // Use actual tool_use_id from the response
       content: r.error || r.result,
       is_error: !!r.error
     }));

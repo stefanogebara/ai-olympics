@@ -9,20 +9,27 @@ const log = createLogger('OpenRouterAdapter');
 // OpenRouter model mapping
 const MODEL_MAP: Record<string, string> = {
   // Claude models
-  'claude-sonnet-4-20250514': 'anthropic/claude-sonnet-4',
+  'claude-opus-4-6': 'anthropic/claude-opus-4-5',
+  'claude-opus-4-5': 'anthropic/claude-opus-4-5',
+  'claude-sonnet-4-6': 'anthropic/claude-sonnet-4-5',
+  'claude-sonnet-4-5': 'anthropic/claude-sonnet-4-5',
+  'claude-sonnet-4-20250514': 'anthropic/claude-sonnet-4-5',
   'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
   'claude-3-opus': 'anthropic/claude-3-opus',
+  'claude-haiku-4-5-20251001': 'anthropic/claude-haiku-4-5',
   // OpenAI models
+  'gpt-4.1': 'openai/gpt-4.1',
   'gpt-4o': 'openai/gpt-4o',
   'gpt-4-turbo': 'openai/gpt-4-turbo',
   'gpt-4': 'openai/gpt-4',
-  // Google models (updated to current OpenRouter model IDs)
-  'gemini-2.0-flash': 'google/gemini-2.5-flash',
-  'gemini-flash': 'google/gemini-2.5-flash',
-  'gemini-pro': 'google/gemini-2.5-pro',
-  'gemini-2.5-pro': 'google/gemini-2.5-pro',
-  'gemini-2.5-flash': 'google/gemini-2.5-flash',
+  // Google models
+  'gemini-2.5-pro': 'google/gemini-2.5-pro-preview',
+  'gemini-2.5-flash': 'google/gemini-2.5-flash-preview',
+  'gemini-2.0-flash': 'google/gemini-2.0-flash-001',
+  'gemini-flash': 'google/gemini-2.0-flash-001',
+  'gemini-pro': 'google/gemini-2.5-pro-preview',
   // Meta models
+  'llama-4-maverick': 'meta-llama/llama-4-maverick',
   'llama-3.3-70b': 'meta-llama/llama-3.3-70b-instruct',
   'llama-3.1-70b': 'meta-llama/llama-3.1-70b-instruct',
 };
