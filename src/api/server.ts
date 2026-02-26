@@ -53,7 +53,7 @@ import championshipsRouter from './routes/championships.js';
 import adminRouter from './routes/admin.js';
 
 // Competition orchestrator
-import { competitionManager } from '../orchestrator/competition-manager.js';
+import { competitionManager, startCompetitionScheduler } from '../orchestrator/competition-manager.js';
 import { tournamentManager } from '../orchestrator/tournament-manager.js';
 
 // Market services for price streaming
@@ -1000,6 +1000,9 @@ export function createAPIServer() {
         // Start market resolution polling
         startResolver();
         log.info('Market resolver started');
+
+        startCompetitionScheduler();
+        log.info('Competition scheduler started');
 
         // Start market sync service (background ingestion from Polymarket + Kalshi)
         if (featureFlags.marketSync) {

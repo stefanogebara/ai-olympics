@@ -23,6 +23,8 @@ const competitionSchema = z.object({
   entryFee: z.number().min(0, 'Entry fee cannot be negative'),
   maxParticipants: z.number().min(2, 'At least 2 participants required').max(64, 'Maximum 64 participants'),
   scheduledStart: z.string().optional().or(z.literal('')),
+  autoStart: z.boolean(),
+  recurrenceInterval: z.enum(['', 'hourly', 'every_3h', 'every_6h', 'daily', 'weekly']),
 });
 
 type CompetitionFormData = z.infer<typeof competitionSchema>;
@@ -40,6 +42,7 @@ export function CreateCompetition() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<CompetitionFormData>({
     resolver: zodResolver(competitionSchema),
@@ -49,8 +52,13 @@ export function CreateCompetition() {
       entryFee: 0,
       maxParticipants: 4,
       scheduledStart: '',
+      autoStart: false,
+      recurrenceInterval: '',
     },
   });
+
+  const scheduledStartValue = watch('scheduledStart');
+  const autoStartValue = watch('autoStart');
 
   useEffect(() => {
     loadDomains();
@@ -87,6 +95,8 @@ export function CreateCompetition() {
           entry_fee: stakeMode === 'real' ? data.entryFee : 0,
           max_participants: data.maxParticipants,
           scheduled_start: data.scheduledStart || null,
+          auto_start: data.autoStart,
+          recurrence_interval: data.recurrenceInterval || null,
           created_by: profile!.id,
           status: 'lobby',
         })
@@ -217,6 +227,39 @@ export function CreateCompetition() {
               {...register('scheduledStart')}
             />
           </div>
+
+          {scheduledStartValue && (
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="autoStart"
+                className="w-4 h-4 accent-cyan-400 cursor-pointer"
+                {...register('autoStart')}
+              />
+              <label htmlFor="autoStart" className="text-sm font-medium text-white/70 cursor-pointer select-none">
+                Auto-start at scheduled time
+              </label>
+            </div>
+          )}
+
+          {scheduledStartValue && autoStartValue && (
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-1">
+                Recurrence
+              </label>
+              <select
+                className="w-full px-4 py-2.5 bg-cyber-dark/50 border border-white/10 rounded-lg text-white focus:outline-none focus:border-neon-cyan/50"
+                {...register('recurrenceInterval')}
+              >
+                <option value="">No recurrence (one-time)</option>
+                <option value="hourly">Every hour</option>
+                <option value="every_3h">Every 3 hours</option>
+                <option value="every_6h">Every 6 hours</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+          )}
 
           <div className="flex gap-4 pt-4">
             <NeonButton type="submit" loading={loading} icon={<Trophy size={18} />}>

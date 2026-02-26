@@ -344,7 +344,166 @@ class CompetitionManager {
   get activeCount(): number {
     return this.activeCompetitions.size;
   }
+
+  // ---------------------------------------------------------------------------
+  // Scheduler
+  // ---------------------------------------------------------------------------
+
+  private schedulerHandle: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Start polling every 30 seconds for lobby competitions with auto_start=true
+   * whose scheduled_start has passed. Fires startCompetition() for each match.
+   */
+  startScheduler(): void {
+    if (this.schedulerHandle !== null) {
+      log.warn('Scheduler already running — ignoring duplicate startScheduler() call');
+      return;
+    }
+
+    const poll = async () => {
+      const MAX_CONCURRENT = 10;
+      if (this.activeCount >= MAX_CONCURRENT) {
+        log.info('Scheduler skipping poll — at max concurrent competitions', {
+          active: this.activeCount,
+          max: MAX_CONCURRENT,
+        });
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const { data } = await supabase
+        .from('aio_competitions')
+        .select('id, recurrence_interval, max_participants, domain_id, task_ids, name, description')
+        .eq('status', 'lobby')
+        .eq('auto_start', true)
+        .lte('scheduled_start', now)
+        .limit(5);
+
+      if (!data || data.length === 0) return;
+
+      log.info('Scheduler found competitions to auto-start', { count: data.length });
+
+      for (const row of data) {
+        this.startCompetition(row.id).catch((err) => {
+          log.error('Scheduler failed to start competition', {
+            competitionId: row.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+
+        if (row.recurrence_interval) {
+          this.scheduleNextRecurrence(row).catch((err) => {
+            log.error('Scheduler failed to schedule next recurrence', {
+              competitionId: row.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+        }
+      }
+    };
+
+    this.schedulerHandle = setInterval(() => {
+      poll().catch((err) => {
+        log.error('Scheduler poll threw unexpected error', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }, 30_000);
+
+    log.info('Competition scheduler started (polling every 30s)');
+  }
+
+  /**
+   * Stop the scheduler interval.
+   */
+  stopScheduler(): void {
+    if (this.schedulerHandle !== null) {
+      clearInterval(this.schedulerHandle);
+      this.schedulerHandle = null;
+      log.info('Competition scheduler stopped');
+    }
+  }
+
+  /**
+   * Given a completed recurring competition row, insert a new lobby row
+   * with a scheduled_start offset by the recurrence_interval.
+   */
+  private async scheduleNextRecurrence(row: {
+    id: string;
+    recurrence_interval: string | null;
+    max_participants: number | null;
+    domain_id: string | null;
+    task_ids: string[] | null;
+    name: string;
+    description: string | null;
+  }): Promise<void> {
+    const nextStart = new Date();
+
+    switch (row.recurrence_interval) {
+      case 'hourly':
+        nextStart.setHours(nextStart.getHours() + 1);
+        break;
+      case 'every_3h':
+        nextStart.setHours(nextStart.getHours() + 3);
+        break;
+      case 'every_6h':
+        nextStart.setHours(nextStart.getHours() + 6);
+        break;
+      case 'daily':
+        nextStart.setHours(nextStart.getHours() + 24);
+        break;
+      case 'weekly':
+        nextStart.setDate(nextStart.getDate() + 7);
+        break;
+      default:
+        log.warn('Unknown recurrence_interval — skipping next recurrence', {
+          competitionId: row.id,
+          recurrence_interval: row.recurrence_interval,
+        });
+        return;
+    }
+
+    const { error } = await supabase
+      .from('aio_competitions')
+      .insert({
+        name: row.name,
+        description: row.description,
+        domain_id: row.domain_id,
+        task_ids: row.task_ids,
+        max_participants: row.max_participants,
+        stake_mode: 'sandbox',
+        entry_fee: 0,
+        status: 'lobby',
+        auto_start: true,
+        recurrence_interval: row.recurrence_interval,
+        scheduled_start: nextStart.toISOString(),
+        created_by: null,
+      });
+
+    if (error) {
+      log.error('Failed to insert next recurrence competition', {
+        sourceId: row.id,
+        nextStart: nextStart.toISOString(),
+        error: error.message,
+      });
+    } else {
+      log.info('Scheduled next recurrence competition', {
+        sourceId: row.id,
+        nextStart: nextStart.toISOString(),
+        recurrence_interval: row.recurrence_interval,
+      });
+    }
+  }
 }
 
 export const competitionManager = new CompetitionManager();
 export default competitionManager;
+
+export function startCompetitionScheduler(): void {
+  competitionManager.startScheduler();
+}
+
+export function stopCompetitionScheduler(): void {
+  competitionManager.stopScheduler();
+}

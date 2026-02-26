@@ -20,6 +20,7 @@ import {
   Play,
   Video,
   Zap,
+  RefreshCw,
 } from 'lucide-react';
 
 const domainIcons: Record<string, typeof Globe> = {
@@ -136,7 +137,15 @@ export function CompetitionBrowser() {
   };
 
   const liveCompetitions = competitions.filter(c => c.status === 'running');
-  const otherCompetitions = competitions.filter(c => c.status !== 'running');
+  const scheduledCompetitions = competitions.filter(c =>
+    c.status === 'scheduled' ||
+    (c.status === 'lobby' && (c as { auto_start?: boolean }).auto_start && c.scheduled_start)
+  );
+  const otherCompetitions = competitions.filter(c =>
+    c.status !== 'running' &&
+    !(c.status === 'scheduled') &&
+    !((c as { auto_start?: boolean }).auto_start && c.scheduled_start && c.status === 'lobby')
+  );
 
   return (
     <div className="min-h-screen">
@@ -285,6 +294,31 @@ export function CompetitionBrowser() {
           )}
         </AnimatePresence>
 
+        {/* ── Upcoming Strip ── */}
+        <AnimatePresence>
+          {!loading && scheduledCompetitions.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="mb-8"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex items-center gap-2 text-yellow-400 font-display font-bold text-sm uppercase tracking-wider">
+                  <Clock size={14} />
+                  Upcoming
+                </span>
+                <div className="flex-1 h-px bg-yellow-500/20" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {scheduledCompetitions.map((competition, index) => (
+                  <CompetitionCard key={competition.id} competition={competition} index={index} />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ── All Competitions ── */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -329,6 +363,33 @@ export function CompetitionBrowser() {
   );
 }
 
+// ── Countdown hook ────────────────────────────────────────────────────────────
+
+function useCountdown(target: string | null | undefined): string | null {
+  const [label, setLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!target) { setLabel(null); return; }
+
+    const tick = () => {
+      const diff = new Date(target).getTime() - Date.now();
+      if (diff <= 0) { setLabel('Starting…'); return; }
+      const h = Math.floor(diff / 3_600_000);
+      const m = Math.floor((diff % 3_600_000) / 60_000);
+      const s = Math.floor((diff % 60_000) / 1_000);
+      if (h > 0) setLabel(`${h}h ${m}m`);
+      else if (m > 0) setLabel(`${m}m ${s}s`);
+      else setLabel(`${s}s`);
+    };
+
+    tick();
+    const id = setInterval(tick, 1_000);
+    return () => clearInterval(id);
+  }, [target]);
+
+  return label;
+}
+
 // ── Competition Card ──────────────────────────────────────────────────────────
 
 function CompetitionCard({
@@ -347,6 +408,12 @@ function CompetitionCard({
   const isRunning = competition.status === 'running';
   const isLobby = competition.status === 'lobby';
   const isCompleted = competition.status === 'completed';
+  const isScheduled = competition.status === 'scheduled';
+  const isAutoStart = (competition as { auto_start?: boolean }).auto_start ?? false;
+  const recurrenceInterval = (competition as { recurrence_interval?: string | null }).recurrence_interval ?? null;
+  const countdown = useCountdown(
+    (isScheduled || (isLobby && isAutoStart)) ? competition.scheduled_start : null
+  );
 
   const to = isRunning
     ? `/competitions/${competition.id}/live`
@@ -390,6 +457,12 @@ function CompetitionCard({
                     LIVE
                   </span>
                 )}
+                {recurrenceInterval && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 border border-purple-500/30 text-purple-400">
+                    <RefreshCw size={10} />
+                    Recurring
+                  </span>
+                )}
                 <Badge variant={competition.stake_mode === 'real' ? 'warning' : 'default'}>
                   {competition.stake_mode === 'real' ? '$ Real' : 'Free'}
                 </Badge>
@@ -416,7 +489,12 @@ function CompetitionCard({
                   ? 'Free'
                   : `$${Number(competition.prize_pool).toLocaleString()}`}
               </span>
-              {competition.scheduled_start && (
+              {countdown ? (
+                <span className="flex items-center gap-1.5 text-yellow-400">
+                  <Clock size={13} />
+                  {countdown}
+                </span>
+              ) : competition.scheduled_start && (
                 <span className="flex items-center gap-1.5">
                   <Clock size={13} />
                   {new Date(competition.scheduled_start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
