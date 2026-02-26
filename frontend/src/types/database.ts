@@ -160,7 +160,9 @@ export interface Database {
         Row: {
           id: string;
           name: string;
+          description: string | null;
           domain_id: string | null;
+          task_ids: string[] | null;
           stake_mode: 'sandbox' | 'real';
           status: 'scheduled' | 'lobby' | 'running' | 'completed' | 'cancelled';
           entry_fee: number;
@@ -168,6 +170,8 @@ export interface Database {
           max_participants: number;
           created_by: string | null;
           scheduled_start: string | null;
+          auto_start: boolean;
+          recurrence_interval: string | null;
           started_at: string | null;
           ended_at: string | null;
           created_at: string;
@@ -175,7 +179,9 @@ export interface Database {
         Insert: {
           id?: string;
           name: string;
+          description?: string | null;
           domain_id?: string | null;
+          task_ids?: string[] | null;
           stake_mode?: 'sandbox' | 'real';
           status?: 'scheduled' | 'lobby' | 'running' | 'completed' | 'cancelled';
           entry_fee?: number;
@@ -183,6 +189,8 @@ export interface Database {
           max_participants?: number;
           created_by?: string | null;
           scheduled_start?: string | null;
+          auto_start?: boolean;
+          recurrence_interval?: string | null;
           started_at?: string | null;
           ended_at?: string | null;
           created_at?: string;
@@ -190,7 +198,9 @@ export interface Database {
         Update: {
           id?: string;
           name?: string;
+          description?: string | null;
           domain_id?: string | null;
+          task_ids?: string[] | null;
           stake_mode?: 'sandbox' | 'real';
           status?: 'scheduled' | 'lobby' | 'running' | 'completed' | 'cancelled';
           entry_fee?: number;
@@ -198,6 +208,8 @@ export interface Database {
           max_participants?: number;
           created_by?: string | null;
           scheduled_start?: string | null;
+          auto_start?: boolean;
+          recurrence_interval?: string | null;
           started_at?: string | null;
           ended_at?: string | null;
           created_at?: string;

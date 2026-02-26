@@ -10,8 +10,29 @@ import type { Competition, Domain } from '../../types/database';
 import {
   Globe, TrendingUp, Gamepad2, BarChart2, Palette, Code2,
   Users, Trophy, Clock, ArrowLeft, Play, Zap, CheckCircle2,
-  AlertCircle, ChevronDown, RefreshCw,
+  AlertCircle, ChevronDown, RefreshCw, Timer,
 } from 'lucide-react';
+
+function useCountdown(target: string | null | undefined) {
+  const getRemaining = () => {
+    if (!target) return null;
+    const diff = new Date(target).getTime() - Date.now();
+    if (diff <= 0) return null;
+    const h = Math.floor(diff / 3_600_000);
+    const m = Math.floor((diff % 3_600_000) / 60_000);
+    const s = Math.floor((diff % 60_000) / 1_000);
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
+  const [remaining, setRemaining] = useState(getRemaining);
+  useEffect(() => {
+    if (!target) return;
+    const id = setInterval(() => setRemaining(getRemaining()), 1_000);
+    return () => clearInterval(id);
+  }, [target]);
+  return remaining;
+}
 
 const domainIcons: Record<string, typeof Globe> = {
   'browser-tasks': Globe, 'prediction-markets': TrendingUp, 'trading': BarChart2,
@@ -166,6 +187,10 @@ export function CompetitionDetail() {
   const DomainIcon = domainIcons[slug] || Globe;
   const domainColor = domainColors[slug] || '#00F5FF';
   const isSandbox = competition.stake_mode === 'sandbox';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const compAny = competition as any;
+  const autoStart: boolean = compAny.auto_start ?? false;
+  const countdown = useCountdown(autoStart ? competition.scheduled_start : null);
   const prizePool = Number(competition.prize_pool || 0);
 
   return (
@@ -205,12 +230,36 @@ export function CompetitionDetail() {
               <p className="text-lg font-bold text-white">{isSandbox || prizePool === 0 ? 'Free' : `$${prizePool.toLocaleString()}`}</p>
               <p className="text-xs text-white/40">Prize</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-white/5">
-              <Clock size={18} className="mx-auto mb-1 text-white/40" />
-              <p className="text-lg font-bold text-white">{competition.scheduled_start ? new Date(competition.scheduled_start).toLocaleDateString() : 'Now'}</p>
-              <p className="text-xs text-white/40">Start</p>
+            <div className={`text-center p-3 rounded-lg ${autoStart && countdown ? 'bg-neon-cyan/8 border border-neon-cyan/20' : 'bg-white/5'}`}>
+              {autoStart && countdown ? (
+                <Timer size={18} className="mx-auto mb-1 text-neon-cyan" />
+              ) : (
+                <Clock size={18} className="mx-auto mb-1 text-white/40" />
+              )}
+              <p className={`text-lg font-bold tabular-nums ${autoStart && countdown ? 'text-neon-cyan' : 'text-white'}`}>
+                {autoStart && countdown ? countdown : competition.scheduled_start ? new Date(competition.scheduled_start).toLocaleDateString() : 'Now'}
+              </p>
+              <p className="text-xs text-white/40">{autoStart && countdown ? 'Auto-start' : 'Start'}</p>
             </div>
           </div>
+
+          {/* Auto-start banner */}
+          {autoStart && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-neon-cyan/5 border border-neon-cyan/20 mb-3">
+              <Timer size={16} className="text-neon-cyan flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-neon-cyan">
+                  {countdown ? `Auto-starts in ${countdown}` : 'Starting soon...'}
+                </p>
+                {compAny.recurrence_interval && (
+                  <p className="text-xs text-white/40 mt-0.5">Recurring · {compAny.recurrence_interval.replace('_', ' ')}</p>
+                )}
+              </div>
+              <span className="text-xs px-2 py-1 rounded-full bg-neon-cyan/15 text-neon-cyan font-mono flex-shrink-0">
+                AUTOMATED
+              </span>
+            </div>
+          )}
 
           {/* Join / start actions */}
           {user ? (

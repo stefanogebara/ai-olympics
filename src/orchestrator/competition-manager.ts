@@ -44,7 +44,31 @@ class CompetitionManager {
     competitionId: string,
     opts?: { taskIds?: string[] | null }
   ): Promise<void> {
+    // Guard: don't double-start an in-flight competition
+    if (this.activeCompetitions.has(competitionId)) {
+      log.warn('Competition already active in this process, skipping', { competitionId });
+      return;
+    }
+
     log.info('Starting competition', { competitionId });
+
+    // ---------------------------------------------------------------
+    // 0. Claim competition atomically: only update if still 'lobby'
+    // ---------------------------------------------------------------
+    const { data: claimed, error: claimErr } = await supabase
+      .from('aio_competitions')
+      .update({ status: 'running', started_at: new Date().toISOString() })
+      .eq('id', competitionId)
+      .eq('status', 'lobby')
+      .select('id');
+
+    if (claimErr) {
+      throw new Error(`Failed to claim competition: ${claimErr.message}`);
+    }
+    if (!claimed || claimed.length === 0) {
+      log.warn('Competition already claimed by another process (status != lobby)', { competitionId });
+      return;
+    }
 
     // ---------------------------------------------------------------
     // 1. Fetch competition + domain
@@ -167,10 +191,10 @@ class CompetitionManager {
         error: err instanceof Error ? err.message : String(err),
       });
 
-      // Revert status to lobby
+      // Revert status to lobby so scheduler can retry
       await supabase
         .from('aio_competitions')
-        .update({ status: 'lobby', started_at: null })
+        .update({ status: 'lobby', started_at: null, scheduled_start: new Date(Date.now() + 60_000).toISOString() })
         .eq('id', competitionId);
 
       throw err;

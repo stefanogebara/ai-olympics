@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useSocket } from '../../hooks/useSocket';
 import { useCompetition } from '../../hooks/useCompetition';
 import { formatDuration, formatScore, cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard, NeonText, Badge } from '../../components/ui';
 import { VotingPanel } from '../../components/competition/VotingPanel';
-import { Zap, Trophy, MessageSquare, Activity } from 'lucide-react';
+import { Zap, Trophy, MessageSquare, Activity, Timer, ArrowLeft } from 'lucide-react';
 
 type MobileTab = 'agents' | 'leaderboard' | 'feed';
 
@@ -29,6 +29,30 @@ export function LiveView() {
     agents,
   } = useCompetition();
 
+  // ── Pre-start waiting screen ──────────────────────────────────────────────
+  if (status === 'idle' && !isConnected && !isReconnecting) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
+        <Link to={`/competitions/${id}`} className="flex items-center gap-2 text-white/40 hover:text-white/70 text-sm transition-colors self-start absolute top-6 left-6">
+          <ArrowLeft size={16} /> Back to Lobby
+        </Link>
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-cyan to-neon-magenta flex items-center justify-center">
+          <Timer size={32} className="text-black" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-2xl font-display font-bold text-white mb-2">Waiting for competition to start</h2>
+          <p className="text-white/50 text-sm">The competition will begin shortly. This page will update automatically.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-cyan opacity-60" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-neon-cyan" />
+          </span>
+          <span className="text-sm text-white/40">Connecting to live stream...</span>
+        </div>
+      </div>
+    );
+  }
 
   // ── Panels ───────────────────────────────────────────────────────────────
 
