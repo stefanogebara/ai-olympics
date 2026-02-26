@@ -1,13 +1,14 @@
 # AI Olympics Backend API Server
 # Express + Socket.io for real-time competition streaming
+# Uses Playwright base image so agents can drive real browsers
 
-FROM node:22-slim
+FROM mcr.microsoft.com/playwright:v1.50.0-noble
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies (includes Playwright browser binaries via base image)
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev --ignore-scripts && npm install tsx
+RUN npm ci --omit=dev && npm install tsx
 
 # Copy source code
 COPY src/ ./src/
