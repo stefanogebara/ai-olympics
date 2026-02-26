@@ -9,6 +9,7 @@ WORKDIR /app
 # Install dependencies (includes Playwright browser binaries via base image)
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev --ignore-scripts && npm install tsx --ignore-scripts
+RUN npx playwright install chromium --with-deps
 
 # Copy source code
 COPY src/ ./src/
