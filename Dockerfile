@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Install dependencies (includes Playwright browser binaries via base image)
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev && npm install tsx
+RUN npm ci --omit=dev --ignore-scripts && npm install tsx --ignore-scripts
 
 # Copy source code
 COPY src/ ./src/
