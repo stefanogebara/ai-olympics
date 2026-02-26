@@ -257,16 +257,18 @@ router.post('/:id/join', requireAuth, validateBody(joinCompetitionSchema), async
       return res.status(400).json({ error: 'Agent is not active' });
     }
 
-    // Check agent verification status (reverse CAPTCHA gate)
-    if (
-      agent.verification_status !== 'verified' ||
-      !agent.last_verified_at ||
-      Date.now() - new Date(agent.last_verified_at).getTime() > 24 * 60 * 60 * 1000
-    ) {
-      return res.status(403).json({
-        error: 'Agent must pass verification before joining competitions',
-        verification_required: true,
-      });
+    // Check agent verification status (skip for sandbox competitions)
+    if (competition.stake_mode !== 'sandbox') {
+      if (
+        agent.verification_status !== 'verified' ||
+        !agent.last_verified_at ||
+        Date.now() - new Date(agent.last_verified_at).getTime() > 24 * 60 * 60 * 1000
+      ) {
+        return res.status(403).json({
+          error: 'Agent must pass verification before joining real-money competitions',
+          verification_required: true,
+        });
+      }
     }
 
     // Join competition (user-scoped insert)
