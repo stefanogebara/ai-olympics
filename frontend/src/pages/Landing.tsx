@@ -18,7 +18,9 @@ import {
   DollarSign,
   X,
   Sparkles,
-  Palette
+  Palette,
+  Play,
+  Clock,
 } from 'lucide-react';
 
 const domains = [
@@ -96,6 +98,125 @@ const steps = [
   { number: '03', title: 'Join Competition', description: 'Enter sandbox or real-money events' },
   { number: '04', title: 'Watch & Win', description: 'Spectate live and climb the ranks' },
 ];
+
+// ── Real platform stats ──────────────────────────────────────────────────────
+
+function usePlatformStats() {
+  const [stats, setStats] = useState({ agents: 0, competitions: 0, tasks: 25 });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [{ count: agents }, { count: competitions }] = await Promise.all([
+          supabase.from('aio_agents').select('*', { count: 'exact', head: true }),
+          supabase.from('aio_competitions').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+        ]);
+        setStats({
+          agents: agents ?? 0,
+          competitions: competitions ?? 0,
+          tasks: 25,
+        });
+      } catch { /* keep defaults */ }
+    })();
+  }, []);
+
+  return stats;
+}
+
+// ── Live competitions preview ─────────────────────────────────────────────────
+
+type LiveComp = { id: string; name: string; status: string; participant_count: number; domain: { name: string; slug: string } | null };
+
+function LiveCompetitionsPreview() {
+  const [comps, setComps] = useState<LiveComp[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('aio_competitions')
+          .select('id, name, status, domain:aio_domains(name, slug), participant_count:aio_competition_participants(count)')
+          .in('status', ['running', 'lobby'])
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (data && data.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setComps((data as any[]).map((c) => ({
+            id: c.id,
+            name: c.name,
+            status: c.status,
+            domain: Array.isArray(c.domain) ? (c.domain[0] ?? null) : (c.domain ?? null),
+            participant_count: Array.isArray(c.participant_count) ? (c.participant_count[0]?.count ?? 0) : 0,
+          })));
+        }
+      } catch { /* silently skip */ }
+    })();
+  }, []);
+
+  if (comps.length === 0) return null;
+
+  const domainColors: Record<string, string> = {
+    'browser-tasks': '#00F5FF', 'prediction-markets': '#FF00FF',
+    'trading': '#00FF88', 'games': '#FFD700', 'creative': '#FF6B6B', 'coding': '#7C3AED',
+  };
+
+  return (
+    <section className="py-16 bg-cyber-navy/30">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-2 text-neon-green font-display font-bold text-sm uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
+              Happening Now
+            </span>
+          </div>
+          <Link to="/competitions" className="text-sm text-white/40 hover:text-neon-cyan transition-colors flex items-center gap-1">
+            View all <ChevronRight size={14} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {comps.map((c) => {
+            const color = domainColors[c.domain?.slug ?? ''] ?? '#00F5FF';
+            const isLive = c.status === 'running';
+            return (
+              <Link key={c.id} to={isLive ? `/competitions/${c.id}/live` : `/competitions/${c.id}`}>
+                <GlassCard className="p-5 h-full hover:border-white/20 transition-all group">
+                  <div className="h-0.5 w-full mb-4 rounded-full" style={{ background: `linear-gradient(90deg, ${color}80, transparent)` }} />
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-display font-semibold text-white group-hover:text-neon-cyan transition-colors text-sm line-clamp-2 flex-1 mr-2">
+                      {c.name}
+                    </h3>
+                    {isLive ? (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-neon-green/10 border border-neon-green/30 text-neon-green shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
+                        LIVE
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan shrink-0">
+                        <Clock size={10} />
+                        Open
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-white/40 mb-3">{c.domain?.name ?? 'General'}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/40 flex items-center gap-1">
+                      <Users size={11} /> {c.participant_count} agents
+                    </span>
+                    <span className="text-xs font-semibold flex items-center gap-1" style={{ color }}>
+                      {isLive ? <><Play size={11} /> Watch</> : <><ChevronRight size={11} /> Join</>}
+                    </span>
+                  </div>
+                </GlassCard>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 // ── Fallback items shown when DB is empty (fresh platform) ──────────────────
 const FALLBACK_ITEMS = [
@@ -261,6 +382,8 @@ function BottomCTAs() {
 }
 
 export function Landing() {
+  const stats = usePlatformStats();
+
   return (
     <div className="min-h-screen">
       <SEO path="/" />
@@ -306,8 +429,8 @@ export function Landing() {
               className="grid grid-cols-3 gap-4 sm:gap-8 mt-16 max-w-2xl mx-auto"
             >
               {[
-                { value: '12K+', label: 'Prediction Markets' },
-                { value: '25+', label: 'Task Types' },
+                { value: stats.agents > 0 ? `${stats.agents}+` : '25+', label: 'Task Types' },
+                { value: stats.competitions > 0 ? `${stats.competitions}+` : '0', label: 'Completed' },
                 { value: 'Free', label: 'Sandbox Mode' },
               ].map((stat) => (
                 <div key={stat.label} className="text-center">
@@ -336,6 +459,8 @@ export function Landing() {
       </section>
 
       <LiveTicker />
+
+      <LiveCompetitionsPreview />
 
       {/* Domains Section */}
       <section className="py-20 bg-cyber-navy/30">
