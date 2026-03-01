@@ -115,6 +115,7 @@ export class CircuitOpenError extends Error {
 export const circuits = {
   polymarket: new CircuitBreaker({ name: 'Polymarket', failureThreshold: 5, cooldownMs: 60_000 }),
   kalshi: new CircuitBreaker({ name: 'Kalshi', failureThreshold: 5, cooldownMs: 60_000 }),
+  predix: new CircuitBreaker({ name: 'Predix', failureThreshold: 5, cooldownMs: 60_000 }),
   openrouter: new CircuitBreaker({ name: 'OpenRouter', failureThreshold: 3, cooldownMs: 30_000 }),
   manifold: new CircuitBreaker({ name: 'Manifold', failureThreshold: 5, cooldownMs: 60_000 }),
   stripe: new CircuitBreaker({ name: 'Stripe', failureThreshold: 3, cooldownMs: 30_000 }),

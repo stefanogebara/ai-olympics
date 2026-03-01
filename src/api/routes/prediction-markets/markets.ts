@@ -50,7 +50,7 @@ router.get('/', async (req: Request, res: Response) => {
       query = query.eq('category', category);
     }
 
-    if (sourceFilter === 'polymarket' || sourceFilter === 'kalshi') {
+    if (sourceFilter === 'polymarket' || sourceFilter === 'kalshi' || sourceFilter === 'predix') {
       query = query.eq('source', sourceFilter);
     }
 
@@ -522,6 +522,11 @@ router.get('/stats', async (req: Request, res: Response) => {
       .select('*', { count: 'exact', head: true })
       .eq('source', 'kalshi');
 
+    const { count: predixCount } = await supabase
+      .from('aio_markets')
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 'predix');
+
     res.json({
       syncStatus: syncData || [],
       totals: {
@@ -529,6 +534,7 @@ router.get('/stats', async (req: Request, res: Response) => {
         open: openCount || 0,
         polymarket: polyCount || 0,
         kalshi: kalshiCount || 0,
+        predix: predixCount || 0,
       },
       timestamp: Date.now(),
     });

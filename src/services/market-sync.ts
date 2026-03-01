@@ -11,6 +11,7 @@
 
 import { serviceClient } from '../shared/utils/supabase.js';
 import { marketService } from './market-service.js';
+import { predixClient } from './predix-client.js';
 import { createLogger } from '../shared/utils/logger.js';
 import { circuits } from '../shared/utils/circuit-breaker.js';
 import type { UnifiedMarket } from './polymarket-client.js';
@@ -294,6 +295,53 @@ class MarketSyncService {
   }
 
   // =========================================================================
+  // PREDIX SYNC (direct API, not via PolyRouter)
+  // =========================================================================
+
+  async syncPredix(): Promise<number> {
+    try {
+      log.info('Syncing Predix markets...');
+      const markets = await predixClient.getMarkets({ status: 'open' });
+
+      if (markets.length === 0) {
+        log.info('No Predix markets returned');
+        return 0;
+      }
+
+      // Collect all token IDs for bulk midpoint fetch
+      const allTokenIds = markets.flatMap(m => m.options.map(o => o.id));
+
+      // Fetch midpoints in batches of 50 to avoid large request bodies
+      const BATCH_SIZE = 50;
+      const midpoints: Record<string, number> = {};
+      for (let i = 0; i < allTokenIds.length; i += BATCH_SIZE) {
+        const batch = allTokenIds.slice(i, i + BATCH_SIZE);
+        const batchMids = await predixClient.getMidpoints(batch);
+        Object.assign(midpoints, batchMids);
+        if (i + BATCH_SIZE < allTokenIds.length) {
+          await delay(500); // respect rate limits between batches
+        }
+      }
+
+      // Normalize markets to unified format
+      const normalized: UnifiedMarket[] = markets.map(m => {
+        const unified = predixClient.normalizeMarket(m, midpoints);
+        if (!unified.category || unified.category === 'other') {
+          unified.category = marketService.detectCategory(unified);
+        }
+        return unified;
+      });
+
+      await this.upsertMarkets(normalized, 'predix');
+      log.info(`Predix sync complete: ${normalized.length} markets upserted`);
+      return normalized.length;
+    } catch (error) {
+      log.error('Predix sync failed', { error: String(error) });
+      return 0;
+    }
+  }
+
+  // =========================================================================
   // BATCH UPSERT TO SUPABASE
   // =========================================================================
 
@@ -351,20 +399,23 @@ class MarketSyncService {
       // Sync each platform separately for better tracking
       const polyCount = await this.syncPlatform('polymarket');
       const kalshiCount = await this.syncPlatform('kalshi');
+      const predixCount = await this.syncPredix();
 
       const duration = Date.now() - startTime;
-      const totalCount = polyCount + kalshiCount;
+      const totalCount = polyCount + kalshiCount + predixCount;
 
-      log.info(`Full sync complete: ${polyCount} Polymarket + ${kalshiCount} Kalshi = ${totalCount} total (${duration}ms)`);
+      log.info(`Full sync complete: ${polyCount} Polymarket + ${kalshiCount} Kalshi + ${predixCount} Predix = ${totalCount} total (${duration}ms)`);
 
       // Update sync status
       await this.updateSyncStatus('polymarket', polyCount, duration, null);
       await this.updateSyncStatus('kalshi', kalshiCount, duration, null);
+      await this.updateSyncStatus('predix', predixCount, duration, null);
     } catch (error) {
       const duration = Date.now() - startTime;
       log.error('Full sync failed', { error: String(error), duration });
       await this.updateSyncStatus('polymarket', 0, duration, String(error));
       await this.updateSyncStatus('kalshi', 0, duration, String(error));
+      await this.updateSyncStatus('predix', 0, duration, String(error));
     } finally {
       this.isSyncing = false;
     }
@@ -408,6 +459,12 @@ class MarketSyncService {
         kalshiCount = normalized.length;
       }
 
+      // Predix incremental sync (fetch current open markets)
+      const predixCount = await this.syncPredix().catch((err) => {
+        log.error('Predix incremental sync failed', { error: String(err) });
+        return 0;
+      });
+
       // Update incremental sync timestamps
       const now = new Date().toISOString();
       await serviceClient
@@ -415,9 +472,10 @@ class MarketSyncService {
         .upsert([
           { id: 'polymarket', last_incremental_sync: now, updated_at: now },
           { id: 'kalshi', last_incremental_sync: now, updated_at: now },
+          { id: 'predix', last_incremental_sync: now, updated_at: now },
         ], { onConflict: 'id' });
 
-      log.debug(`Incremental sync: ${polyCount} Polymarket + ${kalshiCount} Kalshi`);
+      log.debug(`Incremental sync: ${polyCount} Polymarket + ${kalshiCount} Kalshi + ${predixCount} Predix`);
     } catch (error) {
       log.error('Incremental sync failed', { error: error instanceof Error ? error.message : String(error) });
     }

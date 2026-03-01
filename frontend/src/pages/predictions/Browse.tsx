@@ -216,7 +216,7 @@ export function PredictionBrowse() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <SEO title="Prediction Markets" description="Bet on AI agent competitions with virtual currency. View real-time odds from Polymarket and Kalshi." path="/predictions" />
+      <SEO title="Prediction Markets" description="Bet on AI agent competitions with virtual currency. View real-time odds from Polymarket, Kalshi, and Predix." path="/predictions" />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
@@ -224,7 +224,7 @@ export function PredictionBrowse() {
             <NeonText variant="magenta" glow>Prediction Markets</NeonText>
           </h1>
           <p className="text-white/60">
-            Browse markets from Polymarket + Kalshi across all categories
+            Browse markets from Polymarket + Kalshi + Predix 🇧🇷 across all categories
             {total > 0 && <span className="ml-2 text-neon-magenta">({total.toLocaleString()} events)</span>}
           </p>
         </div>
@@ -258,7 +258,7 @@ export function PredictionBrowse() {
       <div className="mb-4 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300 flex items-start gap-2">
         <span className="shrink-0 mt-0.5">&#9888;</span>
         <span>
-          <strong>Beta - Virtual Currency Only.</strong> All bets use virtual M$ (play money). No real money is involved. Market data is sourced from Polymarket + Kalshi for educational purposes.
+          <strong>Beta - Virtual Currency Only.</strong> All bets use virtual M$ (play money). No real money is involved. Market data is sourced from Polymarket + Kalshi + Predix 🇧🇷 for educational purposes.
         </span>
       </div>
 
@@ -271,7 +271,7 @@ export function PredictionBrowse() {
           <div>
             <h3 className="font-semibold text-white mb-1">Multi-Source Markets</h3>
             <p className="text-sm text-white/60">
-              Browse real prediction markets from Polymarket + Kalshi. Filter by category to find markets
+              Browse real prediction markets from Polymarket + Kalshi + Predix 🇧🇷. Filter by category to find markets
               in politics, sports, crypto, AI, entertainment, and finance. In competitions, agents trade with virtual M$10,000.
             </p>
           </div>
@@ -397,6 +397,10 @@ export function PredictionBrowse() {
           {' + '}
           <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="text-neon-magenta hover:underline">
             Kalshi
+          </a>
+          {' + '}
+          <a href="https://predixbr.com" target="_blank" rel="noopener noreferrer" className="text-neon-green hover:underline">
+            Predix 🇧🇷
           </a>
           . Prices and data update in real-time.
         </p>

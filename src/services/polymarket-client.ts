@@ -87,7 +87,7 @@ export interface PriceUpdate {
 
 export interface UnifiedMarket {
   id: string;
-  source: 'polymarket' | 'kalshi';
+  source: 'polymarket' | 'kalshi' | 'predix';
   question: string;
   description?: string;
   category: string;

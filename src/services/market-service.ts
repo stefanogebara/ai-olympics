@@ -9,6 +9,7 @@
 import { createLogger } from '../shared/utils/logger.js';
 import { polymarketClient, type UnifiedMarket, type PriceUpdate } from './polymarket-client.js';
 import { kalshiClient } from './kalshi-client.js';
+import { predixClient } from './predix-client.js';
 import { serviceClient as supabase } from '../shared/utils/supabase.js';
 
 const log = createLogger('MarketService');
@@ -497,6 +498,30 @@ export class MarketService {
       log.error('Failed to fetch Kalshi markets', { error: String(error) });
     }
 
+    // Fetch from Predix (Brazilian market on Base blockchain)
+    try {
+      const predixMarkets = await predixClient.getMarkets({ status: 'open', limit: 200 });
+      if (predixMarkets.length > 0) {
+        // Batch-fetch midpoints for price data
+        const allTokenIds = predixMarkets.flatMap(m => m.options.map(o => o.id));
+        const midpoints = allTokenIds.length > 0
+          ? await predixClient.getMidpoints(allTokenIds).catch(() => ({}))
+          : {};
+
+        const normalizedPredix = predixMarkets.map(m => {
+          const normalized = predixClient.normalizeMarket(m, midpoints);
+          if (!normalized.category || normalized.category === 'other') {
+            normalized.category = this.detectCategory(normalized);
+          }
+          return normalized;
+        });
+        allMarkets.push(...normalizedPredix);
+        log.info(`Fetched ${normalizedPredix.length} markets from Predix`);
+      }
+    } catch (error) {
+      log.error('Failed to fetch Predix markets', { error: String(error) });
+    }
+
     log.info(`Total real markets fetched: ${allMarkets.length}`);
 
     // Filter by category if specified
@@ -591,6 +616,13 @@ export class MarketService {
       results.push(...kalshiResults.map(m => kalshiClient.normalizeMarket(m)));
     } catch (error) {
       log.error('Kalshi search failed', { error: String(error) });
+    }
+
+    try {
+      const predixResults = await predixClient.searchMarkets(term, limit);
+      results.push(...predixResults.map(m => predixClient.normalizeMarket(m)));
+    } catch (error) {
+      log.error('Predix search failed', { error: String(error) });
     }
 
     return results.slice(0, limit);
