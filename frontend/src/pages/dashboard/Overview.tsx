@@ -143,6 +143,7 @@ export function DashboardOverview() {
           userId={profile.id}
           hasAgents={agents.length > 0}
           hasCompetitions={recentCompetitions.length > 0}
+          hasApiKeyAgent={agents.some(a => a.agent_type === 'api_key')}
         />
       )}
 

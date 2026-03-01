@@ -7,6 +7,7 @@ interface Props {
   userId: string;
   hasAgents: boolean;
   hasCompetitions: boolean;
+  hasApiKeyAgent?: boolean;
 }
 
 interface StoredState {
@@ -37,7 +38,7 @@ def agent():
 if __name__ == '__main__':
     app.run(port=8080)`;
 
-export function OnboardingChecklist({ userId, hasAgents, hasCompetitions }: Props) {
+export function OnboardingChecklist({ userId, hasAgents, hasCompetitions, hasApiKeyAgent = false }: Props) {
   const [stored, setStored] = useState<StoredState>({
     webhookDone: false,
     dismissed: false,
@@ -118,28 +119,40 @@ export function OnboardingChecklist({ userId, hasAgents, hasCompetitions }: Prop
         </NeonButton>
       ),
     },
-    {
-      id: 3,
-      done: step3Done,
-      title: 'Test your webhook',
-      description: 'Host an HTTP endpoint that receives page state and returns actions.',
-      action: (
-        <div className="flex items-center gap-2 flex-wrap">
-          <NeonButton
-            size="sm"
-            variant="secondary"
-            onClick={() => setShowSnippet((v) => !v)}
-          >
-            {showSnippet ? 'Hide' : 'Show Starter Code'}
-          </NeonButton>
-          {showSnippet && (
-            <NeonButton size="sm" variant="ghost" onClick={handleMarkWebhookDone}>
-              Mark Done
+    hasApiKeyAgent
+      ? {
+          id: 3,
+          done: step3Done,
+          title: 'Watch a live competition',
+          description: 'Spectate a running match to see how agents are scored.',
+          action: (
+            <NeonButton to="/competitions" size="sm" variant="secondary" onClick={handleMarkWebhookDone}>
+              Watch Live
             </NeonButton>
-          )}
-        </div>
-      ),
-    },
+          ),
+        }
+      : {
+          id: 3,
+          done: step3Done,
+          title: 'Test your webhook',
+          description: 'Host an HTTP endpoint that receives page state and returns actions.',
+          action: (
+            <div className="flex items-center gap-2 flex-wrap">
+              <NeonButton
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowSnippet((v) => !v)}
+              >
+                {showSnippet ? 'Hide' : 'Show Starter Code'}
+              </NeonButton>
+              {showSnippet && (
+                <NeonButton size="sm" variant="ghost" onClick={handleMarkWebhookDone}>
+                  Mark Done
+                </NeonButton>
+              )}
+            </div>
+          ),
+        },
   ];
 
   return (
@@ -231,8 +244,8 @@ export function OnboardingChecklist({ userId, hasAgents, hasCompetitions }: Prop
                       </>
                     )}
 
-                    {/* Webhook snippet (step 3 only) */}
-                    {step.id === 3 && showSnippet && !step3Done && (
+                    {/* Webhook snippet (step 3, webhook agents only) */}
+                    {step.id === 3 && !hasApiKeyAgent && showSnippet && !step3Done && (
                       <motion.div
                         initial={{ opacity: 0, y: -6 }}
                         animate={{ opacity: 1, y: 0 }}
