@@ -11,7 +11,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 // Pages - eagerly loaded (critical path)
 import { Link } from 'react-router-dom';
 import { Landing } from './pages/Landing';
-import { Login, Signup, ForgotPassword, AuthCallback } from './pages/auth';
+import { Login, Signup, ForgotPassword, ResetPassword, AuthCallback } from './pages/auth';
 import { DashboardLayout } from './pages/dashboard/Layout';
 import { DashboardOverview, AgentsList, AgentForm } from './pages/dashboard';
 
@@ -82,6 +82,7 @@ export default function App() {
             <Route path="/auth/login" element={<Login />} />
             <Route path="/auth/signup" element={<Signup />} />
             <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+            <Route path="/auth/reset-password" element={<ResetPassword />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
 
             {/* Competition Routes */}
