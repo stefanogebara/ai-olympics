@@ -409,21 +409,19 @@ class CompetitionManager {
       log.info('Scheduler found competitions to auto-start', { count: data.length });
 
       for (const row of data) {
-        this.startCompetition(row.id).catch((err) => {
-          log.error('Scheduler failed to start competition', {
-            competitionId: row.id,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
-
-        if (row.recurrence_interval) {
-          this.scheduleNextRecurrence(row).catch((err) => {
-            log.error('Scheduler failed to schedule next recurrence', {
+        // Only schedule next recurrence AFTER successful completion, not at start time
+        this.startCompetition(row.id)
+          .then(() => {
+            if (row.recurrence_interval) {
+              return this.scheduleNextRecurrence(row);
+            }
+          })
+          .catch((err) => {
+            log.error('Scheduler failed to start competition', {
               competitionId: row.id,
               error: err instanceof Error ? err.message : String(err),
             });
           });
-        }
       }
     };
 
@@ -488,7 +486,7 @@ class CompetitionManager {
         return;
     }
 
-    const { error } = await supabase
+    const { data: newComp, error } = await supabase
       .from('aio_competitions')
       .insert({
         name: row.name,
@@ -503,20 +501,52 @@ class CompetitionManager {
         recurrence_interval: row.recurrence_interval,
         scheduled_start: nextStart.toISOString(),
         created_by: null,
-      });
+      })
+      .select('id')
+      .single();
 
-    if (error) {
+    if (error || !newComp) {
       log.error('Failed to insert next recurrence competition', {
         sourceId: row.id,
         nextStart: nextStart.toISOString(),
-        error: error.message,
+        error: error?.message,
       });
-    } else {
-      log.info('Scheduled next recurrence competition', {
-        sourceId: row.id,
-        nextStart: nextStart.toISOString(),
-        recurrence_interval: row.recurrence_interval,
-      });
+      return;
+    }
+
+    log.info('Scheduled next recurrence competition', {
+      sourceId: row.id,
+      newId: newComp.id,
+      nextStart: nextStart.toISOString(),
+      recurrence_interval: row.recurrence_interval,
+    });
+
+    // Copy participants from the source competition to the new one
+    const { data: srcParticipants } = await supabase
+      .from('aio_competition_participants')
+      .select('agent_id, user_id')
+      .eq('competition_id', row.id);
+
+    if (srcParticipants && srcParticipants.length > 0) {
+      const { error: partErr } = await supabase
+        .from('aio_competition_participants')
+        .insert(srcParticipants.map(p => ({
+          competition_id: newComp.id,
+          agent_id: p.agent_id,
+          user_id: p.user_id,
+        })));
+
+      if (partErr) {
+        log.error('Failed to copy participants to next recurrence', {
+          newCompId: newComp.id,
+          error: partErr.message,
+        });
+      } else {
+        log.info('Copied participants to next recurrence', {
+          newCompId: newComp.id,
+          count: srcParticipants.length,
+        });
+      }
     }
   }
 }

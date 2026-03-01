@@ -67,6 +67,11 @@ export function CompetitionDetail() {
   const isCreator = competition?.created_by === user?.id;
   const canStart = isCreator && participants.length >= 2;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const compAny = competition as any;
+  const autoStart: boolean = compAny?.auto_start ?? false;
+  const countdown = useCountdown(autoStart ? competition?.scheduled_start : null);
+
   const loadCompetition = useCallback(async () => {
     if (!id) return;
     const { data, error: err } = await supabase
@@ -187,10 +192,6 @@ export function CompetitionDetail() {
   const DomainIcon = domainIcons[slug] || Globe;
   const domainColor = domainColors[slug] || '#00F5FF';
   const isSandbox = competition.stake_mode === 'sandbox';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const compAny = competition as any;
-  const autoStart: boolean = compAny.auto_start ?? false;
-  const countdown = useCountdown(autoStart ? competition.scheduled_start : null);
   const prizePool = Number(competition.prize_pool || 0);
 
   return (

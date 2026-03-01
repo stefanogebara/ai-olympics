@@ -222,24 +222,35 @@ async function seedCompetition(
   // Schedule start 10 minutes from now
   const scheduledStart = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-  const { data: comp, error } = await supabase
-    .from('aio_competitions')
-    .insert({
-      name: domainConfig.name,
-      description: domainConfig.description,
-      domain_id: domainId,
-      task_ids: domainConfig.taskIds,
-      max_participants: 4,
-      stake_mode: 'sandbox',
-      entry_fee: 0,
-      status: 'lobby',
-      auto_start: true,
-      recurrence_interval: domainConfig.recurrence,
-      scheduled_start: scheduledStart,
-      created_by: ownerId,
-    })
-    .select('id')
-    .single();
+  // Core columns known to exist in the real schema
+  const baseInsert: Record<string, unknown> = {
+    name: domainConfig.name,
+    domain_id: domainId,
+    max_participants: 4,
+    stake_mode: 'sandbox',
+    entry_fee: 0,
+    status: 'lobby',
+    scheduled_start: scheduledStart,
+    created_by: ownerId,
+  };
+
+  // Progressively try optional columns — fall back to base if schema is missing them
+  const extrasToTry = [
+    { description: domainConfig.description, task_ids: domainConfig.taskIds, auto_start: true, recurrence_interval: domainConfig.recurrence },
+    { description: domainConfig.description, task_ids: domainConfig.taskIds },
+    { description: domainConfig.description },
+    {},
+  ];
+
+  let result = await supabase.from('aio_competitions').insert({ ...baseInsert, ...extrasToTry[0] }).select('id').single();
+  let tryIdx = 1;
+  while (result.error && tryIdx < extrasToTry.length) {
+    console.warn(`  Retrying insert without some columns (${result.error.message.split('.')[0]})`);
+    result = await supabase.from('aio_competitions').insert({ ...baseInsert, ...extrasToTry[tryIdx] }).select('id').single();
+    tryIdx++;
+  }
+
+  const { data: comp, error } = result;
 
   if (error || !comp) {
     console.error(`Failed to create competition for ${domainConfig.slug}:`, error?.message);
@@ -252,8 +263,7 @@ async function seedCompetition(
   const participants = Array.from(agentIds.values()).map((agentId) => ({
     competition_id: comp.id,
     agent_id: agentId,
-    owner_id: ownerId,
-    status: 'joined',
+    user_id: ownerId,
   }));
 
   const { error: partErr } = await supabase
