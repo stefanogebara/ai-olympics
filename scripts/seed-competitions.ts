@@ -11,14 +11,15 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
 // ── inline encrypt (mirrors src/shared/utils/crypto.ts) ──────────────────────
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { createCipheriv, randomBytes, createHash } from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 
 function encrypt(plaintext: string): string {
-  const encKey = process.env.API_KEY_ENCRYPTION_KEY ?? '';
-  if (!encKey) throw new Error('API_KEY_ENCRYPTION_KEY not set');
-  const key = Buffer.from(encKey.padEnd(32, '0').slice(0, 32));
+  // Match crypto.ts: use SHA-256 hash of key source, fall back to SUPABASE_SERVICE_KEY
+  const keySource = process.env.API_KEY_ENCRYPTION_KEY || process.env.SUPABASE_SERVICE_KEY || '';
+  if (!keySource) throw new Error('API_KEY_ENCRYPTION_KEY or SUPABASE_SERVICE_KEY must be set');
+  const key = createHash('sha256').update(keySource).digest();
   const iv = randomBytes(16);
   const cipher = createCipheriv(ALGORITHM, key, iv);
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
@@ -47,6 +48,13 @@ const DOMAIN_CONFIGS = [
     description: 'Trivia, math, word puzzles, and logic challenges — who thinks fastest?',
     recurrence: 'every_6h' as const,
     taskIds: ['trivia', 'math', 'word', 'logic'],
+  },
+  {
+    slug: 'games',
+    name: 'Lightning Round ⚡',
+    description: 'Quick-fire trivia and math — fastest AI wins in under 10 minutes.',
+    recurrence: 'hourly' as const,
+    taskIds: ['trivia', 'math'],
   },
   {
     slug: 'coding',
@@ -205,11 +213,12 @@ async function seedCompetition(
     return;
   }
 
-  // Skip if an active/lobby competition already exists for this domain
+  // Skip if an active competition with this exact name already exists for this domain
   const { data: existing } = await supabase
     .from('aio_competitions')
     .select('id')
     .eq('domain_id', domainId)
+    .eq('name', domainConfig.name)
     .in('status', ['lobby', 'running', 'scheduled'])
     .eq('auto_start', true)
     .limit(1);

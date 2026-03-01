@@ -1,9 +1,11 @@
 import { Router, Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { serviceClient } from '../../shared/utils/supabase.js';
 import { requireAuth, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { validateBody } from '../middleware/validate.js';
 import { updateUserSchema, reviewAgentSchema, updateCompetitionStatusSchema } from '../schemas.js';
+import { encrypt } from '../../shared/utils/crypto.js';
 
 const log = createLogger('AdminAPI');
 const router = Router();
@@ -214,6 +216,229 @@ router.patch('/competitions/:id', validateBody(updateCompetitionStatusSchema), a
   } catch (err: unknown) {
     log.error('Failed to update competition', { error: err });
     res.status(500).json({ error: 'Failed to update competition' });
+  }
+});
+
+// ============================================================================
+// DEMO SEED
+// ============================================================================
+
+const SEED_DOMAIN_CONFIGS = [
+  {
+    slug: 'browser-tasks',
+    name: 'Browser Tasks Daily',
+    description: 'Claude models race through real web tasks — forms, navigation, data extraction.',
+    recurrence: 'daily',
+    taskIds: ['form-blitz', 'shopping-cart', 'navigation-maze'],
+  },
+  {
+    slug: 'games',
+    name: 'Games Gauntlet',
+    description: 'Trivia, math, word puzzles, and logic challenges — who thinks fastest?',
+    recurrence: 'every_6h',
+    taskIds: ['trivia', 'math', 'word', 'logic'],
+  },
+  {
+    slug: 'games',
+    name: 'Lightning Round ⚡',
+    description: 'Quick-fire trivia and math — fastest AI wins in under 10 minutes.',
+    recurrence: 'hourly',
+    taskIds: ['trivia', 'math'],
+  },
+  {
+    slug: 'coding',
+    name: 'Coding Arena',
+    description: 'Debug code, play code golf, and ace API challenges.',
+    recurrence: 'daily',
+    taskIds: ['code-debug', 'code-golf'],
+  },
+  {
+    slug: 'creative',
+    name: 'Creative Showdown',
+    description: 'Writing challenges, design prompts, and pitch deck battles.',
+    recurrence: 'daily',
+    taskIds: ['writing-challenge', 'pitch-deck'],
+  },
+];
+
+const SEED_HOUSE_AGENTS = [
+  { name: 'Claude Sonnet (House)', slug: 'house-claude-sonnet', model: 'claude-sonnet-4-5-20250929', color: '#D97706', personaStyle: 'balanced', strategy: 'balanced' },
+  { name: 'Claude Haiku (House)', slug: 'house-claude-haiku', model: 'claude-haiku-4-5-20251001', color: '#00F5FF', personaStyle: 'technical', strategy: 'aggressive' },
+  { name: 'Claude Opus (House)', slug: 'house-claude-opus', model: 'claude-opus-4-6', color: '#FF00FF', personaStyle: 'analytical', strategy: 'cautious' },
+];
+
+router.post('/seed-competitions', async (_req: Request, res: Response) => {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) {
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set on server' });
+  }
+
+  const result = {
+    systemUserId: '',
+    agentsCreated: 0,
+    agentsSkipped: 0,
+    competitionsCreated: 0,
+    competitionsSkipped: 0,
+    errors: [] as string[],
+  };
+
+  try {
+    // 1. Get or create system user
+    const { data: existingProfile } = await serviceClient
+      .from('aio_profiles')
+      .select('id')
+      .eq('username', 'ai-olympics-system')
+      .single();
+
+    if (existingProfile) {
+      result.systemUserId = existingProfile.id;
+    } else {
+      const { data: authUser, error: authErr } = await serviceClient.auth.admin.createUser({
+        email: 'system@ai-olympics.internal',
+        password: randomUUID(),
+        email_confirm: true,
+        user_metadata: { username: 'ai-olympics-system' },
+      });
+      if (authErr || !authUser.user) {
+        return res.status(500).json({ error: `Failed to create system user: ${authErr?.message}` });
+      }
+      await serviceClient.from('aio_profiles').upsert({
+        id: authUser.user.id,
+        username: 'ai-olympics-system',
+        display_name: 'AI Olympics',
+      });
+      result.systemUserId = authUser.user.id;
+    }
+
+    // 2. Get or create house agents
+    const encryptedKey = encrypt(anthropicKey);
+    const agentIds = new Map<string, string>();
+
+    for (const agent of SEED_HOUSE_AGENTS) {
+      const { data: existing } = await serviceClient
+        .from('aio_agents')
+        .select('id')
+        .eq('slug', agent.slug)
+        .single();
+
+      if (existing) {
+        agentIds.set(agent.slug, existing.id);
+        result.agentsSkipped++;
+        continue;
+      }
+
+      const { data: created, error: agentErr } = await serviceClient
+        .from('aio_agents')
+        .insert({
+          owner_id: result.systemUserId,
+          name: agent.name,
+          slug: agent.slug,
+          description: `Platform house agent — ${agent.model}`,
+          color: agent.color,
+          agent_type: 'api_key',
+          provider: 'claude',
+          model: agent.model,
+          api_key_encrypted: encryptedKey,
+          persona_style: agent.personaStyle,
+          strategy: agent.strategy,
+          is_active: true,
+          is_public: true,
+          verification_status: 'verified',
+          last_verified_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single();
+
+      if (agentErr || !created) {
+        result.errors.push(`Agent ${agent.name}: ${agentErr?.message}`);
+        continue;
+      }
+
+      agentIds.set(agent.slug, created.id);
+      result.agentsCreated++;
+    }
+
+    if (agentIds.size < 2) {
+      return res.status(500).json({ error: 'Need at least 2 house agents', result });
+    }
+
+    // 3. Seed one competition per domain config
+    for (const domainConfig of SEED_DOMAIN_CONFIGS) {
+      const { data: domain } = await serviceClient
+        .from('aio_domains')
+        .select('id')
+        .eq('slug', domainConfig.slug)
+        .single();
+
+      if (!domain) {
+        result.errors.push(`Domain not found: ${domainConfig.slug}`);
+        continue;
+      }
+
+      // Skip if an active competition with this name already exists
+      const { data: existing } = await serviceClient
+        .from('aio_competitions')
+        .select('id')
+        .eq('domain_id', domain.id)
+        .eq('name', domainConfig.name)
+        .in('status', ['lobby', 'running', 'scheduled'])
+        .eq('auto_start', true)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        result.competitionsSkipped++;
+        continue;
+      }
+
+      const scheduledStart = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+      const { data: comp, error: compErr } = await serviceClient
+        .from('aio_competitions')
+        .insert({
+          name: domainConfig.name,
+          description: domainConfig.description,
+          domain_id: domain.id,
+          task_ids: domainConfig.taskIds,
+          max_participants: 4,
+          stake_mode: 'sandbox',
+          entry_fee: 0,
+          status: 'lobby',
+          scheduled_start: scheduledStart,
+          auto_start: true,
+          recurrence_interval: domainConfig.recurrence,
+          created_by: result.systemUserId,
+        })
+        .select('id')
+        .single();
+
+      if (compErr || !comp) {
+        result.errors.push(`Competition ${domainConfig.name}: ${compErr?.message}`);
+        continue;
+      }
+
+      // Add all house agents as participants
+      const participants = Array.from(agentIds.values()).map(agentId => ({
+        competition_id: comp.id,
+        agent_id: agentId,
+        user_id: result.systemUserId,
+      }));
+
+      const { error: partErr } = await serviceClient
+        .from('aio_competition_participants')
+        .insert(participants);
+
+      if (partErr) {
+        result.errors.push(`Participants for ${domainConfig.name}: ${partErr.message}`);
+      }
+
+      result.competitionsCreated++;
+    }
+
+    log.info('Demo seed completed', result);
+    res.json({ success: true, result });
+  } catch (err: unknown) {
+    log.error('Seed failed', { error: err });
+    res.status(500).json({ error: 'Seed failed', result });
   }
 });
 
