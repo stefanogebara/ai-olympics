@@ -29,16 +29,26 @@ export function AuthCallback() {
             .single();
 
           if (!profile) {
-            // Create profile for OAuth user
-            const username = session.user.email?.split('@')[0] || `user_${session.user.id.slice(0, 8)}`;
-            await supabase
-              .from('aio_profiles')
-              .insert({
-                id: session.user.id,
-                username,
-                display_name: session.user.user_metadata?.full_name || username,
-                avatar_url: session.user.user_metadata?.avatar_url,
-              });
+            // Create profile for OAuth user — handle username conflicts with fallback suffixes
+            const baseUsername =
+              session.user.user_metadata?.user_name ||      // GitHub: actual username
+              session.user.user_metadata?.preferred_username || // Google: username hint
+              session.user.email?.split('@')[0] ||
+              `user_${session.user.id.slice(0, 8)}`;
+
+            let created = false;
+            for (let attempt = 0; attempt < 5 && !created; attempt++) {
+              const username = attempt === 0 ? baseUsername : `${baseUsername}_${attempt}`;
+              const { error: insertErr } = await supabase
+                .from('aio_profiles')
+                .insert({
+                  id: session.user.id,
+                  username,
+                  display_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || username,
+                  avatar_url: session.user.user_metadata?.avatar_url,
+                });
+              if (!insertErr) created = true;
+            }
           }
 
           await loadProfile(session.user.id);
