@@ -1,7 +1,7 @@
 // AI Olympics Service Worker - Static asset caching
 // Only caches static assets (JS, CSS, fonts, images). API calls are never cached.
 
-const CACHE_NAME = 'aio-static-v1';
+const CACHE_NAME = 'aio-static-v2';
 const STATIC_EXTENSIONS = /\.(js|css|woff2?|ttf|otf|svg|png|jpg|jpeg|webp|ico)$/;
 
 // Cache static assets on fetch (cache-first for hashed assets, network-first for others)

@@ -20,6 +20,14 @@ import { supabase } from '../../lib/supabase';
 const PAGE_SIZE = 24;
 const ALL_CATEGORIES: MarketCategory[] = ['all', 'politics', 'sports', 'crypto', 'ai-tech', 'entertainment', 'finance'];
 
+type MarketSource = 'all' | 'polymarket' | 'kalshi' | 'predix';
+const SOURCE_CONFIG: Record<MarketSource, { label: string; color: string; activeClass: string }> = {
+  all:        { label: 'All Sources', color: 'text-white/60',         activeClass: 'bg-white/10 text-white border-white/30' },
+  polymarket: { label: 'Polymarket',  color: 'text-neon-cyan/70',     activeClass: 'bg-neon-cyan/15 text-neon-cyan border-neon-cyan/40' },
+  kalshi:     { label: 'Kalshi',      color: 'text-neon-magenta/70',  activeClass: 'bg-neon-magenta/15 text-neon-magenta border-neon-magenta/40' },
+  predix:     { label: 'Predix 🇧🇷',  color: 'text-neon-green/70',    activeClass: 'bg-neon-green/15 text-neon-green border-neon-green/40' },
+};
+
 /** Transform an aio_markets row into a MarketEvent */
 function mapRowToEvent(m: Record<string, unknown>): MarketEvent {
   const url = (m.url as string) || '';
@@ -62,6 +70,8 @@ export function PredictionBrowse() {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+  const [source, setSource] = useState<MarketSource>('all');
+  const [sourceCounts, setSourceCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -72,21 +82,23 @@ export function PredictionBrowse() {
     setOffset(0);
     setEvents([]);
     loadEvents(0);
-  }, [sortBy, category]);
+  }, [sortBy, category, source]);
 
   const loadCategories = async () => {
     try {
       const { data } = await supabase
         .from('aio_markets')
-        .select('category')
+        .select('category,source')
         .eq('status', 'open');
 
       if (data) {
         const counts: Record<string, number> = {};
+        const srcCounts: Record<string, number> = {};
         let allCount = 0;
         for (const row of data) {
           const cat = row.category || 'other';
           counts[cat] = (counts[cat] || 0) + 1;
+          if (row.source) srcCounts[row.source] = (srcCounts[row.source] || 0) + 1;
           allCount++;
         }
         const catInfos: CategoryInfo[] = [
@@ -101,6 +113,7 @@ export function PredictionBrowse() {
             })),
         ];
         setCategories(catInfos);
+        setSourceCounts({ all: allCount, ...srcCounts });
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading categories:', error);
@@ -125,6 +138,10 @@ export function PredictionBrowse() {
 
       if (category !== 'all') {
         query = query.eq('category', category);
+      }
+
+      if (source !== 'all') {
+        query = query.eq('source', source);
       }
 
       if (sortBy === 'volume') {
@@ -216,7 +233,7 @@ export function PredictionBrowse() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <SEO title="Prediction Markets" description="Bet on AI agent competitions with virtual currency. View real-time odds from Polymarket, Kalshi, and Predix." path="/predictions" />
+      <SEO title="Prediction Markets" description="Bet on AI agent competitions with virtual currency. View real-time odds from Polymarket and Kalshi." path="/predictions" />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
@@ -224,7 +241,7 @@ export function PredictionBrowse() {
             <NeonText variant="magenta" glow>Prediction Markets</NeonText>
           </h1>
           <p className="text-white/60">
-            Browse markets from Polymarket + Kalshi + Predix 🇧🇷 across all categories
+            Browse markets from Polymarket + Kalshi across all categories
             {total > 0 && <span className="ml-2 text-neon-magenta">({total.toLocaleString()} events)</span>}
           </p>
         </div>
@@ -271,8 +288,7 @@ export function PredictionBrowse() {
           <div>
             <h3 className="font-semibold text-white mb-1">Multi-Source Markets</h3>
             <p className="text-sm text-white/60">
-              Browse real prediction markets from Polymarket + Kalshi + Predix 🇧🇷. Filter by category to find markets
-              in politics, sports, crypto, AI, entertainment, and finance. In competitions, agents trade with virtual M$10,000.
+              Browse real prediction markets from Polymarket + Kalshi. Filter by source and category across politics, sports, crypto, AI, entertainment, and finance. In competitions, agents trade with virtual M$10,000.
             </p>
           </div>
         </div>
@@ -300,6 +316,34 @@ export function PredictionBrowse() {
                   category === cat ? 'bg-neon-magenta/30' : 'bg-white/10'
                 }`}>
                   {catInfo.count > 999 ? `${(catInfo.count / 1000).toFixed(0)}K` : catInfo.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Source Filter */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <span className="text-xs text-white/40 font-medium uppercase tracking-wider mr-1">Source:</span>
+        {(Object.keys(SOURCE_CONFIG) as MarketSource[]).map((src) => {
+          const cfg = SOURCE_CONFIG[src];
+          const count = sourceCounts[src] ?? (src === 'all' ? undefined : 0);
+          const isActive = source === src;
+          return (
+            <button
+              key={src}
+              onClick={() => setSource(src)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                isActive
+                  ? cfg.activeClass
+                  : 'bg-transparent border-white/10 text-white/40 hover:border-white/20 hover:text-white/60'
+              }`}
+            >
+              {cfg.label}
+              {count !== undefined && (
+                <span className={`text-[10px] opacity-70 ${isActive ? '' : 'text-white/30'}`}>
+                  {count.toLocaleString()}
                 </span>
               )}
             </button>
@@ -397,10 +441,6 @@ export function PredictionBrowse() {
           {' + '}
           <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="text-neon-magenta hover:underline">
             Kalshi
-          </a>
-          {' + '}
-          <a href="https://predixbr.com" target="_blank" rel="noopener noreferrer" className="text-neon-green hover:underline">
-            Predix 🇧🇷
           </a>
           . Prices and data update in real-time.
         </p>
