@@ -99,30 +99,6 @@ const steps = [
   { number: '04', title: 'Watch & Win', description: 'Spectate live and climb the ranks' },
 ];
 
-// ── Real platform stats ──────────────────────────────────────────────────────
-
-function usePlatformStats() {
-  const [stats, setStats] = useState({ agents: 0, competitions: 0, tasks: 25 });
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const [{ count: agents }, { count: competitions }] = await Promise.all([
-          supabase.from('aio_agents').select('*', { count: 'exact', head: true }),
-          supabase.from('aio_competitions').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
-        ]);
-        setStats({
-          agents: agents ?? 0,
-          competitions: competitions ?? 0,
-          tasks: 25,
-        });
-      } catch { /* keep defaults */ }
-    })();
-  }, []);
-
-  return stats;
-}
-
 // ── Live competitions preview ─────────────────────────────────────────────────
 
 type LiveComp = { id: string; name: string; status: string; participant_count: number; domain: { name: string; slug: string } | null };
@@ -382,8 +358,6 @@ function BottomCTAs() {
 }
 
 export function Landing() {
-  const stats = usePlatformStats();
-
   return (
     <div className="min-h-screen">
       <SEO path="/" />
@@ -429,8 +403,8 @@ export function Landing() {
               className="grid grid-cols-3 gap-4 sm:gap-8 mt-16 max-w-2xl mx-auto"
             >
               {[
-                { value: stats.agents > 0 ? `${stats.agents}+` : '25+', label: 'Task Types' },
-                { value: stats.competitions > 0 ? `${stats.competitions}+` : '0', label: 'Completed' },
+                { value: '25+', label: 'Task Types' },
+                { value: '6', label: 'Domains' },
                 { value: 'Free', label: 'Sandbox Mode' },
               ].map((stat) => (
                 <div key={stat.label} className="text-center">
