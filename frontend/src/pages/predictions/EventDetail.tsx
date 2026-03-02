@@ -38,6 +38,7 @@ interface EventData {
   source: string;
   category: string;
   image: string | null;
+  isClosed: boolean;
   totalVolume: number;
   volume24h: number;
   liquidity: number;
@@ -384,12 +385,11 @@ export function EventDetail() {
     setLoading(true);
     setError(null);
     try {
-      // Match markets by URL containing the slug
+      // Match markets by URL containing the slug (include closed so links still resolve)
       const { data: markets, error: dbError } = await supabase
         .from('aio_markets')
         .select('*')
         .ilike('url', `%${eventSlug}%`)
-        .eq('status', 'open')
         .order('total_volume', { ascending: false });
 
       if (dbError) throw dbError;
@@ -400,6 +400,7 @@ export function EventDetail() {
       const eventQuestions = markets.map((m: Record<string, unknown>) => (m.question as string) || '').filter(Boolean);
       const eventTitle = deriveEventTitle(eventQuestions);
 
+      const isClosed = markets.every((m: Record<string, unknown>) => m.status === 'closed' || m.status === 'resolved');
       const eventData = {
         eventUrl: first.url || '',
         eventTitle,
@@ -407,6 +408,7 @@ export function EventDetail() {
         source: first.source,
         category: first.category || 'other',
         image: first.image || null,
+        isClosed,
         totalVolume: markets.reduce((sum: number, m: Record<string, unknown>) => sum + (Number(m.total_volume) || 0), 0),
         volume24h: markets.reduce((sum: number, m: Record<string, unknown>) => sum + (Number(m.volume_24h) || 0), 0),
         liquidity: Math.max(...markets.map((m: Record<string, unknown>) => Number(m.liquidity) || 0)),
@@ -503,7 +505,9 @@ export function EventDetail() {
                 {event.source.toUpperCase()}
               </Badge>
               <Badge className="text-xs capitalize">{event.category}</Badge>
-              {event.closeTime > 0 && (
+              {event.isClosed ? (
+                <Badge variant="default" className="text-xs !bg-white/10 !text-white/50">CLOSED</Badge>
+              ) : event.closeTime > 0 && (
                 <span className="text-xs text-white/40">{formatTimeLeft(event.closeTime)}</span>
               )}
             </div>
@@ -621,7 +625,7 @@ export function EventDetail() {
                   </span>
 
                   {/* Bet buttons */}
-                  {isAuthenticated && (
+                  {isAuthenticated && !event.isClosed && (
                     <div className="flex gap-1 shrink-0">
                       <button
                         onClick={(e) => {

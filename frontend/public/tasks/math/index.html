@@ -430,14 +430,16 @@
         resultsGrid.appendChild(box);
       });
 
-      console.log('MATH_COMPLETE', {
-        completionTime: totalTime,
-        timestamp: Date.now(),
-        correctCount: correctCount,
-        totalProblems: problems.length,
-        answers: answers,
-        score: finalScore
-      });
+      window.parent.postMessage({
+        type: 'MATH_COMPLETE',
+        data: {
+          score: finalScore,
+          correctCount: correctCount,
+          totalQuestions: problems.length,
+          completionTime: totalTime,
+          answers: answers
+        }
+      }, window.location.origin);
     }
 
     // Start

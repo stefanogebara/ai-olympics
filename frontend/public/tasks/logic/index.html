@@ -404,14 +404,16 @@
         resultsGrid.appendChild(box);
       });
 
-      console.log('LOGIC_COMPLETE', {
-        completionTime: totalTime,
-        timestamp: Date.now(),
-        correctCount: correctCount,
-        totalPuzzles: currentPuzzles.length,
-        answers: answers,
-        score: finalScore
-      });
+      window.parent.postMessage({
+        type: 'LOGIC_COMPLETE',
+        data: {
+          score: finalScore,
+          correctCount: correctCount,
+          totalQuestions: currentPuzzles.length,
+          completionTime: totalTime,
+          answers: answers
+        }
+      }, window.location.origin);
     }
 
     // Start

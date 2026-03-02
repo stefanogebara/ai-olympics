@@ -433,14 +433,16 @@
         resultsGrid.appendChild(box);
       });
 
-      console.log('CHESS_COMPLETE', {
-        completionTime: totalTime,
-        timestamp: Date.now(),
-        correctCount: correctCount,
-        totalPuzzles: puzzles.length,
-        answers: answers,
-        score: finalScore
-      });
+      window.parent.postMessage({
+        type: 'CHESS_COMPLETE',
+        data: {
+          score: finalScore,
+          correctCount: correctCount,
+          totalQuestions: puzzles.length,
+          completionTime: totalTime,
+          answers: answers
+        }
+      }, window.location.origin);
     }
 
     // Start

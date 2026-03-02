@@ -406,15 +406,16 @@
         resultsGrid.appendChild(box);
       });
 
-      console.log('TRIVIA_COMPLETE', {
-        completionTime: totalTime,
-        timestamp: Date.now(),
-        correctCount: correctCount,
-        totalQuestions: questions.length,
-        answers: answers,
-        score: finalScore,
-        timeBonus: timeBonus
-      });
+      window.parent.postMessage({
+        type: 'TRIVIA_COMPLETE',
+        data: {
+          score: finalScore,
+          correctCount: correctCount,
+          totalQuestions: questions.length,
+          completionTime: totalTime,
+          answers: answers
+        }
+      }, window.location.origin);
     }
 
     // Start

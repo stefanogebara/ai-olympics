@@ -409,15 +409,16 @@
         resultsGrid.appendChild(box);
       });
 
-      console.log('WORD_COMPLETE', {
-        completionTime: totalTime,
-        timestamp: Date.now(),
-        correctCount: correctCount,
-        totalPuzzles: puzzles.length,
-        hintsUsed: totalHintsUsed,
-        answers: answers,
-        score: finalScore
-      });
+      window.parent.postMessage({
+        type: 'WORD_COMPLETE',
+        data: {
+          score: finalScore,
+          correctCount: correctCount,
+          totalQuestions: puzzles.length,
+          completionTime: totalTime,
+          answers: answers
+        }
+      }, window.location.origin);
     }
 
     // Start
