@@ -40,11 +40,14 @@ router.get('/', async (req: Request, res: Response) => {
 
     const sourceFilter = (Array.isArray(req.query.source) ? req.query.source[0] : req.query.source) as string | undefined;
 
-    // Build Supabase query
+    const nowMs = Date.now();
+
+    // Build Supabase query — exclude markets that have already closed
     let query = supabase
       .from('aio_markets')
       .select('*', { count: 'exact' })
-      .eq('status', 'open');
+      .eq('status', 'open')
+      .or(`close_time.eq.0,close_time.gt.${nowMs}`);
 
     if (category !== 'all') {
       query = query.eq('category', category);
@@ -505,35 +508,26 @@ router.get('/stats', async (req: Request, res: Response) => {
       .from('aio_sync_status')
       .select('*');
 
-    // Get total counts
-    const { count: totalCount } = await supabase
-      .from('aio_markets')
-      .select('*', { count: 'exact', head: true });
+    // Get total counts — only active (open + not yet past close_time)
+    const nowMs = Date.now();
+    const activeClause = `close_time.eq.0,close_time.gt.${nowMs}`;
 
-    const { count: openCount } = await supabase
-      .from('aio_markets')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'open');
-
-    const { count: polyCount } = await supabase
-      .from('aio_markets')
-      .select('*', { count: 'exact', head: true })
-      .eq('source', 'polymarket');
-
-    const { count: kalshiCount } = await supabase
-      .from('aio_markets')
-      .select('*', { count: 'exact', head: true })
-      .eq('source', 'kalshi');
-
-    const { count: predixCount } = await supabase
-      .from('aio_markets')
-      .select('*', { count: 'exact', head: true })
-      .eq('source', 'predix');
+    const [
+      { count: openCount },
+      { count: polyCount },
+      { count: kalshiCount },
+      { count: predixCount },
+    ] = await Promise.all([
+      supabase.from('aio_markets').select('*', { count: 'exact', head: true }).eq('status', 'open').or(activeClause),
+      supabase.from('aio_markets').select('*', { count: 'exact', head: true }).eq('status', 'open').eq('source', 'polymarket').or(activeClause),
+      supabase.from('aio_markets').select('*', { count: 'exact', head: true }).eq('status', 'open').eq('source', 'kalshi').or(activeClause),
+      supabase.from('aio_markets').select('*', { count: 'exact', head: true }).eq('status', 'open').eq('source', 'predix').or(activeClause),
+    ]);
 
     res.json({
       syncStatus: syncData || [],
       totals: {
-        all: totalCount || 0,
+        all: openCount || 0,
         open: openCount || 0,
         polymarket: polyCount || 0,
         kalshi: kalshiCount || 0,
