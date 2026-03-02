@@ -90,7 +90,7 @@ export const useAuthStore = create<AuthState>()(
             if (profileError) throw profileError;
           }
 
-          set({ user: data.user, session: data.session, isAuthenticated: !!data.user });
+          set({ user: data.user, session: data.session, isAuthenticated: !!data.session });
           if (data.user) {
             await get().loadProfile(data.user.id);
           }

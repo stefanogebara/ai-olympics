@@ -409,7 +409,7 @@ export function PredictionBrowse() {
           <AnimatePresence>
             {events.map((event, index) => (
               <EventCard
-                key={event.eventUrl}
+                key={event.markets[0]?.id ?? event.eventUrl}
                 event={event}
                 index={index}
                 isExpanded={expandedEvents.has(event.eventUrl)}

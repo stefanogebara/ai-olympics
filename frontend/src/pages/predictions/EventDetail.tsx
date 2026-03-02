@@ -47,7 +47,8 @@ interface EventData {
 }
 
 /**
- * Extract short outcome names from grouped questions.
+ * Extract short outcome names from grouped questions by stripping the common prefix.
+ * Only strips the prefix (not suffix) to preserve enough context in the label.
  */
 function extractOutcomeNames(questions: string[]): string[] {
   if (questions.length <= 1) return questions;
@@ -59,20 +60,41 @@ function extractOutcomeNames(questions: string[]): string[] {
     }
   }
 
-  let suffix = questions[0];
+  // Trim to last word boundary to avoid cutting mid-word
+  const trimmedPrefix = prefix.trimEnd();
+  const spaceIdx = trimmedPrefix.lastIndexOf(' ');
+  const safePrefix = spaceIdx > 0 ? trimmedPrefix.slice(0, spaceIdx + 1) : '';
+
+  if (!safePrefix) return questions;
+
+  return questions.map(q => {
+    const name = q.slice(safePrefix.length).trim().replace(/^['"]|['"]$/g, '').trim();
+    return name || q;
+  });
+}
+
+/**
+ * Derive a human-readable event title from the market questions.
+ * For multi-market events, uses the common prefix stripped of trailing prepositions.
+ */
+function deriveEventTitle(questions: string[]): string {
+  if (questions.length === 0) return '';
+  if (questions.length === 1) return questions[0].replace(/\?$/, '');
+
+  let commonPfx = questions[0];
   for (const q of questions) {
-    while (suffix && !q.endsWith(suffix)) {
-      suffix = suffix.slice(1);
+    while (commonPfx && !q.startsWith(commonPfx)) {
+      commonPfx = commonPfx.slice(0, -1);
     }
   }
 
-  const prefixLen = prefix.length;
-  const suffixLen = suffix.length;
+  // Trim to word boundary and strip trailing prepositions/articles
+  const cleaned = commonPfx.trim()
+    .replace(/\s+(on|in|at|by|for|of|to|a|an|the)?\s*$/i, '')
+    .replace(/\?$/, '')
+    .trim();
 
-  return questions.map(q => {
-    const name = q.slice(prefixLen, q.length - suffixLen).trim();
-    return name.replace(/^['"]|['"]$/g, '').trim() || q;
-  });
+  return cleaned || questions[0].replace(/\?$/, '');
 }
 
 function formatVolume(volume: number): string {
@@ -206,7 +228,7 @@ function BetPanel({ marketId, marketSource, marketQuestion, outcome, probability
           portfolio_id: portfolio.id,
           market_id: marketId,
           market_source: marketSource,
-          market_question: marketId,
+          market_question: marketQuestion,
           outcome,
           amount: betAmount,
           shares,
@@ -375,10 +397,8 @@ export function EventDetail() {
 
       // Group into an event object matching the expected shape
       const first = markets[0];
-      const eventTitle = eventSlug
-        .split('-')
-        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
+      const eventQuestions = markets.map((m: Record<string, unknown>) => (m.question as string) || '').filter(Boolean);
+      const eventTitle = deriveEventTitle(eventQuestions);
 
       const eventData = {
         eventUrl: first.url || '',
