@@ -13,10 +13,10 @@ const log = createLogger('PredictionMarketsAPI');
  * GET /api/predictions/competitions/:id/results
  * Get competition results and scores
  */
-router.get('/:id/results', (req: Request, res: Response) => {
+router.get('/:id/results', async (req: Request, res: Response) => {
   try {
     const competitionId = String(req.params.id);
-    const scores = virtualPortfolioManager.calculateFinalScores(competitionId);
+    const scores = await virtualPortfolioManager.calculateFinalScores(competitionId);
 
     res.json({
       competitionId,
@@ -33,10 +33,10 @@ router.get('/:id/results', (req: Request, res: Response) => {
  * GET /api/predictions/competitions/:id/portfolios
  * Get all portfolios for a competition
  */
-router.get('/:id/portfolios', (req: Request, res: Response) => {
+router.get('/:id/portfolios', async (req: Request, res: Response) => {
   try {
     const competitionId = String(req.params.id);
-    const portfolios = virtualPortfolioManager.getCompetitionPortfolios(competitionId);
+    const portfolios = await virtualPortfolioManager.getCompetitionPortfolios(competitionId);
 
     res.json({
       competitionId,

@@ -14,7 +14,7 @@ const log = createLogger('PredictionMarketsAPI');
  * POST /api/predictions/resolve-market
  * Manually resolve a market (admin only, requires auth)
  */
-router.post('/resolve-market', requireAuth, requireAdmin, (req: Request, res: Response) => {
+router.post('/resolve-market', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { competitionId, marketId, resolvedOutcome } = req.body;
 
@@ -25,10 +25,10 @@ router.post('/resolve-market', requireAuth, requireAdmin, (req: Request, res: Re
     }
 
     // Get all portfolios for the competition and resolve the market
-    const portfolios = virtualPortfolioManager.getCompetitionPortfolios(competitionId);
+    const portfolios = await virtualPortfolioManager.getCompetitionPortfolios(competitionId);
 
     for (const portfolio of portfolios) {
-      virtualPortfolioManager.resolveMarket(portfolio.id, marketId, resolvedOutcome);
+      await virtualPortfolioManager.resolveMarket(portfolio.id, marketId, resolvedOutcome);
     }
 
     log.info(`Market ${marketId} resolved to ${resolvedOutcome} for competition ${competitionId}`);

@@ -17,7 +17,7 @@ const log = createLogger('PredictionMarketsAPI');
  * GET /api/predictions/portfolios/:competitionId
  * Get portfolio for a competition (requires agentId query param)
  */
-router.get('/:competitionId', (req: Request, res: Response) => {
+router.get('/:competitionId', async (req: Request, res: Response) => {
   try {
     const competitionId = String(req.params.competitionId);
     const agentId = (Array.isArray(req.query.agentId) ? req.query.agentId[0] : req.query.agentId) as string | undefined;
@@ -26,14 +26,14 @@ router.get('/:competitionId', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'agentId query parameter is required' });
     }
 
-    const portfolioId = virtualPortfolioManager.getPortfolioId(agentId, competitionId);
+    const portfolioId = await virtualPortfolioManager.getPortfolioId(agentId, competitionId);
     if (!portfolioId) {
       // Create new portfolio if it doesn't exist
-      const portfolio = virtualPortfolioManager.createPortfolio(agentId, competitionId);
+      const portfolio = await virtualPortfolioManager.createPortfolio(agentId, competitionId);
       return res.json(portfolio);
     }
 
-    const portfolio = virtualPortfolioManager.getPortfolio(portfolioId);
+    const portfolio = await virtualPortfolioManager.getPortfolio(portfolioId);
     if (!portfolio) {
       return res.status(404).json({ error: 'Portfolio not found' });
     }
@@ -72,7 +72,7 @@ router.post('/:competitionId/bets', requireAuthOrAgent, async (req: Request, res
     }
 
     // Get or create portfolio
-    const portfolio = virtualPortfolioManager.getOrCreatePortfolio(agentId, competitionId);
+    const portfolio = await virtualPortfolioManager.getOrCreatePortfolio(agentId, competitionId);
 
     // Fetch market data from unified service
     const unifiedMarket = await marketService.getMarket(marketId);
@@ -111,7 +111,7 @@ router.post('/:competitionId/bets', requireAuthOrAgent, async (req: Request, res
     };
 
     // Place the bet
-    const result = virtualPortfolioManager.placeBet(
+    const result = await virtualPortfolioManager.placeBet(
       portfolio.id,
       marketForPortfolio,
       outcome,
@@ -151,7 +151,7 @@ router.post('/:competitionId/bets', requireAuthOrAgent, async (req: Request, res
  * GET /api/predictions/portfolios/:competitionId/summary
  * Get portfolio summary
  */
-router.get('/:competitionId/summary', (req: Request, res: Response) => {
+router.get('/:competitionId/summary', async (req: Request, res: Response) => {
   try {
     const competitionId = String(req.params.competitionId);
     const agentId = (Array.isArray(req.query.agentId) ? req.query.agentId[0] : req.query.agentId) as string | undefined;
@@ -160,12 +160,12 @@ router.get('/:competitionId/summary', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'agentId query parameter is required' });
     }
 
-    const portfolioId = virtualPortfolioManager.getPortfolioId(agentId, competitionId);
+    const portfolioId = await virtualPortfolioManager.getPortfolioId(agentId, competitionId);
     if (!portfolioId) {
       return res.status(404).json({ error: 'Portfolio not found' });
     }
 
-    const summary = virtualPortfolioManager.getPortfolioSummary(portfolioId);
+    const summary = await virtualPortfolioManager.getPortfolioSummary(portfolioId);
     res.json({ summary });
   } catch (error) {
     log.error('Error fetching portfolio summary', { error: String(error) });
@@ -177,7 +177,7 @@ router.get('/:competitionId/summary', (req: Request, res: Response) => {
  * DELETE /api/predictions/portfolios/:competitionId
  * Clear portfolio (requires auth)
  */
-router.delete('/:competitionId', requireAuth, (req: Request, res: Response) => {
+router.delete('/:competitionId', requireAuth, async (req: Request, res: Response) => {
   try {
     const competitionId = String(req.params.competitionId);
     const agentId = (Array.isArray(req.query.agentId) ? req.query.agentId[0] : req.query.agentId) as string | undefined;
@@ -186,9 +186,9 @@ router.delete('/:competitionId', requireAuth, (req: Request, res: Response) => {
       return res.status(400).json({ error: 'agentId query parameter is required' });
     }
 
-    const portfolioId = virtualPortfolioManager.getPortfolioId(agentId, competitionId);
+    const portfolioId = await virtualPortfolioManager.getPortfolioId(agentId, competitionId);
     if (portfolioId) {
-      virtualPortfolioManager.clearPortfolio(portfolioId);
+      await virtualPortfolioManager.clearPortfolio(portfolioId);
       log.info(`Cleared portfolio for agent ${agentId} in competition ${competitionId}`);
     }
 

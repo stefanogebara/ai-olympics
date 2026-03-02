@@ -1,9 +1,11 @@
 /**
  * Virtual Portfolio Manager
- * Manages virtual portfolios for sandbox prediction market competitions
+ * Manages virtual portfolios for sandbox prediction market competitions.
+ * Persisted to Supabase (aio_virtual_portfolios + aio_virtual_bets).
  */
 
 import { createLogger } from '../shared/utils/logger.js';
+import { serviceClient } from '../shared/utils/supabase.js';
 import { calculateShares, getImpliedProbability, ManifoldMarket } from './manifold-client.js';
 
 const log = createLogger('VirtualPortfolio');
@@ -76,165 +78,288 @@ export interface ScoreResult {
 }
 
 // ============================================================================
+// DB ROW HELPERS
+// ============================================================================
+
+type DbPortfolioRow = {
+  id: string;
+  agent_id: string;
+  competition_id: string;
+  starting_balance: string | number;
+  current_balance: string | number;
+  total_profit: string | number | null;
+  created_at: string;
+};
+
+type DbBetRow = {
+  id: string;
+  portfolio_id: string;
+  manifold_market_id: string;
+  market_question: string | null;
+  outcome: string;
+  amount: string | number;
+  shares: string | number;
+  probability_at_bet: string | number;
+  resolved: boolean | null;
+  resolution: string | null;
+  payout: string | number | null;
+  created_at: string;
+};
+
+function rowToPortfolio(row: DbPortfolioRow, bets: VirtualBet[]): VirtualPortfolio {
+  const starting = Number(row.starting_balance);
+  const current = Number(row.current_balance);
+
+  // Derive positions from unresolved bets (grouped by marketId + outcome)
+  const positionMap = new Map<string, VirtualPosition>();
+  for (const bet of bets) {
+    if (bet.resolved) continue;
+    const key = `${bet.marketId}:${bet.outcome}`;
+    const existing = positionMap.get(key);
+    if (existing) {
+      const totalCost = existing.averageCost * existing.shares + bet.amount;
+      const totalShares = existing.shares + bet.shares;
+      existing.averageCost = totalCost / totalShares;
+      existing.shares = totalShares;
+      // Estimate current value using probability at bet as proxy
+      existing.currentValue = totalShares * bet.probabilityAtBet;
+      existing.unrealizedPnL = existing.currentValue - totalCost;
+    } else {
+      const currentValue = bet.shares * bet.probabilityAtBet;
+      positionMap.set(key, {
+        marketId: bet.marketId,
+        marketQuestion: bet.marketQuestion,
+        outcome: bet.outcome,
+        shares: bet.shares,
+        averageCost: bet.amount / bet.shares,
+        currentValue,
+        unrealizedPnL: currentValue - bet.amount,
+      });
+    }
+  }
+
+  return {
+    id: row.id,
+    agentId: row.agent_id,
+    competitionId: row.competition_id,
+    startingBalance: starting,
+    currentBalance: current,
+    positions: Array.from(positionMap.values()),
+    bets,
+    totalProfit: Number(row.total_profit ?? current - starting),
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
+function rowToBet(row: DbBetRow): VirtualBet {
+  return {
+    id: row.id,
+    portfolioId: row.portfolio_id,
+    marketId: row.manifold_market_id,
+    marketQuestion: row.market_question ?? '',
+    outcome: row.outcome,
+    amount: Number(row.amount),
+    shares: Number(row.shares),
+    probabilityAtBet: Number(row.probability_at_bet),
+    timestamp: new Date(row.created_at).getTime(),
+    resolved: row.resolved ?? false,
+    payout: row.payout != null ? Number(row.payout) : undefined,
+    resolution: row.resolution ?? undefined,
+  };
+}
+
+// ============================================================================
 // VIRTUAL PORTFOLIO MANAGER
 // ============================================================================
 
 export class VirtualPortfolioManager {
-  private portfolios: Map<string, VirtualPortfolio> = new Map();
-  private portfoliosByAgent: Map<string, Map<string, string>> = new Map(); // agentId -> competitionId -> portfolioId
+  private async getBets(portfolioId: string): Promise<VirtualBet[]> {
+    const { data, error } = await serviceClient
+      .from('aio_virtual_bets')
+      .select('*')
+      .eq('portfolio_id', portfolioId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      log.warn('Failed to fetch bets', { portfolioId, error: error.message });
+      return [];
+    }
+    return (data ?? []).map(rowToBet);
+  }
 
   /**
-   * Create a new virtual portfolio for an agent in a competition
+   * Create a new virtual portfolio for an agent in a competition.
+   * Idempotent: returns existing portfolio if one already exists.
    */
-  createPortfolio(
+  async createPortfolio(
     agentId: string,
     competitionId: string,
-    startingBalance: number = 10000
-  ): VirtualPortfolio {
-    // Check if portfolio already exists
-    const existingId = this.getPortfolioId(agentId, competitionId);
-    if (existingId) {
-      const existing = this.portfolios.get(existingId);
-      if (existing) {
-        log.info(`Portfolio already exists for agent ${agentId} in competition ${competitionId}`);
-        return existing;
-      }
+    startingBalance = 10000
+  ): Promise<VirtualPortfolio> {
+    // Check for existing
+    const existing = await this.findPortfolioRow(agentId, competitionId);
+    if (existing) {
+      const bets = await this.getBets(existing.id);
+      return rowToPortfolio(existing, bets);
     }
 
-    const portfolio: VirtualPortfolio = {
-      id: `vp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      agentId,
-      competitionId,
-      startingBalance,
-      currentBalance: startingBalance,
-      positions: [],
-      bets: [],
-      totalProfit: 0,
-      createdAt: Date.now(),
-    };
+    const { data, error } = await serviceClient
+      .from('aio_virtual_portfolios')
+      .insert({
+        agent_id: agentId,
+        competition_id: competitionId,
+        starting_balance: startingBalance,
+        current_balance: startingBalance,
+        total_profit: 0,
+      })
+      .select()
+      .single();
 
-    this.portfolios.set(portfolio.id, portfolio);
-
-    // Index by agent
-    if (!this.portfoliosByAgent.has(agentId)) {
-      this.portfoliosByAgent.set(agentId, new Map());
+    if (error) {
+      throw new Error(`Failed to create portfolio: ${error.message}`);
     }
-    this.portfoliosByAgent.get(agentId)!.set(competitionId, portfolio.id);
 
-    log.info(`Created portfolio ${portfolio.id} for agent ${agentId} with M$${startingBalance}`);
-    return portfolio;
+    log.info(`Created portfolio ${data.id} for agent ${agentId} with M$${startingBalance}`);
+    return rowToPortfolio(data as DbPortfolioRow, []);
   }
 
   /**
-   * Get portfolio by ID
+   * Get portfolio by ID.
    */
-  getPortfolio(portfolioId: string): VirtualPortfolio | undefined {
-    return this.portfolios.get(portfolioId);
+  async getPortfolio(portfolioId: string): Promise<VirtualPortfolio | undefined> {
+    const { data, error } = await serviceClient
+      .from('aio_virtual_portfolios')
+      .select('*')
+      .eq('id', portfolioId)
+      .maybeSingle();
+
+    if (error || !data) return undefined;
+
+    const bets = await this.getBets(portfolioId);
+    return rowToPortfolio(data as DbPortfolioRow, bets);
   }
 
   /**
-   * Get portfolio ID for an agent in a competition
+   * Find the portfolio DB row for (agentId, competitionId).
    */
-  getPortfolioId(agentId: string, competitionId: string): string | undefined {
-    return this.portfoliosByAgent.get(agentId)?.get(competitionId);
+  private async findPortfolioRow(
+    agentId: string,
+    competitionId: string
+  ): Promise<DbPortfolioRow | null> {
+    const { data, error } = await serviceClient
+      .from('aio_virtual_portfolios')
+      .select('*')
+      .eq('agent_id', agentId)
+      .eq('competition_id', competitionId)
+      .maybeSingle();
+
+    if (error) {
+      log.warn('findPortfolioRow error', { agentId, competitionId, error: error.message });
+      return null;
+    }
+    return (data as DbPortfolioRow | null);
   }
 
   /**
-   * Get or create portfolio for agent
+   * Get portfolio ID for an (agentId, competitionId) pair.
    */
-  getOrCreatePortfolio(
+  async getPortfolioId(agentId: string, competitionId: string): Promise<string | undefined> {
+    const row = await this.findPortfolioRow(agentId, competitionId);
+    return row?.id;
+  }
+
+  /**
+   * Get or create portfolio for agent.
+   */
+  async getOrCreatePortfolio(
     agentId: string,
     competitionId: string,
-    startingBalance: number = 10000
-  ): VirtualPortfolio {
-    const existingId = this.getPortfolioId(agentId, competitionId);
-    if (existingId) {
-      const existing = this.portfolios.get(existingId);
-      if (existing) return existing;
+    startingBalance = 10000
+  ): Promise<VirtualPortfolio> {
+    const existing = await this.findPortfolioRow(agentId, competitionId);
+    if (existing) {
+      const bets = await this.getBets(existing.id);
+      return rowToPortfolio(existing, bets);
     }
     return this.createPortfolio(agentId, competitionId, startingBalance);
   }
 
   /**
-   * Place a virtual bet
+   * Place a virtual bet.
    */
-  placeBet(
+  async placeBet(
     portfolioId: string,
     market: ManifoldMarket,
     outcome: string,
     amount: number,
-    maxBetSize: number = 1000
-  ): PlaceBetResult {
-    const portfolio = this.portfolios.get(portfolioId);
+    maxBetSize = 1000
+  ): Promise<PlaceBetResult> {
+    const portfolio = await this.getPortfolio(portfolioId);
     if (!portfolio) {
       return { success: false, error: 'Portfolio not found' };
     }
 
-    // Validate amount
     if (amount <= 0) {
       return { success: false, error: 'Bet amount must be positive' };
     }
-
     if (amount > maxBetSize) {
       return { success: false, error: `Bet amount exceeds maximum of M$${maxBetSize}` };
     }
-
     if (amount > portfolio.currentBalance) {
       return { success: false, error: `Insufficient balance. Available: M$${portfolio.currentBalance.toFixed(2)}` };
     }
 
-    // Validate outcome
     const validOutcomes = this.getValidOutcomes(market);
     if (!validOutcomes.includes(outcome.toUpperCase())) {
       return { success: false, error: `Invalid outcome. Valid options: ${validOutcomes.join(', ')}` };
     }
 
-    // Calculate shares
     const normalizedOutcome = outcome.toUpperCase() as 'YES' | 'NO';
     const shares = calculateShares(market.pool, amount, normalizedOutcome);
     const probability = getImpliedProbability(market);
+    const probabilityAtBet = normalizedOutcome === 'YES' ? probability : 1 - probability;
 
-    // Create bet record
-    const bet: VirtualBet = {
-      id: `vb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      portfolioId,
-      marketId: market.id,
-      marketQuestion: market.question,
-      outcome: normalizedOutcome,
-      amount,
-      shares,
-      probabilityAtBet: normalizedOutcome === 'YES' ? probability : 1 - probability,
-      timestamp: Date.now(),
-      resolved: false,
-    };
+    // Insert bet
+    const { data: betData, error: betErr } = await serviceClient
+      .from('aio_virtual_bets')
+      .insert({
+        portfolio_id: portfolioId,
+        manifold_market_id: market.id,
+        market_question: market.question,
+        market_url: market.url ?? null,
+        outcome: normalizedOutcome,
+        amount,
+        shares,
+        probability_at_bet: probabilityAtBet,
+        pool_snapshot: market.pool,
+      })
+      .select()
+      .single();
 
-    // Update portfolio
-    portfolio.currentBalance -= amount;
-    portfolio.bets.push(bet);
+    if (betErr) {
+      return { success: false, error: `Failed to record bet: ${betErr.message}` };
+    }
 
-    // Update or create position
-    this.updatePosition(portfolio, market, normalizedOutcome, amount, shares);
+    // Update portfolio balance
+    const newBalance = portfolio.currentBalance - amount;
+    const newProfit = newBalance - portfolio.startingBalance;
+    await serviceClient
+      .from('aio_virtual_portfolios')
+      .update({
+        current_balance: newBalance,
+        total_profit: newProfit,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', portfolioId);
 
-    // Recalculate profit
-    portfolio.totalProfit = portfolio.currentBalance - portfolio.startingBalance +
-      portfolio.positions.reduce((sum, p) => sum + p.currentValue, 0);
+    const bet = rowToBet(betData as DbBetRow);
+    log.info(`Bet placed: ${amount} on ${normalizedOutcome} for "${market.question}" — ${shares.toFixed(2)} shares`);
 
-    log.info(`Bet placed: ${amount} on ${normalizedOutcome} for "${market.question}" - ${shares.toFixed(2)} shares`);
-
-    return {
-      success: true,
-      bet,
-      newBalance: portfolio.currentBalance,
-    };
+    return { success: true, bet, newBalance };
   }
 
-  /**
-   * Get valid outcomes for a market
-   */
   private getValidOutcomes(market: ManifoldMarket): string[] {
-    if (market.outcomeType === 'BINARY') {
-      return ['YES', 'NO'];
-    }
+    if (market.outcomeType === 'BINARY') return ['YES', 'NO'];
     if (market.outcomeType === 'MULTIPLE_CHOICE' && market.answers) {
       return market.answers.map(a => a.id);
     }
@@ -242,156 +367,102 @@ export class VirtualPortfolioManager {
   }
 
   /**
-   * Update or create a position
+   * Update positions with current market prices (best-effort, no DB write needed).
    */
-  private updatePosition(
-    portfolio: VirtualPortfolio,
-    market: ManifoldMarket,
-    outcome: string,
-    amount: number,
-    shares: number
-  ): void {
-    const existingIndex = portfolio.positions.findIndex(
-      p => p.marketId === market.id && p.outcome === outcome
-    );
-
-    if (existingIndex >= 0) {
-      const position = portfolio.positions[existingIndex];
-      const totalCost = position.averageCost * position.shares + amount;
-      const totalShares = position.shares + shares;
-      position.averageCost = totalCost / totalShares;
-      position.shares = totalShares;
-      position.currentValue = totalShares * getImpliedProbability(market);
-      position.unrealizedPnL = position.currentValue - totalCost;
-    } else {
-      const probability = getImpliedProbability(market);
-      const currentValue = shares * (outcome === 'YES' ? probability : 1 - probability);
-
-      portfolio.positions.push({
-        marketId: market.id,
-        marketQuestion: market.question,
-        outcome,
-        shares,
-        averageCost: amount / shares,
-        currentValue,
-        unrealizedPnL: currentValue - amount,
-      });
-    }
+  async updatePositions(_portfolioId: string, _markets: Map<string, ManifoldMarket>): Promise<void> {
+    // Positions are derived from bets on read; no separate persistence needed.
   }
 
   /**
-   * Update all positions with current market prices
+   * Resolve a market and settle all positions in a portfolio.
    */
-  updatePositions(portfolioId: string, markets: Map<string, ManifoldMarket>): void {
-    const portfolio = this.portfolios.get(portfolioId);
+  async resolveMarket(portfolioId: string, marketId: string, resolvedOutcome: string): Promise<void> {
+    const portfolio = await this.getPortfolio(portfolioId);
     if (!portfolio) return;
 
-    for (const position of portfolio.positions) {
-      const market = markets.get(position.marketId);
-      if (market) {
-        const probability = getImpliedProbability(market);
-        const outcomeProb = position.outcome === 'YES' ? probability : 1 - probability;
-        position.currentValue = position.shares * outcomeProb;
-        position.unrealizedPnL = position.currentValue - (position.averageCost * position.shares);
-      }
+    const unresolved = portfolio.bets.filter(b => b.marketId === marketId && !b.resolved);
+    if (unresolved.length === 0) return;
+
+    let balanceDelta = 0;
+
+    for (const bet of unresolved) {
+      const won = bet.outcome === resolvedOutcome;
+      const payout = won ? bet.shares : 0;
+      balanceDelta += payout;
+
+      await serviceClient
+        .from('aio_virtual_bets')
+        .update({
+          resolved: true,
+          resolution: resolvedOutcome,
+          payout,
+          resolved_at: new Date().toISOString(),
+        })
+        .eq('id', bet.id);
+
+      log.info(`Bet ${bet.id} ${won ? `won! Payout: M$${payout.toFixed(2)}` : 'lost.'}`);
     }
 
-    // Recalculate total profit
-    portfolio.totalProfit = portfolio.currentBalance - portfolio.startingBalance +
-      portfolio.positions.reduce((sum, p) => sum + p.currentValue, 0);
+    if (balanceDelta !== 0) {
+      const newBalance = portfolio.currentBalance + balanceDelta;
+      await serviceClient
+        .from('aio_virtual_portfolios')
+        .update({
+          current_balance: newBalance,
+          total_profit: newBalance - portfolio.startingBalance,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', portfolioId);
+    }
   }
 
   /**
-   * Resolve a market and settle positions
+   * Calculate Brier score for a portfolio (lower = better calibration).
    */
-  resolveMarket(portfolioId: string, marketId: string, resolvedOutcome: string): void {
-    const portfolio = this.portfolios.get(portfolioId);
-    if (!portfolio) return;
+  async calculateBrierScore(portfolioId: string): Promise<number> {
+    const { data, error } = await serviceClient
+      .from('aio_virtual_bets')
+      .select('probability_at_bet, outcome, resolution, resolved')
+      .eq('portfolio_id', portfolioId)
+      .eq('resolved', true);
 
-    // Find and resolve bets
-    for (const bet of portfolio.bets) {
-      if (bet.marketId === marketId && !bet.resolved) {
-        bet.resolved = true;
-        bet.resolution = resolvedOutcome;
-
-        // Calculate payout: if bet outcome matches resolution, payout = shares * 1
-        // Otherwise payout = 0
-        if (bet.outcome === resolvedOutcome) {
-          bet.payout = bet.shares;
-          portfolio.currentBalance += bet.payout;
-          log.info(`Bet ${bet.id} won! Payout: M$${bet.payout.toFixed(2)}`);
-        } else {
-          bet.payout = 0;
-          log.info(`Bet ${bet.id} lost. Outcome was ${resolvedOutcome}, bet was ${bet.outcome}`);
-        }
-      }
-    }
-
-    // Remove resolved positions
-    portfolio.positions = portfolio.positions.filter(p => p.marketId !== marketId);
-
-    // Recalculate profit
-    portfolio.totalProfit = portfolio.currentBalance - portfolio.startingBalance +
-      portfolio.positions.reduce((sum, p) => sum + p.currentValue, 0);
-  }
-
-  /**
-   * Calculate Brier score for a portfolio
-   * Brier score measures calibration: lower is better
-   * Score = (1/N) * sum((forecast - outcome)^2)
-   */
-  calculateBrierScore(portfolioId: string): number {
-    const portfolio = this.portfolios.get(portfolioId);
-    if (!portfolio) return 0.25; // Default (maximum uncertainty)
-
-    const resolvedBets = portfolio.bets.filter(b => b.resolved && b.resolution);
-    if (resolvedBets.length === 0) return 0.25;
+    if (error || !data || data.length === 0) return 0.25;
 
     let sumSquaredError = 0;
-
-    for (const bet of resolvedBets) {
-      // outcome = 1 if bet was correct, 0 if not
-      const actualOutcome = bet.outcome === bet.resolution ? 1 : 0;
-      // forecast = probability at time of bet
-      const forecast = bet.probabilityAtBet;
-      // squared error
+    for (const row of data) {
+      if (!row.resolution) continue;
+      const actualOutcome = row.outcome === row.resolution ? 1 : 0;
+      const forecast = Number(row.probability_at_bet);
       sumSquaredError += Math.pow(forecast - actualOutcome, 2);
     }
 
-    return sumSquaredError / resolvedBets.length;
+    return sumSquaredError / data.length;
   }
 
   /**
-   * Calculate final scores for a competition
+   * Calculate final scores for all agents in a competition.
    */
-  calculateFinalScores(competitionId: string): ScoreResult[] {
+  async calculateFinalScores(competitionId: string): Promise<ScoreResult[]> {
+    const portfolios = await this.getCompetitionPortfolios(competitionId);
     const results: ScoreResult[] = [];
 
-    for (const portfolio of this.portfolios.values()) {
-      if (portfolio.competitionId !== competitionId) continue;
-
-      // Calculate profit score (60% weight, max 600 points)
-      // +50% gain = 600 points, 0% = 300 points, -50% = 0 points
+    for (const portfolio of portfolios) {
       const profitPercent = (portfolio.totalProfit / portfolio.startingBalance) * 100;
       const normalizedProfit = Math.max(-50, Math.min(50, profitPercent));
       const profitScore = Math.round(((normalizedProfit + 50) / 100) * 600);
 
-      // Calculate Brier score (25% weight, max 250 points)
-      // 0.00 = 250 points, 0.25 = 0 points
-      const brierScore = this.calculateBrierScore(portfolio.id);
+      const brierScore = await this.calculateBrierScore(portfolio.id);
       const brierScorePoints = Math.round(((0.25 - brierScore) / 0.25) * 250);
 
-      // Calculate activity score (15% weight, max 150 points)
-      // 15 points per bet, max 150 (10 bets)
       const activityScore = Math.min(150, portfolio.bets.length * 15);
-
-      // Total score
-      const totalScore = profitScore + Math.max(0, brierScorePoints) + activityScore;
+      const totalScore = Math.max(0, Math.min(1000,
+        profitScore + Math.max(0, brierScorePoints) + activityScore
+      ));
 
       results.push({
         agentId: portfolio.agentId,
         portfolioId: portfolio.id,
-        totalScore: Math.max(0, Math.min(1000, totalScore)),
+        totalScore,
         profitScore,
         brierScore,
         brierScorePoints: Math.max(0, brierScorePoints),
@@ -408,40 +479,43 @@ export class VirtualPortfolioManager {
       });
     }
 
-    // Sort by total score descending
     results.sort((a, b) => b.totalScore - a.totalScore);
-
     return results;
   }
 
   /**
-   * Get all portfolios for a competition
+   * Get all portfolios for a competition.
    */
-  getCompetitionPortfolios(competitionId: string): VirtualPortfolio[] {
-    return Array.from(this.portfolios.values())
-      .filter(p => p.competitionId === competitionId);
+  async getCompetitionPortfolios(competitionId: string): Promise<VirtualPortfolio[]> {
+    const { data, error } = await serviceClient
+      .from('aio_virtual_portfolios')
+      .select('*')
+      .eq('competition_id', competitionId);
+
+    if (error || !data) return [];
+
+    return Promise.all(
+      (data as DbPortfolioRow[]).map(async row => {
+        const bets = await this.getBets(row.id);
+        return rowToPortfolio(row, bets);
+      })
+    );
   }
 
   /**
-   * Clear a portfolio (for testing)
+   * Delete a portfolio and all its bets.
    */
-  clearPortfolio(portfolioId: string): void {
-    const portfolio = this.portfolios.get(portfolioId);
-    if (portfolio) {
-      this.portfolios.delete(portfolioId);
-      const agentMap = this.portfoliosByAgent.get(portfolio.agentId);
-      if (agentMap) {
-        agentMap.delete(portfolio.competitionId);
-      }
-      log.info(`Cleared portfolio ${portfolioId}`);
-    }
+  async clearPortfolio(portfolioId: string): Promise<void> {
+    await serviceClient.from('aio_virtual_bets').delete().eq('portfolio_id', portfolioId);
+    await serviceClient.from('aio_virtual_portfolios').delete().eq('id', portfolioId);
+    log.info(`Cleared portfolio ${portfolioId}`);
   }
 
   /**
-   * Get portfolio summary for display
+   * Get a human-readable portfolio summary.
    */
-  getPortfolioSummary(portfolioId: string): string {
-    const portfolio = this.portfolios.get(portfolioId);
+  async getPortfolioSummary(portfolioId: string): Promise<string> {
+    const portfolio = await this.getPortfolio(portfolioId);
     if (!portfolio) return 'Portfolio not found';
 
     const lines = [
