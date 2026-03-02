@@ -108,6 +108,7 @@ function formatTimeLeft(timestamp: number): string {
 
 interface BetPanelProps {
   marketId: string;
+  marketSource: string;
   marketQuestion: string;
   outcome: string;
   probability: number;
@@ -115,7 +116,7 @@ interface BetPanelProps {
   onSuccess: () => void;
 }
 
-function BetPanel({ marketId, marketQuestion, outcome, probability, onClose, onSuccess }: BetPanelProps) {
+function BetPanel({ marketId, marketSource, marketQuestion, outcome, probability, onClose, onSuccess }: BetPanelProps) {
   const { session } = useAuthStore();
   const [amount, setAmount] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -204,7 +205,7 @@ function BetPanel({ marketId, marketQuestion, outcome, probability, onClose, onS
           user_id: authUser.id,
           portfolio_id: portfolio.id,
           market_id: marketId,
-          market_source: 'polymarket',
+          market_source: marketSource,
           market_question: marketId,
           outcome,
           amount: betAmount,
@@ -650,6 +651,7 @@ export function EventDetail() {
                   {activeBet?.marketId === market.id && (
                     <BetPanel
                       marketId={market.id}
+                      marketSource={event.source}
                       marketQuestion={market.question}
                       outcome={activeBet.outcome}
                       probability={
