@@ -86,33 +86,24 @@ export function PredictionBrowse() {
 
   const loadCategories = async () => {
     try {
-      // Use parallel count queries per source to avoid Supabase 1000-row default cap.
-      // head:true silently returns null count; use limit(1) instead — PostgREST always
-      // returns the full filtered count in Content-Range regardless of row limit.
-      const SOURCES = ['polymarket', 'kalshi', 'predix'];
-      const [allResult, ...sourceResults] = await Promise.all([
-        supabase.from('aio_markets').select('id', { count: 'exact' }).eq('status', 'open').limit(1),
-        ...SOURCES.map((src) =>
-          supabase.from('aio_markets').select('id', { count: 'exact' }).eq('status', 'open').eq('source', src).limit(1)
-        ),
+      // Fetch source counts from backend stats API (Supabase count:exact is unreliable here)
+      const statsUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || 'https://ai-olympics-api.fly.dev';
+      const [statsRes, catRes] = await Promise.all([
+        fetch(`${statsUrl}/api/predictions/stats`).then(r => r.ok ? r.json() : null).catch(() => null),
+        supabase.from('aio_markets').select('category').eq('status', 'open').limit(1000),
       ]);
 
-      const allCount = allResult.count ?? 0;
+      // Source counts from stats API
+      const totals = statsRes?.totals ?? {};
+      const allCount: number = totals.open ?? totals.all ?? 0;
       const srcCounts: Record<string, number> = {};
-      SOURCES.forEach((src, i) => {
-        const c = sourceResults[i].count ?? 0;
-        if (c > 0) srcCounts[src] = c;
-      });
+      if (totals.polymarket) srcCounts['polymarket'] = totals.polymarket;
+      if (totals.kalshi) srcCounts['kalshi'] = totals.kalshi;
+      if (totals.predix) srcCounts['predix'] = totals.predix;
 
-      // For category breakdown, fetch a sample to get the distribution
-      const { data: catData } = await supabase
-        .from('aio_markets')
-        .select('category')
-        .eq('status', 'open')
-        .limit(1000);
-
+      // Category distribution from row sample
       const counts: Record<string, number> = {};
-      for (const row of catData || []) {
+      for (const row of catRes.data || []) {
         const cat = row.category || 'other';
         counts[cat] = (counts[cat] || 0) + 1;
       }
