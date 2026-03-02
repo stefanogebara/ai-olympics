@@ -133,10 +133,11 @@ export class PredixClient {
 
     try {
       const url = `${PREDIX_API}/midpoints`;
+      // Predix expects a plain array of token IDs (not { token_ids: [...] })
       const response = await rateLimitedFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token_ids: tokenIds }),
+        body: JSON.stringify(tokenIds),
       });
 
       if (!response.ok) {
@@ -145,8 +146,13 @@ export class PredixClient {
       }
 
       const data = await response.json();
-      // API may return { [tokenId]: mid } or { data: { [tokenId]: mid } }
-      return (data?.data ?? data) as PredixMidpoints;
+      // Response is { [tokenId]: "0.47" } — prices are strings, convert to numbers
+      const raw = (data?.data ?? data) as Record<string, string | number>;
+      const result: PredixMidpoints = {};
+      for (const [k, v] of Object.entries(raw)) {
+        result[k] = typeof v === 'number' ? v : parseFloat(v as string);
+      }
+      return result;
     } catch (error) {
       log.warn('Failed to fetch Predix midpoints', { error: String(error) });
       return {};

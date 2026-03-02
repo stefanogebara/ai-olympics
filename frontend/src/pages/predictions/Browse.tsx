@@ -86,12 +86,14 @@ export function PredictionBrowse() {
 
   const loadCategories = async () => {
     try {
-      // Use parallel count queries per source to avoid Supabase 1000-row default cap
+      // Use parallel count queries per source to avoid Supabase 1000-row default cap.
+      // head:true silently returns null count; use limit(1) instead — PostgREST always
+      // returns the full filtered count in Content-Range regardless of row limit.
       const SOURCES = ['polymarket', 'kalshi', 'predix'];
       const [allResult, ...sourceResults] = await Promise.all([
-        supabase.from('aio_markets').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+        supabase.from('aio_markets').select('id', { count: 'exact' }).eq('status', 'open').limit(1),
         ...SOURCES.map((src) =>
-          supabase.from('aio_markets').select('*', { count: 'exact', head: true }).eq('status', 'open').eq('source', src)
+          supabase.from('aio_markets').select('id', { count: 'exact' }).eq('status', 'open').eq('source', src).limit(1)
         ),
       ]);
 
