@@ -9,8 +9,8 @@ import { createLogger } from '../shared/utils/logger.js';
 import { circuits } from '../shared/utils/circuit-breaker.js';
 
 const log = createLogger('PredixClient');
-const PREDIX_API = 'https://api.predixbr.com';
-const PREDIX_WS = 'wss://api.predixbr.com/ws/market';
+const PREDIX_API = 'https://predixbr.com/api';
+const PREDIX_WS = 'wss://predixbr.com/ws/market';
 
 // Rate limiting — conservative to avoid bans (30 req/min)
 const RATE_LIMIT_WINDOW = 60_000;
@@ -212,7 +212,7 @@ export class PredixClient {
       status = 'closed';
     }
 
-    const closeDate = market.endDate || market.closingDate;
+    const closeDate = (market as any).closeDate || market.endDate || market.closingDate;
     const closeTime = closeDate ? new Date(closeDate).getTime() : 0;
 
     return {
