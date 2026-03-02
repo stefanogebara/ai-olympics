@@ -324,12 +324,10 @@ class MarketSyncService {
       }
 
       // Normalize markets to unified format
-      // Always re-detect category for Predix (small set, Portuguese content needs accurate detection)
-      const normalized: UnifiedMarket[] = markets.map(m => {
-        const unified = predixClient.normalizeMarket(m, midpoints);
-        unified.category = marketService.detectCategory(unified);
-        return unified;
-      });
+      // normalizeMarket already uses Portuguese-aware detectCategory internally — don't overwrite
+      const normalized: UnifiedMarket[] = markets.map(m =>
+        predixClient.normalizeMarket(m, midpoints)
+      );
 
       await this.upsertMarkets(normalized, 'predix');
       log.info(`Predix sync complete: ${normalized.length} markets upserted`);
