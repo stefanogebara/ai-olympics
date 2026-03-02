@@ -14,8 +14,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const {
   mockCreateLocalSandbox, mockStopSandbox, mockSandboxCleanup,
-  MockAgentRunner, mockRunTask, mockRunnerInitialize, mockRunnerCleanup,
-  MockPrecisionTimer, mockTimerStart, mockTimerStop, mockTimerPause, mockTimerResume, mockTimerElapsed,
+  mockRunTask, mockRunnerInitialize, mockRunnerCleanup,
+  mockTimerStart, mockTimerStop, mockTimerPause, mockTimerResume, mockTimerElapsed,
   mockJudgeSubmission,
   mockSaveSnapshot, mockRemoveSnapshot, mockDeleteEventLog,
   mockEventBusEmit, mockCreateStreamEvent,
@@ -29,24 +29,12 @@ const {
   const mockRunTask = vi.fn();
   const mockRunnerInitialize = vi.fn();
   const mockRunnerCleanup = vi.fn();
-  const MockAgentRunner = vi.fn().mockImplementation(() => ({
-    initialize: mockRunnerInitialize,
-    runTask: mockRunTask,
-    cleanup: mockRunnerCleanup,
-  }));
 
   const mockTimerStart = vi.fn();
   const mockTimerStop = vi.fn();
   const mockTimerPause = vi.fn();
   const mockTimerResume = vi.fn();
   const mockTimerElapsed = vi.fn().mockReturnValue(5000);
-  const MockPrecisionTimer = vi.fn().mockImplementation(() => ({
-    start: mockTimerStart,
-    stop: mockTimerStop,
-    pause: mockTimerPause,
-    resume: mockTimerResume,
-    elapsed: mockTimerElapsed,
-  }));
 
   const mockJudgeSubmission = vi.fn();
   const mockSaveSnapshot = vi.fn();
@@ -64,8 +52,8 @@ const {
 
   return {
     mockCreateLocalSandbox, mockStopSandbox, mockSandboxCleanup,
-    MockAgentRunner, mockRunTask, mockRunnerInitialize, mockRunnerCleanup,
-    MockPrecisionTimer, mockTimerStart, mockTimerStop, mockTimerPause, mockTimerResume, mockTimerElapsed,
+    mockRunTask, mockRunnerInitialize, mockRunnerCleanup,
+    mockTimerStart, mockTimerStop, mockTimerPause, mockTimerResume, mockTimerElapsed,
     mockJudgeSubmission, mockSaveSnapshot, mockRemoveSnapshot, mockDeleteEventLog,
     mockEventBusEmit, mockCreateStreamEvent,
     mockNanoid,
@@ -74,7 +62,13 @@ const {
 });
 
 vi.mock('nanoid', () => ({ nanoid: mockNanoid }));
-vi.mock('../agents/runner.js', () => ({ AgentRunner: MockAgentRunner }));
+vi.mock('../agents/runner.js', () => ({
+  AgentRunner: class {
+    initialize = mockRunnerInitialize;
+    runTask = mockRunTask;
+    cleanup = mockRunnerCleanup;
+  },
+}));
 vi.mock('./sandbox-manager.js', () => ({
   sandboxManager: {
     createLocalSandbox: mockCreateLocalSandbox,
@@ -87,7 +81,13 @@ vi.mock('../shared/utils/events.js', () => ({
   createStreamEvent: mockCreateStreamEvent,
 }));
 vi.mock('../shared/utils/timer.js', () => ({
-  PrecisionTimer: MockPrecisionTimer,
+  PrecisionTimer: class {
+    start = mockTimerStart;
+    stop = mockTimerStop;
+    pause = mockTimerPause;
+    resume = mockTimerResume;
+    elapsed = mockTimerElapsed;
+  },
   formatDuration: vi.fn().mockReturnValue('5s'),
 }));
 vi.mock('../services/judging-service.js', () => ({
@@ -138,17 +138,6 @@ const successResult = { success: true, result: 'done', completionTime: 30000, ac
 beforeEach(() => {
   vi.useFakeTimers();
   vi.resetAllMocks();
-
-  // Re-apply constructor mocks after resetAllMocks
-  MockPrecisionTimer.mockImplementation(() => ({
-    start: mockTimerStart, stop: mockTimerStop, pause: mockTimerPause,
-    resume: mockTimerResume, elapsed: mockTimerElapsed,
-  }));
-  MockAgentRunner.mockImplementation(() => ({
-    initialize: mockRunnerInitialize,
-    runTask: mockRunTask,
-    cleanup: mockRunnerCleanup,
-  }));
 
   // Re-apply resolved values
   mockCreateLocalSandbox.mockResolvedValue({ id: 'sandbox-1', status: 'ready', browserEndpoint: 'local' });
