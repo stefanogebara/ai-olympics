@@ -324,11 +324,10 @@ class MarketSyncService {
       }
 
       // Normalize markets to unified format
+      // Always re-detect category for Predix (small set, Portuguese content needs accurate detection)
       const normalized: UnifiedMarket[] = markets.map(m => {
         const unified = predixClient.normalizeMarket(m, midpoints);
-        if (!unified.category || unified.category === 'other') {
-          unified.category = marketService.detectCategory(unified);
-        }
+        unified.category = marketService.detectCategory(unified);
         return unified;
       });
 
