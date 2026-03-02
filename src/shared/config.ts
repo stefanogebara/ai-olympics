@@ -224,7 +224,7 @@ export function validateConfig(): { valid: boolean; errors: string[]; warnings: 
       warnings.push('PLATFORM_WALLET_ADDRESS not set - crypto payments will be unavailable');
     }
     if (!config.platformWalletPrivateKey) {
-      errors.push('PLATFORM_WALLET_PRIVATE_KEY is required when real-money trading is enabled');
+      warnings.push('PLATFORM_WALLET_PRIVATE_KEY not set - crypto payouts will be unavailable');
     }
   }
 
@@ -316,11 +316,7 @@ export function validateSecrets(): { valid: boolean; errors: string[]; warnings:
   // Platform wallet private key (only if crypto payments enabled)
   if (featureFlags.cryptoPayments || featureFlags.realMoneyTrading) {
     if (!config.platformWalletPrivateKey) {
-      if (isProduction) {
-        errors.push('PLATFORM_WALLET_PRIVATE_KEY is required when real-money or crypto features are enabled');
-      } else {
-        warnings.push('PLATFORM_WALLET_PRIVATE_KEY not set - crypto payouts disabled');
-      }
+      warnings.push('PLATFORM_WALLET_PRIVATE_KEY not set - crypto payouts disabled');
     }
     if (isProduction && config.platformWalletPrivateKey) {
       warnings.push('PLATFORM_WALLET_PRIVATE_KEY is in an env var - migrate to KMS/Vault for production');
