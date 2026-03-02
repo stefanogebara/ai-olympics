@@ -244,22 +244,28 @@ export class PredixClient {
   private detectCategory(market: PredixMarket): string {
     const text = `${market.question} ${market.description ?? ''} ${market.category ?? ''}`;
 
-    if (/\bcrypto\b|\bbitcoin\b|\bethereum\b|\bsolana\b|\bbase\b|\bdefi\b|\bnft\b|\btoken\b/i.test(text)) {
-      return 'crypto';
-    }
-    if (/\bfutebol\b|\bsoccer\b|\bnfl\b|\bnba\b|\bchampion|\bcopa\b|\btaça\b|\bvôlei\b|\btênis\b/i.test(text)) {
+    // Sports — check before crypto to avoid "Copa" / "base" false positives
+    if (/\bfutebol\b|\bsoccer\b|\bnfl\b|\bnba\b|\bchampion|\bcopa do mundo\b|\btaça\b|\bvôlei\b|\btênis\b|\bneymar\b|\bhaaland\b|\bmbappé\b|\bhexa\b|\bolímpico\b|\bolimpíada\b|\bgol\b|\bchampions\b|\bpremier league\b|\buniversíade\b|\bfórmula 1\b|\bf1\b|\bmma\b|\bufc\b|\bbasquete\b|\bnba\b|\bmlb\b|\bnhl\b|\btennis\b|\bwimbledon\b|\bfifa\b|\bcopa\b/i.test(text)) {
       return 'sports';
     }
-    if (/\belei[çc]ão\b|\bpresidente\b|\bpolítica\b|\bcongresso\b|\bsenado\b|\bvoto\b|\bpartido\b/i.test(text)) {
+    // Politics — check before entertainment to avoid BBB/Oscar overlaps
+    if (/\belei[çc]ão\b|\bpresidente\b|\bpolítica\b|\bcongresso\b|\bsenado\b|\bvoto\b|\bpartido\b|\bgovernador\b|\bprefeito\b|\blula\b|\bbolsonaro\b|\btrump\b|\bpresidencial\b|\bcandidato\b|\bparlamento\b|\bministro\b/i.test(text)) {
       return 'politics';
     }
-    if (/\bai\b|\bartificial intelligence\b|\bclaude\b|\bgpt\b|\bentretenimento\b/i.test(text)) {
-      return 'ai-tech';
-    }
-    if (/\bfilme\b|\bmúsica\b|\bsérie\b|\bartista\b|\bshow\b|\bmusic\b|\bfilm\b/i.test(text)) {
+    // Entertainment — Oscar, BBB, reality shows, music, film
+    if (/\boscar\b|\bbbb\b|\bbig brother\b|\breality\b|\bfilme\b|\bmúsica\b|\bsérie\b|\bartista\b|\bshow\b|\bmusic\b|\bfilm\b|\bcantor\b|\bcantora\b|\bálbum\b|\bgranmy\b|\bgrammy\b|\bmelhor ator\b|\bmelhor atriz\b|\bmelhor filme\b|\bactor\b|\bactress\b|\bnetflix\b|\bstreaming\b|\bpremio\b|\bprêmio\b/i.test(text)) {
       return 'entertainment';
     }
-    if (/\bação\b|\bbolsa\b|\bmercado\b|\beconomia\b|\binflação\b|\bfinance\b|\bstock\b/i.test(text)) {
+    // Crypto — explicit crypto terms only (removed generic "base" to avoid false positives)
+    if (/\bcrypto\b|\bbitcoin\b|\bethereum\b|\bsolana\b|\bdefi\b|\bnft\b|\btoken\b|\bblockchain\b|\bcripto\b|\bweb3\b/i.test(text)) {
+      return 'crypto';
+    }
+    // AI & Tech
+    if (/\bartificial intelligence\b|\bclaude\b|\bgpt\b|\bopenai\b|\bgemini\b|\bllm\b|\bintelig[eê]ncia artificial\b|\btecnologia\b/i.test(text)) {
+      return 'ai-tech';
+    }
+    // Finance
+    if (/\bação\b|\bbolsa\b|\bmercado financeiro\b|\beconomia\b|\binflação\b|\bfinance\b|\bstock\b|\bdólar\b|\bjuros\b|\bpib\b|\bgdp\b|\bselic\b/i.test(text)) {
       return 'finance';
     }
 
