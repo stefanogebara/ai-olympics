@@ -19,7 +19,6 @@ const {
   mockCreateContainer,
   mockGetContainer,
   mockListContainers,
-  mockDockerInstance,
   MockDocker,
   mockMkdirSync,
   mockWriteFileSync,
@@ -35,15 +34,15 @@ const {
   const mockGetContainer = vi.fn();
   const mockListContainers = vi.fn();
 
-  const mockDockerInstance = {
-    listNetworks: mockListNetworks,
-    createNetwork: mockCreateNetwork,
-    getImage: mockGetImage,
-    createContainer: mockCreateContainer,
-    getContainer: mockGetContainer,
-    listContainers: mockListContainers,
-  };
-  const MockDocker = vi.fn().mockReturnValue(mockDockerInstance);
+  // Class mock so `new Dockerode()` works in Vitest 4.x ESM
+  class MockDocker {
+    listNetworks = mockListNetworks;
+    createNetwork = mockCreateNetwork;
+    getImage = mockGetImage;
+    createContainer = mockCreateContainer;
+    getContainer = mockGetContainer;
+    listContainers = mockListContainers;
+  }
 
   const mockMkdirSync = vi.fn();
   const mockWriteFileSync = vi.fn();
@@ -68,7 +67,7 @@ const {
   return {
     mockListNetworks, mockCreateNetwork, mockGetImage,
     mockCreateContainer, mockGetContainer, mockListContainers,
-    mockDockerInstance, MockDocker,
+    MockDocker,
     mockMkdirSync, mockWriteFileSync, mockRmSync,
     mockNanoid, mockTmpdir, mockConfig,
   };
@@ -123,7 +122,6 @@ let manager: SandboxManager;
 
 beforeEach(() => {
   vi.resetAllMocks();
-  MockDocker.mockReturnValue(mockDockerInstance);
   mockNanoid.mockReturnValue('abc12345');
   mockTmpdir.mockReturnValue('/tmp');
 
