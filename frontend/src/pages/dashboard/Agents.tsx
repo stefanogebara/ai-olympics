@@ -30,6 +30,7 @@ export function AgentsList() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile?.id) {
@@ -60,7 +61,9 @@ export function AgentsList() {
       .update({ is_active: !agent.is_active })
       .eq('id', agent.id);
 
-    if (!error) {
+    if (error) {
+      setMutationError('Failed to update agent status. Please try again.');
+    } else {
       setAgents(prev => prev.map(a =>
         a.id === agent.id ? { ...a, is_active: !a.is_active } : a
       ));
@@ -73,7 +76,9 @@ export function AgentsList() {
       .update({ is_public: !agent.is_public })
       .eq('id', agent.id);
 
-    if (!error) {
+    if (error) {
+      setMutationError('Failed to update agent visibility. Please try again.');
+    } else {
       setAgents(prev => prev.map(a =>
         a.id === agent.id ? { ...a, is_public: !a.is_public } : a
       ));
@@ -86,7 +91,9 @@ export function AgentsList() {
       .delete()
       .eq('id', agentId);
 
-    if (!error) {
+    if (error) {
+      setMutationError('Failed to delete agent. Please try again.');
+    } else {
       setAgents(prev => prev.filter(a => a.id !== agentId));
       setDeleteConfirm(null);
     }
@@ -94,6 +101,13 @@ export function AgentsList() {
 
   return (
     <div className="space-y-6">
+      {/* Mutation error */}
+      {mutationError && (
+        <div className="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400 flex items-center justify-between">
+          <span>{mutationError}</span>
+          <button onClick={() => setMutationError(null)} className="text-red-400/60 hover:text-red-400 ml-4">✕</button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
