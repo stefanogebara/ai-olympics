@@ -166,6 +166,8 @@ class MarketSyncService {
   // =========================================================================
 
   async syncPlatform(platform: 'polymarket' | 'kalshi'): Promise<number> {
+    // Record start time — used to tombstone markets that fell off the live list
+    const syncStart = new Date().toISOString();
     let cursor: string | undefined;
     let total = 0;
     let consecutiveErrors = 0;
@@ -218,6 +220,13 @@ class MarketSyncService {
         }
         await delay(REQUEST_DELAY_MS * 2);
       }
+    }
+
+    // Tombstone markets that were open in DB but not returned by this sync.
+    // Any row still open with synced_at < syncStart was skipped by the API,
+    // meaning it has resolved or closed since the last sync.
+    if (total > 0) {
+      await this.tombstaleMarkets(platform, syncStart);
     }
 
     return total;
@@ -301,6 +310,8 @@ class MarketSyncService {
   async syncPredix(): Promise<number> {
     try {
       log.info('Syncing Predix markets...');
+      const syncStart = new Date().toISOString();
+
       const markets = await predixClient.getMarkets({ status: 'open' });
 
       if (markets.length === 0) {
@@ -330,11 +341,45 @@ class MarketSyncService {
       );
 
       await this.upsertMarkets(normalized, 'predix');
+
+      // Tombstone Predix markets no longer returned as open
+      await this.tombstaleMarkets('predix', syncStart);
+
       log.info(`Predix sync complete: ${normalized.length} markets upserted`);
       return normalized.length;
     } catch (error) {
       log.error('Predix sync failed', { error: String(error) });
       return 0;
+    }
+  }
+
+  // =========================================================================
+  // TOMBSTONE STALE MARKETS
+  // =========================================================================
+
+  /**
+   * Mark markets as 'closed' when they no longer appear in the source's open-market
+   * response. Uses synced_at timestamp: any row still 'open' but with synced_at
+   * before syncStart was not touched by the just-completed sync, meaning the source
+   * dropped it (resolved, cancelled, or expired).
+   */
+  private async tombstaleMarkets(source: string, syncStart: string): Promise<void> {
+    try {
+      const { error, data } = await serviceClient
+        .from('aio_markets')
+        .update({ status: 'closed', synced_at: new Date().toISOString() })
+        .eq('source', source)
+        .eq('status', 'open')
+        .lt('synced_at', syncStart)
+        .select('id');
+
+      if (error) {
+        log.warn(`Tombstone update failed for ${source}`, { error: error.message });
+      } else if (data && data.length > 0) {
+        log.info(`Tombstoned ${data.length} stale ${source} markets (no longer in open list)`);
+      }
+    } catch (err) {
+      log.warn(`Tombstone error for ${source}`, { error: String(err) });
     }
   }
 
