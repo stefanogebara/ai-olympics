@@ -163,14 +163,17 @@ router.get('/events', async (req: Request, res: Response) => {
 
     // Transform events for the frontend
     const events = (data || []).map((ev: DbEventRow) => {
-      // Derive event title from URL slug
-      const slug = ev.event_url
+      // Derive event title from URL slug (handles Polymarket /event/, Kalshi /markets/, Predix /market/)
+      const rawSlug = ev.event_url
         ?.replace(/.*\/event\//, '')
         ?.replace(/.*\/markets\//, '')
+        ?.replace(/.*\/market\//, '')
         ?.replace(/-\d+$/, ''); // strip trailing number IDs
-      const eventTitle = slug
-        ? slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-        : '';
+      // Predix slugs are hex conditionIds (0x...) — fall back to first market question
+      const isHex = /^0x[0-9a-f]+$/i.test(rawSlug || '');
+      const eventTitle = isHex || !rawSlug
+        ? (ev.markets?.[0]?.question || '')
+        : rawSlug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
       // Sort sub-markets by Yes probability desc (most likely first)
       const markets: EventMarketWithProb[] = (ev.markets || []).map((m) => {

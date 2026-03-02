@@ -86,35 +86,48 @@ export function PredictionBrowse() {
 
   const loadCategories = async () => {
     try {
-      const { data } = await supabase
-        .from('aio_markets')
-        .select('category,source')
-        .eq('status', 'open');
+      // Use parallel count queries per source to avoid Supabase 1000-row default cap
+      const SOURCES = ['polymarket', 'kalshi', 'predix'];
+      const [allResult, ...sourceResults] = await Promise.all([
+        supabase.from('aio_markets').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+        ...SOURCES.map((src) =>
+          supabase.from('aio_markets').select('*', { count: 'exact', head: true }).eq('status', 'open').eq('source', src)
+        ),
+      ]);
 
-      if (data) {
-        const counts: Record<string, number> = {};
-        const srcCounts: Record<string, number> = {};
-        let allCount = 0;
-        for (const row of data) {
-          const cat = row.category || 'other';
-          counts[cat] = (counts[cat] || 0) + 1;
-          if (row.source) srcCounts[row.source] = (srcCounts[row.source] || 0) + 1;
-          allCount++;
-        }
-        const catInfos: CategoryInfo[] = [
-          { id: 'all', name: 'All Markets', count: allCount, icon: CATEGORY_CONFIG.all.icon },
-          ...Object.entries(counts)
-            .filter(([id]) => ALL_CATEGORIES.includes(id as MarketCategory))
-            .map(([id, count]) => ({
-              id: id as MarketCategory,
-              name: CATEGORY_CONFIG[id as MarketCategory]?.name || id,
-              count,
-              icon: CATEGORY_CONFIG[id as MarketCategory]?.icon,
-            })),
-        ];
-        setCategories(catInfos);
-        setSourceCounts({ all: allCount, ...srcCounts });
+      const allCount = allResult.count ?? 0;
+      const srcCounts: Record<string, number> = {};
+      SOURCES.forEach((src, i) => {
+        const c = sourceResults[i].count ?? 0;
+        if (c > 0) srcCounts[src] = c;
+      });
+
+      // For category breakdown, fetch a sample to get the distribution
+      const { data: catData } = await supabase
+        .from('aio_markets')
+        .select('category')
+        .eq('status', 'open')
+        .limit(1000);
+
+      const counts: Record<string, number> = {};
+      for (const row of catData || []) {
+        const cat = row.category || 'other';
+        counts[cat] = (counts[cat] || 0) + 1;
       }
+
+      const catInfos: CategoryInfo[] = [
+        { id: 'all', name: 'All Markets', count: allCount, icon: CATEGORY_CONFIG.all.icon },
+        ...Object.entries(counts)
+          .filter(([id]) => ALL_CATEGORIES.includes(id as MarketCategory))
+          .map(([id, count]) => ({
+            id: id as MarketCategory,
+            name: CATEGORY_CONFIG[id as MarketCategory]?.name || id,
+            count,
+            icon: CATEGORY_CONFIG[id as MarketCategory]?.icon,
+          })),
+      ];
+      setCategories(catInfos);
+      setSourceCounts({ all: allCount, ...srcCounts });
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error loading categories:', error);
     }
