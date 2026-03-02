@@ -26,10 +26,11 @@ const {
   const mockBalanceOf = vi.fn();
   const MockProvider = vi.fn();
   const MockWallet = vi.fn();
-  const MockContract = vi.fn().mockImplementation(() => ({
-    transfer: mockTransfer,
-    balanceOf: mockBalanceOf,
-  }));
+  // Class mock so `new Contract()` works in Vitest 4.x ESM
+  class MockContract {
+    transfer = mockTransfer;
+    balanceOf = mockBalanceOf;
+  }
   const mockVerifyMessage = vi.fn();
   // Mutable config — tests can override individual fields
   const mockConfig: Record<string, string | undefined> = {
@@ -118,11 +119,7 @@ beforeEach(() => {
   mockConfig.polygonRpcUrl = 'https://polygon-rpc.example.com';
   mockConfig.platformWalletPrivateKey = '0x' + 'a'.repeat(64);
   mockConfig.platformWalletAddress = '0xPLATFORM';
-  // Re-apply ethers mocks after resetAllMocks
-  MockContract.mockImplementation(() => ({
-    transfer: mockTransfer,
-    balanceOf: mockBalanceOf,
-  }));
+  // Re-apply method defaults after resetAllMocks
   // Reset lazy-initialized singletons
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (cryptoWalletService as any).provider = null;

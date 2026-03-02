@@ -29,13 +29,14 @@ const {
   const mockGetTournament = vi.fn().mockReturnValue(null);
   const mockGetStandings = vi.fn().mockReturnValue([]);
 
-  const MockController = vi.fn().mockReturnValue({
-    createTournament: mockCreateTournament,
-    startTournament: mockStartTournament,
-    cancelTournament: mockCancelCtrl,
-    getTournament: mockGetTournament,
-    getStandings: mockGetStandings,
-  });
+  // Class mock so `new TournamentController()` works in Vitest 4.x ESM
+  class MockController {
+    createTournament = mockCreateTournament;
+    startTournament = mockStartTournament;
+    cancelTournament = mockCancelCtrl;
+    getTournament = mockGetTournament;
+    getStandings = mockGetStandings;
+  }
 
   return {
     mockFrom: vi.fn(),
@@ -154,14 +155,6 @@ function setupHappyPath(tournamentOverrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.resetAllMocks();
-
-  MockController.mockReturnValue({
-    createTournament: mockCreateTournament,
-    startTournament: mockStartTournament,
-    cancelTournament: mockCancelCtrl,
-    getTournament: mockGetTournament,
-    getStandings: mockGetStandings,
-  });
 
   mockStartTournament.mockResolvedValue(undefined);
   mockCancelCtrl.mockResolvedValue(undefined);

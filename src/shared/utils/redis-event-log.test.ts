@@ -3,30 +3,46 @@
  */
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
-const mockPipeline = {
-  rpush: vi.fn().mockReturnThis(),
-  expire: vi.fn().mockReturnThis(),
-  set: vi.fn().mockReturnThis(),
-  sadd: vi.fn().mockReturnThis(),
-  del: vi.fn().mockReturnThis(),
-  srem: vi.fn().mockReturnThis(),
-  exec: vi.fn().mockResolvedValue([]),
-};
+const { mockPipeline, mockRedis } = vi.hoisted(() => {
+  const mockPipeline = {
+    rpush: vi.fn().mockReturnThis(),
+    expire: vi.fn().mockReturnThis(),
+    set: vi.fn().mockReturnThis(),
+    sadd: vi.fn().mockReturnThis(),
+    del: vi.fn().mockReturnThis(),
+    srem: vi.fn().mockReturnThis(),
+    exec: vi.fn().mockResolvedValue([]),
+  };
+  const mockRedis = {
+    connect: vi.fn().mockResolvedValue(undefined),
+    quit: vi.fn().mockResolvedValue('OK'),
+    multi: vi.fn().mockReturnValue(mockPipeline),
+    llen: vi.fn().mockResolvedValue(0),
+    ltrim: vi.fn().mockResolvedValue('OK'),
+    lrange: vi.fn().mockResolvedValue([]),
+    del: vi.fn().mockResolvedValue(1),
+    smembers: vi.fn().mockResolvedValue([]),
+    mget: vi.fn().mockResolvedValue([]),
+    srem: vi.fn().mockResolvedValue(1),
+  };
+  return { mockPipeline, mockRedis };
+});
 
-const mockRedis = {
-  connect: vi.fn().mockResolvedValue(undefined),
-  quit: vi.fn().mockResolvedValue('OK'),
-  multi: vi.fn().mockReturnValue(mockPipeline),
-  llen: vi.fn().mockResolvedValue(0),
-  ltrim: vi.fn().mockResolvedValue('OK'),
-  lrange: vi.fn().mockResolvedValue([]),
-  del: vi.fn().mockResolvedValue(1),
-  smembers: vi.fn().mockResolvedValue([]),
-  mget: vi.fn().mockResolvedValue([]),
-  srem: vi.fn().mockResolvedValue(1),
-};
-
-vi.mock('ioredis', () => ({ default: vi.fn().mockImplementation(() => mockRedis) }));
+// Class mock so `new IORedis()` works in Vitest 4.x ESM
+vi.mock('ioredis', () => ({
+  default: class {
+    connect = mockRedis.connect;
+    quit = mockRedis.quit;
+    multi = mockRedis.multi;
+    llen = mockRedis.llen;
+    ltrim = mockRedis.ltrim;
+    lrange = mockRedis.lrange;
+    del = mockRedis.del;
+    smembers = mockRedis.smembers;
+    mget = mockRedis.mget;
+    srem = mockRedis.srem;
+  },
+}));
 vi.mock('../config.js', () => ({ config: { redisUrl: 'redis://localhost:6379' } }));
 
 const { initRedis, appendEventToLog, getEventsFromLog, deleteEventLog, isRedisAvailable } =

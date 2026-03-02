@@ -39,13 +39,14 @@ const {
   const mockGetLeaderboard = vi.fn();
   const mockGetCompetition = vi.fn().mockReturnValue({ id: 'comp-1' });
   const mockCtrlCleanup = vi.fn().mockResolvedValue(undefined);
-  const MockCompetitionController = vi.fn().mockImplementation(() => ({
-    createCompetition: mockCreateCompetition,
-    startCompetition: mockStartCompetition,
-    getLeaderboard: mockGetLeaderboard,
-    getCompetition: mockGetCompetition,
-    cleanup: mockCtrlCleanup,
-  }));
+  // Class mock so `new CompetitionController()` works in Vitest 4.x ESM
+  class MockCompetitionController {
+    createCompetition = mockCreateCompetition;
+    startCompetition = mockStartCompetition;
+    getLeaderboard = mockGetLeaderboard;
+    getCompetition = mockGetCompetition;
+    cleanup = mockCtrlCleanup;
+  }
 
   const mockGetTaskById = vi.fn();
   const mockNanoid = vi.fn().mockReturnValue('abc1234567');
@@ -149,14 +150,7 @@ const defaultStandings: TournamentStanding[] = [
 beforeEach(() => {
   vi.resetAllMocks();
 
-  // Re-apply constructor and method defaults
-  MockCompetitionController.mockImplementation(() => ({
-    createCompetition: mockCreateCompetition,
-    startCompetition: mockStartCompetition,
-    getLeaderboard: mockGetLeaderboard,
-    getCompetition: mockGetCompetition,
-    cleanup: mockCtrlCleanup,
-  }));
+  // Re-apply method defaults after resetAllMocks
   mockStartCompetition.mockResolvedValue(undefined);
   mockGetLeaderboard.mockReturnValue(defaultLeaderboard);
   mockGetCompetition.mockReturnValue({ id: 'comp-1' });

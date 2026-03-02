@@ -23,28 +23,40 @@ const {
   mockCleanup,
   mockGetLeaderboard,
   mockGetCompetition,
+  mockControllerConstructor,
   MockController,
 } = vi.hoisted(() => {
-  const ctrl = {
-    createCompetition: vi.fn(),
-    startCompetition: vi.fn().mockResolvedValue(undefined),
-    cancelCompetition: vi.fn().mockResolvedValue(undefined),
-    cleanup: vi.fn().mockResolvedValue(undefined),
-    getLeaderboard: vi.fn().mockReturnValue([]),
-    getCompetition: vi.fn().mockReturnValue(null),
-  };
-  const MockController = vi.fn().mockReturnValue(ctrl);
+  const mockCreateCompetition = vi.fn();
+  const mockStartCompetition = vi.fn().mockResolvedValue(undefined);
+  const mockCancelController = vi.fn().mockResolvedValue(undefined);
+  const mockCleanup = vi.fn().mockResolvedValue(undefined);
+  const mockGetLeaderboard = vi.fn().mockReturnValue([]);
+  const mockGetCompetition = vi.fn().mockReturnValue(null);
+  const mockControllerConstructor = vi.fn();
+
+  // Class mock so `new CompetitionController()` works in Vitest 4.x ESM
+  class MockController {
+    createCompetition = mockCreateCompetition;
+    startCompetition = mockStartCompetition;
+    cancelCompetition = mockCancelController;
+    cleanup = mockCleanup;
+    getLeaderboard = mockGetLeaderboard;
+    getCompetition = mockGetCompetition;
+    constructor(opts: unknown) { mockControllerConstructor(opts); }
+  }
+
   return {
     mockFrom: vi.fn(),
     mockGetTask: vi.fn(),
     mockDecrypt: vi.fn().mockReturnValue('decrypted-key'),
     mockUpdateRatings: vi.fn().mockResolvedValue(undefined),
-    mockCreateCompetition: ctrl.createCompetition,
-    mockStartCompetition: ctrl.startCompetition,
-    mockCancelController: ctrl.cancelCompetition,
-    mockCleanup: ctrl.cleanup,
-    mockGetLeaderboard: ctrl.getLeaderboard,
-    mockGetCompetition: ctrl.getCompetition,
+    mockCreateCompetition,
+    mockStartCompetition,
+    mockCancelController,
+    mockCleanup,
+    mockGetLeaderboard,
+    mockGetCompetition,
+    mockControllerConstructor,
     MockController,
   };
 });
@@ -158,6 +170,7 @@ function setupHappyPath(
   extraChains: ReturnType<typeof chain>[] = [],
 ) {
   mockFrom
+    .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
     .mockReturnValueOnce(chain({ data: comp, error: null }))        // read competition
     .mockReturnValueOnce(chain({ data: participants, error: null })) // read participants
     .mockReturnValueOnce(chain({ error: null }))                     // update p1 rank
@@ -178,17 +191,7 @@ beforeEach(() => {
   // stale mockReturnValueOnce chains from leaking between tests.
   vi.resetAllMocks();
 
-  // Re-setup MockController to return the shared mock ctrl object
-  MockController.mockReturnValue({
-    createCompetition: mockCreateCompetition,
-    startCompetition: mockStartCompetition,
-    cancelCompetition: mockCancelController,
-    cleanup: mockCleanup,
-    getLeaderboard: mockGetLeaderboard,
-    getCompetition: mockGetCompetition,
-  });
-
-  // Default implementations
+  // Re-setup default implementations after reset
   mockStartCompetition.mockResolvedValue(undefined);
   mockCancelController.mockResolvedValue(undefined);
   mockCleanup.mockResolvedValue(undefined);
@@ -207,9 +210,9 @@ beforeEach(() => {
 
 describe('CompetitionManager.startCompetition — validation', () => {
   it('throws when competition DB query returns an error', async () => {
-    mockFrom.mockReturnValueOnce(
-      chain({ data: null, error: { message: 'DB error' } })
-    );
+    mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
+      .mockReturnValueOnce(chain({ data: null, error: { message: 'DB error' } }));
 
     await expect(
       competitionManager.startCompetition('comp-1')
@@ -217,7 +220,9 @@ describe('CompetitionManager.startCompetition — validation', () => {
   });
 
   it('throws when competition is not found (data is null)', async () => {
-    mockFrom.mockReturnValueOnce(chain({ data: null, error: null }));
+    mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
+      .mockReturnValueOnce(chain({ data: null, error: null }));
 
     await expect(
       competitionManager.startCompetition('comp-1')
@@ -226,6 +231,7 @@ describe('CompetitionManager.startCompetition — validation', () => {
 
   it('throws when participants query returns an error', async () => {
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(chain({ data: null, error: { message: 'DB error' } }));
 
@@ -236,6 +242,7 @@ describe('CompetitionManager.startCompetition — validation', () => {
 
   it('throws when fewer than 2 participants are returned', async () => {
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(
         chain({ data: [makeParticipant('p1', 'a1')], error: null })
@@ -251,6 +258,7 @@ describe('CompetitionManager.startCompetition — validation', () => {
     const noAgent2 = { id: 'p2', agent_id: 'a2', competition_id: 'comp-1', agent: null };
 
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(chain({ data: [noAgent, noAgent2], error: null }));
 
@@ -263,6 +271,7 @@ describe('CompetitionManager.startCompetition — validation', () => {
     mockDecrypt.mockImplementation(() => { throw new Error('bad key'); });
 
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(
         chain({ data: [makeParticipant('p1', 'a1'), makeParticipant('p2', 'a2')], error: null })
@@ -380,6 +389,7 @@ describe('CompetitionManager.startCompetition — task resolution', () => {
   it('uses opts.taskIds when provided, ignoring competition.task_ids', async () => {
     const comp = makeCompetition({ task_ids: ['original-task'] });
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: comp, error: null }))
       .mockReturnValueOnce(
         chain({
@@ -459,7 +469,7 @@ describe('CompetitionManager.startCompetition — lifecycle', () => {
 
     await competitionManager.startCompetition('comp-1');
 
-    expect(MockController).toHaveBeenCalledWith({ headless: true });
+    expect(mockControllerConstructor).toHaveBeenCalledWith({ headless: true });
     expect(mockCreateCompetition).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Grand Prix',
@@ -492,6 +502,7 @@ describe('CompetitionManager.startCompetition — lifecycle', () => {
     mockGetTask.mockReturnValue(makeTask());
     mockStartCompetition.mockRejectedValueOnce(new Error('Boom'));
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(
         chain({ data: [makeParticipant('p1', 'a1'), makeParticipant('p2', 'a2')], error: null })
@@ -518,6 +529,7 @@ describe('CompetitionManager.startCompetition — lifecycle', () => {
     mockGetTask.mockReturnValue(makeTask());
     mockStartCompetition.mockRejectedValueOnce(new Error('Crash'));
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(
         chain({ data: [makeParticipant('p1', 'a1'), makeParticipant('p2', 'a2')], error: null })
@@ -553,6 +565,7 @@ describe('CompetitionManager.startCompetition — result persistence', () => {
     const compUpdateChain = chain({ error: null });
 
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(chain({ data: participants, error: null }))
       .mockReturnValueOnce(p1UpdateChain)
@@ -579,6 +592,7 @@ describe('CompetitionManager.startCompetition — result persistence', () => {
     const compUpdateChain = chain({ error: null });
 
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(
         chain({ data: [makeParticipant('p1', 'a1'), makeParticipant('p2', 'a2')], error: null })
@@ -616,6 +630,7 @@ describe('CompetitionManager.startCompetition — result persistence', () => {
     const replayChain = chain({ error: null });
 
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(
         chain({ data: [makeParticipant('p1', 'a1'), makeParticipant('p2', 'a2')], error: null })
@@ -674,6 +689,7 @@ describe('CompetitionManager.startCompetition — error rollback', () => {
 
     const lobbyChain = chain({ error: null });
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(
         chain({ data: [makeParticipant('p1', 'a1'), makeParticipant('p2', 'a2')], error: null })
@@ -684,10 +700,9 @@ describe('CompetitionManager.startCompetition — error rollback', () => {
       competitionManager.startCompetition('comp-1')
     ).rejects.toThrow('Agent crash');
 
-    expect(lobbyChain.update).toHaveBeenCalledWith({
-      status: 'lobby',
-      started_at: null,
-    });
+    expect(lobbyChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'lobby', started_at: null })
+    );
   });
 
   it('rethrows the original error after rollback', async () => {
@@ -695,6 +710,7 @@ describe('CompetitionManager.startCompetition — error rollback', () => {
     mockStartCompetition.mockRejectedValueOnce(new Error('Specific failure'));
 
     mockFrom
+      .mockReturnValueOnce(chain({ data: [{ id: 'comp-1' }], error: null })) // claim
       .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))
       .mockReturnValueOnce(
         chain({ data: [makeParticipant('p1', 'a1'), makeParticipant('p2', 'a2')], error: null })

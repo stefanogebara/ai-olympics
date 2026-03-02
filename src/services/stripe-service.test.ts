@@ -22,11 +22,12 @@ const {
   const mockCheckoutCreate = vi.fn();
   const mockConstructEvent = vi.fn();
   const mockDeposit = vi.fn();
-  const MockStripe = vi.fn().mockImplementation(() => ({
-    customers: { create: mockCustomersCreate },
-    checkout: { sessions: { create: mockCheckoutCreate } },
-    webhooks: { constructEvent: mockConstructEvent },
-  }));
+  // Class mock so `new Stripe()` works in Vitest 4.x ESM
+  class MockStripe {
+    customers = { create: mockCustomersCreate };
+    checkout = { sessions: { create: mockCheckoutCreate } };
+    webhooks = { constructEvent: mockConstructEvent };
+  }
   return {
     mockFrom: vi.fn(),
     mockCustomersCreate,
@@ -106,12 +107,6 @@ function makeCheckoutEvent(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  // Re-apply Stripe constructor mock after resetAllMocks clears it
-  MockStripe.mockImplementation(() => ({
-    customers: { create: mockCustomersCreate },
-    checkout: { sessions: { create: mockCheckoutCreate } },
-    webhooks: { constructEvent: mockConstructEvent },
-  }));
   // Reset lazy stripe instance so getStripe() re-initialises each test
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (stripeService as any).stripe = null;
