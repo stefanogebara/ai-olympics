@@ -218,6 +218,63 @@ class WalletService {
     }
   }
 
+  async debitEntryFee(userId: string, competitionId: string, amountCents: number): Promise<void> {
+    try {
+      log.info('Debiting entry fee', { userId, competitionId, amountCents });
+
+      const idempotencyKey = `entry_fee_${userId}_${competitionId}`;
+
+      const { error } = await serviceClient.rpc('debit_entry_fee', {
+        p_user_id: userId,
+        p_competition_id: competitionId,
+        p_amount_cents: amountCents,
+        p_idempotency_key: idempotencyKey,
+      });
+
+      if (error) {
+        if (error.message?.includes('Insufficient balance')) {
+          throw new Error('Insufficient balance');
+        }
+        throw error;
+      }
+
+      log.info('Entry fee debited', { userId, competitionId, amountCents });
+    } catch (error) {
+      log.error('Failed to debit entry fee', { userId, competitionId, amountCents, error: String(error) });
+      throw error;
+    }
+  }
+
+  async creditPrizeWinning(
+    userId: string,
+    competitionId: string,
+    amountCents: number,
+    rank: number
+  ): Promise<void> {
+    try {
+      log.info('Crediting prize winning', { userId, competitionId, amountCents, rank });
+
+      const idempotencyKey = `prize_${competitionId}_${userId}_rank${rank}`;
+
+      const { error } = await serviceClient.rpc('credit_prize_winning', {
+        p_user_id: userId,
+        p_competition_id: competitionId,
+        p_amount_cents: amountCents,
+        p_rank: rank,
+        p_idempotency_key: idempotencyKey,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      log.info('Prize winning credited', { userId, competitionId, amountCents, rank });
+    } catch (error) {
+      log.error('Failed to credit prize winning', { userId, competitionId, amountCents, rank, error: String(error) });
+      throw error;
+    }
+  }
+
   async getTransactionHistory(
     userId: string,
     page: number = 1,

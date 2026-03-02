@@ -8,8 +8,8 @@ import { useAuthStore } from '../../store/authStore';
 import { supabase } from '../../lib/supabase';
 import { ArrowLeft, Trophy, Info, Lock } from 'lucide-react';
 
-// Feature flag: real-money competitions are disabled until legal review + security hardening
-const REAL_MONEY_ENABLED = false;
+// Real-money competitions are now enabled
+const REAL_MONEY_ENABLED = true;
 
 interface DomainOption {
   id: string;

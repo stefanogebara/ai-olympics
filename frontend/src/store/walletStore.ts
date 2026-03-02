@@ -58,47 +58,29 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchWallet: async (_token: string) => {
+  fetchWallet: async (token: string) => {
     set({ isLoading: true, error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('aio_wallets')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error && error.code === 'PGRST116') {
-        // No wallet found, create one
-        await get().createWallet(_token);
+      if (!API_BASE) {
+        set({ isLoading: false });
         return;
       }
-      if (error) throw error;
-      set({ wallet: data as Wallet, isLoading: false });
+      // Use backend API — creates wallet if missing (bypasses RLS for new users)
+      const res = await fetch(`${API_BASE}/api/payments/wallet`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to load wallet');
+      const data = await res.json();
+      set({ wallet: data.wallet as Wallet, isLoading: false });
     } catch (err) {
       set({ error: (err as Error).message, isLoading: false });
     }
   },
 
-  createWallet: async (_token: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('aio_wallets')
-        .insert({ user_id: user.id })
-        .select()
-        .single();
-
-      if (error) throw error;
-      set({ wallet: data as Wallet, isLoading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, isLoading: false });
-    }
+  createWallet: async (token: string) => {
+    // Alias for fetchWallet — backend POST /wallet is idempotent (getOrCreate)
+    return get().fetchWallet(token);
   },
 
   depositStripe: async (token: string, amountCents: number, email: string) => {

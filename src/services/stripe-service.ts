@@ -160,10 +160,134 @@ class StripeService {
     }
   }
 
+  async onboardUser(userId: string, email: string): Promise<{ url: string }> {
+    try {
+      log.info('Starting Stripe Connect onboarding', { userId, email });
+
+      // Check for existing connect account
+      const { data: existing } = await serviceClient
+        .from('aio_stripe_connect_accounts')
+        .select('stripe_account_id, payouts_enabled')
+        .eq('user_id', userId)
+        .single();
+
+      let accountId: string;
+
+      if (existing) {
+        accountId = existing.stripe_account_id;
+        log.info('Resuming existing connect account onboarding', { userId, accountId });
+      } else {
+        const account = await this.getStripe().accounts.create({
+          type: 'express',
+          email,
+          metadata: { userId },
+          capabilities: {
+            transfers: { requested: true },
+          },
+        });
+        accountId = account.id;
+
+        const { error: insertError } = await serviceClient
+          .from('aio_stripe_connect_accounts')
+          .insert({
+            user_id: userId,
+            stripe_account_id: accountId,
+            payouts_enabled: false,
+          });
+
+        if (insertError) {
+          throw insertError;
+        }
+        log.info('Created Stripe Connect account', { userId, accountId });
+      }
+
+      const returnUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard/wallet?connect=success`;
+      const refreshUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard/wallet?connect=refresh`;
+
+      const accountLink = await this.getStripe().accountLinks.create({
+        account: accountId,
+        refresh_url: refreshUrl,
+        return_url: returnUrl,
+        type: 'account_onboarding',
+      });
+
+      return { url: accountLink.url };
+    } catch (error) {
+      log.error('Failed to start Stripe Connect onboarding', { userId, error: String(error) });
+      throw error;
+    }
+  }
+
+  async getConnectStatus(userId: string): Promise<{ connected: boolean; payouts_enabled: boolean }> {
+    try {
+      const { data } = await serviceClient
+        .from('aio_stripe_connect_accounts')
+        .select('stripe_account_id, payouts_enabled')
+        .eq('user_id', userId)
+        .single();
+
+      if (!data) {
+        return { connected: false, payouts_enabled: false };
+      }
+
+      // Refresh payouts_enabled from Stripe in case it changed
+      const account = await this.getStripe().accounts.retrieve(data.stripe_account_id);
+      const payoutsEnabled = account.payouts_enabled ?? false;
+
+      if (payoutsEnabled !== data.payouts_enabled) {
+        await serviceClient
+          .from('aio_stripe_connect_accounts')
+          .update({
+            payouts_enabled: payoutsEnabled,
+            onboarded_at: payoutsEnabled ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId);
+      }
+
+      return { connected: true, payouts_enabled: payoutsEnabled };
+    } catch (error) {
+      log.error('Failed to get connect status', { userId, error: String(error) });
+      throw error;
+    }
+  }
+
   async createPayout(userId: string, amountCents: number): Promise<{ status: string }> {
-    // Placeholder for Stripe Connect payouts - future implementation
-    log.warn('Stripe Connect payouts not yet implemented', { userId, amountCents });
-    throw new Error('Stripe Connect payouts are not yet available. Use crypto withdrawal instead.');
+    try {
+      log.info('Processing Stripe Connect payout', { userId, amountCents });
+
+      const { data: connectAccount } = await serviceClient
+        .from('aio_stripe_connect_accounts')
+        .select('stripe_account_id, payouts_enabled')
+        .eq('user_id', userId)
+        .single();
+
+      if (!connectAccount) {
+        throw new Error('No Stripe Connect account found. Please complete bank account onboarding first.');
+      }
+
+      if (!connectAccount.payouts_enabled) {
+        throw new Error('Your bank account is not yet verified. Please complete Stripe onboarding.');
+      }
+
+      // Transfer funds to connected account
+      const transfer = await this.getStripe().transfers.create({
+        amount: amountCents,
+        currency: 'usd',
+        destination: connectAccount.stripe_account_id,
+        metadata: { userId },
+      });
+
+      // Debit the wallet
+      const idempotencyKey = `stripe_payout_${transfer.id}`;
+      await walletService.withdraw(userId, amountCents, 'stripe_connect', transfer.id, idempotencyKey);
+
+      log.info('Stripe Connect payout successful', { userId, amountCents, transferId: transfer.id });
+      return { status: 'success' };
+    } catch (error) {
+      log.error('Failed to process Stripe Connect payout', { userId, amountCents, error: String(error) });
+      throw error;
+    }
   }
 }
 

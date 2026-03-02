@@ -16,6 +16,7 @@ import { decrypt } from '../shared/utils/crypto.js';
 import { serviceClient as supabase } from '../shared/utils/supabase.js';
 import { createLogger } from '../shared/utils/logger.js';
 import { eloService } from '../services/elo-service.js';
+import { orderManager } from '../services/order-manager.js';
 import type { AgentConfig, AgentProvider, TaskDefinition } from '../shared/types/index.js';
 import type { ExtendedAgentConfig } from '../agents/adapters/index.js';
 
@@ -181,8 +182,15 @@ class CompetitionManager {
     try {
       await controller.startCompetition();
 
-      // 6. Persist results
-      await this.persistResults(competitionId, controller, participants, competition.domain_id);
+      // 6. Persist results (and settle prize pool for real-money competitions)
+      await this.persistResults(
+        competitionId,
+        controller,
+        participants,
+        competition.domain_id,
+        competition.stake_mode,
+        competition.entry_fee ?? 0
+      );
 
       log.info('Competition completed successfully', { competitionId });
     } catch (err) {
@@ -216,8 +224,10 @@ class CompetitionManager {
   private async persistResults(
     competitionId: string,
     controller: CompetitionController,
-    participants: Array<{ id: string; agent_id: string }>,
-    domainId?: string | null
+    participants: Array<{ id: string; agent_id: string; user_id: string }>,
+    domainId?: string | null,
+    stakeMode?: string | null,
+    entryFee?: number
   ): Promise<void> {
     const leaderboard = controller.getLeaderboard();
 
@@ -294,6 +304,26 @@ class CompetitionManager {
       leaderboard,
       domainId
     );
+
+    // Settle prize pool for real-money competitions
+    if (stakeMode === 'real' && entryFee && entryFee > 0) {
+      try {
+        // Build rankings: map leaderboard agentId → participant user_id
+        const agentToUser = new Map(participants.map(p => [p.agent_id, p.user_id]));
+        const rankedParticipants = leaderboard
+          .filter(e => agentToUser.has(e.agentId))
+          .map(e => ({ userId: agentToUser.get(e.agentId)!, rank: e.rank }));
+
+        await orderManager.settleCompetition(competitionId, rankedParticipants);
+        log.info('Prize pool settled', { competitionId });
+      } catch (settlementError) {
+        // Log but don't fail the competition — results are already persisted
+        log.error('Prize settlement failed — manual reconciliation needed', {
+          competitionId,
+          error: String(settlementError),
+        });
+      }
+    }
   }
 
   /**

@@ -10,7 +10,7 @@ import type { Competition, Domain } from '../../types/database';
 import {
   Globe, TrendingUp, Gamepad2, BarChart2, Palette, Code2,
   Users, Trophy, Clock, ArrowLeft, Play, Zap, CheckCircle2,
-  AlertCircle, ChevronDown, RefreshCw, Timer,
+  AlertCircle, ChevronDown, RefreshCw, Timer, DollarSign, Wallet,
 } from 'lucide-react';
 
 function useCountdown(target: string | null | undefined) {
@@ -62,6 +62,8 @@ export function CompetitionDetail() {
   const [error, setError] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [showFeeConfirm, setShowFeeConfirm] = useState(false);
 
   const hasJoined = participants.some(p => p.user_id === user?.id);
   const isCreator = competition?.created_by === user?.id;
@@ -132,8 +134,31 @@ export function CompetitionDetail() {
     return () => clearInterval(interval);
   }, [loadParticipants, loadMyAgents, loadCompetition]);
 
+  // Fetch wallet balance for entry fee checks
+  useEffect(() => {
+    if (!session?.access_token) return;
+    fetch(`${API_BASE}/api/payments/wallet`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.wallet) setWalletBalance(data.wallet.balance_cents); })
+      .catch(() => {});
+  }, [session?.access_token]);
+
+  const handleJoinClick = () => {
+    if (!selectedAgentId || !session?.access_token) return;
+    const entryFee = Number((competition as any)?.entry_fee ?? 0);
+    const isReal = (competition as any)?.stake_mode === 'real';
+    if (entryFee > 0 && isReal) {
+      setShowFeeConfirm(true);
+    } else {
+      void handleJoin();
+    }
+  };
+
   const handleJoin = async () => {
     if (!selectedAgentId || !session?.access_token) return;
+    setShowFeeConfirm(false);
     setJoining(true);
     setJoinError(null);
     try {
@@ -143,9 +168,20 @@ export function CompetitionDetail() {
         body: JSON.stringify({ agent_id: selectedAgentId }),
       });
       const json = await res.json();
+      if (res.status === 402) {
+        setJoinError(`Insufficient balance. Entry fee: $${((json.entry_fee_cents ?? 0) / 100).toFixed(2)}`);
+        return;
+      }
       if (!res.ok) throw new Error(json.error || 'Failed to join');
       await loadParticipants();
       setShowAgentPicker(false);
+      // Refresh wallet balance after paying entry fee
+      fetch(`${API_BASE}/api/payments/wallet`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.wallet) setWalletBalance(data.wallet.balance_cents); })
+        .catch(() => {});
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : 'Failed to join');
     } finally {
@@ -193,6 +229,16 @@ export function CompetitionDetail() {
   const domainColor = domainColors[slug] || '#00F5FF';
   const isSandbox = competition.stake_mode === 'sandbox';
   const prizePool = Number(competition.prize_pool || 0);
+  const entryFee = Number((competition as any).entry_fee ?? 0);
+  const isRealMoney = competition.stake_mode === 'real';
+
+  // Prize breakdown for top 3 (after 10% platform fee)
+  const netPool = Math.floor(prizePool * 0.9);
+  const prizes = prizePool > 0 ? [
+    Math.floor(netPool * 0.6),
+    Math.floor(netPool * 0.3),
+    Math.floor(netPool * 0.1),
+  ] : [];
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -228,8 +274,8 @@ export function CompetitionDetail() {
             </div>
             <div className="text-center p-3 rounded-lg bg-white/5">
               <Trophy size={18} className="mx-auto mb-1 text-neon-gold" />
-              <p className="text-lg font-bold text-white">{isSandbox || prizePool === 0 ? 'Free' : `$${prizePool.toLocaleString()}`}</p>
-              <p className="text-xs text-white/40">Prize</p>
+              <p className="text-lg font-bold text-white">{isSandbox ? 'Free' : `$${(prizePool / 100).toFixed(2)}`}</p>
+              <p className="text-xs text-white/40">Prize Pool</p>
             </div>
             <div className={`text-center p-3 rounded-lg ${autoStart && countdown ? 'bg-neon-cyan/8 border border-neon-cyan/20' : 'bg-white/5'}`}>
               {autoStart && countdown ? (
@@ -243,6 +289,30 @@ export function CompetitionDetail() {
               <p className="text-xs text-white/40">{autoStart && countdown ? 'Auto-start' : 'Start'}</p>
             </div>
           </div>
+
+          {/* Prize breakdown for real-money competitions */}
+          {prizes.length > 0 && isRealMoney && (
+            <div className="flex items-center justify-center gap-4 px-4 py-3 rounded-xl bg-neon-gold/5 border border-neon-gold/20 mb-3 text-sm">
+              <span className="text-neon-gold font-semibold">Prize breakdown</span>
+              <span className="text-white/70">🥇 ${(prizes[0] / 100).toFixed(2)}</span>
+              <span className="text-white/70">🥈 ${(prizes[1] / 100).toFixed(2)}</span>
+              <span className="text-white/70">🥉 ${(prizes[2] / 100).toFixed(2)}</span>
+              <span className="text-white/30 text-xs">(after 10% fee)</span>
+            </div>
+          )}
+
+          {/* Entry fee indicator */}
+          {entryFee > 0 && isRealMoney && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 mb-3">
+              <DollarSign size={14} className="text-neon-cyan" />
+              <span className="text-sm text-white/70">Entry fee: <strong className="text-white">${(entryFee / 100).toFixed(2)}</strong></span>
+              {walletBalance !== null && (
+                <span className="ml-auto text-xs text-white/40 flex items-center gap-1">
+                  <Wallet size={11} /> ${(walletBalance / 100).toFixed(2)} available
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Auto-start banner */}
           {autoStart && (
@@ -348,14 +418,22 @@ export function CompetitionDetail() {
 
                       <NeonButton
                         size="lg"
-                        icon={<Zap size={16} />}
+                        icon={entryFee > 0 && isRealMoney ? <DollarSign size={16} /> : <Zap size={16} />}
                         className="w-full justify-center"
                         loading={joining}
-                        onClick={handleJoin}
+                        onClick={handleJoinClick}
                         disabled={!selectedAgentId}
                       >
-                        Join Competition
+                        {entryFee > 0 && isRealMoney
+                          ? `Join — Pay $${(entryFee / 100).toFixed(2)} Entry`
+                          : 'Join Competition'}
                       </NeonButton>
+                      {entryFee > 0 && isRealMoney && walletBalance !== null && walletBalance < entryFee && (
+                        <p className="text-xs text-center text-yellow-400">
+                          Insufficient balance.{' '}
+                          <Link to="/dashboard/wallet" className="underline hover:text-yellow-300">Top up wallet</Link>
+                        </p>
+                      )}
                     </>
                   )}
                 </div>
@@ -441,6 +519,92 @@ export function CompetitionDetail() {
         </GlassCard>
 
       </motion.div>
+
+      {/* Entry Fee Confirmation Modal */}
+      <AnimatePresence>
+        {showFeeConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowFeeConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-cyber-dark border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-neon-gold/10 border border-neon-gold/20 flex items-center justify-center">
+                  <Trophy size={20} className="text-neon-gold" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Confirm Entry</h3>
+              </div>
+
+              <div className="space-y-3 mb-5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/50">Entry fee</span>
+                  <span className="text-white font-semibold">${(entryFee / 100).toFixed(2)}</span>
+                </div>
+                {walletBalance !== null && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-white/50">Your balance</span>
+                    <span className={walletBalance >= entryFee ? 'text-neon-green font-semibold' : 'text-red-400 font-semibold'}>
+                      ${(walletBalance / 100).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {walletBalance !== null && walletBalance >= entryFee && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-white/50">Balance after</span>
+                    <span className="text-white/70">${((walletBalance - entryFee) / 100).toFixed(2)}</span>
+                  </div>
+                )}
+                {prizes.length > 0 && (
+                  <div className="pt-2 border-t border-white/8">
+                    <p className="text-xs text-white/40 mb-1">Prize breakdown (top 3)</p>
+                    <p className="text-xs text-white/60">
+                      🥇 ${(prizes[0] / 100).toFixed(2)} · 🥈 ${(prizes[1] / 100).toFixed(2)} · 🥉 ${(prizes[2] / 100).toFixed(2)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {walletBalance !== null && walletBalance < entryFee ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-yellow-400 text-center">Insufficient balance to pay entry fee.</p>
+                  <Link
+                    to="/dashboard/wallet"
+                    className="block w-full text-center py-2.5 rounded-xl bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-sm font-semibold hover:bg-neon-cyan/20 transition-colors"
+                  >
+                    Top Up Wallet
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowFeeConfirm(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 text-sm hover:border-white/20 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <NeonButton
+                    size="sm"
+                    className="flex-1 justify-center"
+                    loading={joining}
+                    onClick={() => void handleJoin()}
+                  >
+                    Pay & Join
+                  </NeonButton>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

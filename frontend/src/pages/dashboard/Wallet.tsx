@@ -21,10 +21,13 @@ import {
   TrendingUp,
   TrendingDown,
   AlertTriangle,
+  Building2,
+  ExternalLink,
 } from 'lucide-react';
+import { API_BASE } from '../../lib/api';
 
-// Feature flag: real-money features disabled until legal review + security hardening
-const REAL_MONEY_ENABLED = false;
+// Real-money features enabled
+const REAL_MONEY_ENABLED = true;
 
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -51,6 +54,14 @@ export function WalletDashboard() {
   const [linkSuccess, setLinkSuccess] = useState(false);
   const [txPage, setTxPage] = useState(1);
 
+  // Stripe Connect state
+  const [connectStatus, setConnectStatus] = useState<{ connected: boolean; payouts_enabled: boolean } | null>(null);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [stripeWithdrawAmount, setStripeWithdrawAmount] = useState('');
+  const [stripeWithdrawLoading, setStripeWithdrawLoading] = useState(false);
+  const [stripeWithdrawError, setStripeWithdrawError] = useState<string | null>(null);
+  const [stripeWithdrawSuccess, setStripeWithdrawSuccess] = useState(false);
+
   const token = session?.access_token || '';
 
   useEffect(() => {
@@ -58,6 +69,13 @@ export function WalletDashboard() {
       fetchWallet(token);
       fetchTransactions(token);
       fetchCryptoWallets(token);
+      // Fetch Stripe Connect status
+      fetch(`${API_BASE}/api/payments/stripe/connect/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setConnectStatus(data); })
+        .catch(() => {});
     }
   }, [token, fetchWallet, fetchTransactions, fetchCryptoWallets]);
 
@@ -72,6 +90,57 @@ export function WalletDashboard() {
     const nextPage = txPage + 1;
     setTxPage(nextPage);
     fetchTransactions(token, nextPage);
+  };
+
+  const handleConnectOnboard = async () => {
+    if (!token || !session?.user?.email) return;
+    setConnectLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/payments/stripe/connect/onboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: session.user.email }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      }
+    } catch {
+      // silently fall through
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
+  const handleStripeWithdraw = async () => {
+    setStripeWithdrawError(null);
+    setStripeWithdrawSuccess(false);
+    const cents = Math.round(parseFloat(stripeWithdrawAmount) * 100);
+    if (!cents || cents < 100) {
+      setStripeWithdrawError('Minimum withdrawal is $1.00');
+      return;
+    }
+    if (cents > balance) {
+      setStripeWithdrawError('Insufficient balance');
+      return;
+    }
+    setStripeWithdrawLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/payments/withdraw/stripe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount_cents: cents }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Withdrawal failed');
+      setStripeWithdrawSuccess(true);
+      setStripeWithdrawAmount('');
+      fetchWallet(token);
+    } catch (err) {
+      setStripeWithdrawError(err instanceof Error ? err.message : 'Withdrawal failed');
+    } finally {
+      setStripeWithdrawLoading(false);
+    }
   };
 
   const handleLinkWallet = async () => {
@@ -293,6 +362,81 @@ export function WalletDashboard() {
                   {linkError && <p className="text-xs text-red-400 mt-1">{linkError}</p>}
                   {linkSuccess && <p className="text-xs text-green-400 mt-1">Wallet linked successfully</p>}
                 </div>
+              </GlassCard>
+
+              {/* Stripe Connect — Bank Withdrawals */}
+              <GlassCard className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Building2 size={18} className="text-neon-cyan" />
+                    Bank Withdrawal
+                  </h2>
+                  {connectStatus?.connected && (
+                    <Badge className={connectStatus.payouts_enabled ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}>
+                      {connectStatus.payouts_enabled ? (
+                        <span className="flex items-center gap-1"><CheckCircle size={12} /> Verified</span>
+                      ) : 'Pending'}
+                    </Badge>
+                  )}
+                </div>
+
+                {!connectStatus?.connected ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-white/50">
+                      Connect a bank account via Stripe to withdraw your winnings directly.
+                    </p>
+                    <NeonButton
+                      onClick={handleConnectOnboard}
+                      loading={connectLoading}
+                      icon={<ExternalLink size={14} />}
+                      size="sm"
+                      className="w-full justify-center"
+                    >
+                      Connect Bank Account
+                    </NeonButton>
+                  </div>
+                ) : !connectStatus.payouts_enabled ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-yellow-400">
+                      Your bank account verification is pending. Complete the Stripe onboarding to enable withdrawals.
+                    </p>
+                    <NeonButton
+                      onClick={handleConnectOnboard}
+                      loading={connectLoading}
+                      icon={<ExternalLink size={14} />}
+                      size="sm"
+                      variant="secondary"
+                      className="w-full justify-center"
+                    >
+                      Resume Onboarding
+                    </NeonButton>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-white/50">Withdraw to your connected bank account.</p>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Amount (e.g. 25.00)"
+                        value={stripeWithdrawAmount}
+                        onChange={e => setStripeWithdrawAmount(e.target.value)}
+                        className="flex-1"
+                        type="number"
+                        min="1"
+                        step="0.01"
+                      />
+                      <NeonButton
+                        onClick={handleStripeWithdraw}
+                        loading={stripeWithdrawLoading}
+                        icon={<ArrowUpRight size={14} />}
+                        size="sm"
+                      >
+                        Withdraw
+                      </NeonButton>
+                    </div>
+                    {stripeWithdrawError && <p className="text-xs text-red-400">{stripeWithdrawError}</p>}
+                    {stripeWithdrawSuccess && <p className="text-xs text-green-400">Withdrawal initiated successfully</p>}
+                  </div>
+                )}
               </GlassCard>
 
               {/* Exchange Credentials */}

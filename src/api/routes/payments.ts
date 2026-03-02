@@ -113,15 +113,61 @@ router.post('/deposit/crypto', requireRealMoneyEnabled, authMiddleware, async (r
 // ============================================================================
 
 /**
+ * POST /api/payments/stripe/connect/onboard
+ * Start Stripe Connect Express onboarding — returns redirect URL
+ */
+router.post('/stripe/connect/onboard', requireRealMoneyEnabled, authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const email = req.body.email;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Missing required field: email' });
+    }
+
+    const result = await stripeService.onboardUser(user.id, email);
+    res.json({ url: result.url });
+  } catch (error) {
+    log.error('Error starting Stripe Connect onboarding', { error: String(error) });
+    res.status(500).json({ error: 'Failed to start bank account onboarding' });
+  }
+});
+
+/**
+ * GET /api/payments/stripe/connect/status
+ * Check if user has a connected bank account and payouts are enabled
+ */
+router.get('/stripe/connect/status', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { user } = req as AuthenticatedRequest;
+    const status = await stripeService.getConnectStatus(user.id);
+    res.json(status);
+  } catch (error) {
+    log.error('Error fetching Stripe Connect status', { error: String(error) });
+    res.status(500).json({ error: 'Failed to fetch connect status' });
+  }
+});
+
+/**
  * POST /api/payments/withdraw/stripe
- * Stripe Connect withdrawal (placeholder)
+ * Stripe Connect withdrawal to linked bank account
  */
 router.post('/withdraw/stripe', requireRealMoneyEnabled, authMiddleware, async (req: Request, res: Response) => {
   try {
-    res.json({ message: 'Stripe Connect withdrawal coming soon' });
+    const { user } = req as AuthenticatedRequest;
+    const amountCents = req.body.amountCents || req.body.amount_cents;
+
+    if (!amountCents || amountCents < 100) {
+      return res.status(400).json({ error: 'Minimum withdrawal is $1.00' });
+    }
+
+    const result = await stripeService.createPayout(user.id, amountCents);
+    res.json(result);
   } catch (error) {
-    log.error('Error processing Stripe withdrawal', { error: String(error) });
-    res.status(500).json({ error: 'Failed to process withdrawal' });
+    const msg = error instanceof Error ? error.message : String(error);
+    log.error('Error processing Stripe withdrawal', { error: msg });
+    // Return the message directly so frontend can show meaningful errors
+    res.status(400).json({ error: msg });
   }
 });
 

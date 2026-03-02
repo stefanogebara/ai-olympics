@@ -16,17 +16,22 @@ const {
   mockCheckoutCreate,
   mockConstructEvent,
   mockDeposit,
+  mockWithdraw,
+  mockTransfersCreate,
   MockStripe,
 } = vi.hoisted(() => {
   const mockCustomersCreate = vi.fn();
   const mockCheckoutCreate = vi.fn();
   const mockConstructEvent = vi.fn();
   const mockDeposit = vi.fn();
+  const mockWithdraw = vi.fn();
+  const mockTransfersCreate = vi.fn();
   // Class mock so `new Stripe()` works in Vitest 4.x ESM
   class MockStripe {
     customers = { create: mockCustomersCreate };
     checkout = { sessions: { create: mockCheckoutCreate } };
     webhooks = { constructEvent: mockConstructEvent };
+    transfers = { create: mockTransfersCreate };
   }
   return {
     mockFrom: vi.fn(),
@@ -34,6 +39,8 @@ const {
     mockCheckoutCreate,
     mockConstructEvent,
     mockDeposit,
+    mockWithdraw,
+    mockTransfersCreate,
     MockStripe,
   };
 });
@@ -52,7 +59,7 @@ vi.mock('../shared/utils/supabase.js', () => ({
 }));
 
 vi.mock('./wallet-service.js', () => ({
-  walletService: { deposit: mockDeposit },
+  walletService: { deposit: mockDeposit, withdraw: mockWithdraw },
 }));
 
 vi.mock('../shared/utils/logger.js', () => ({
@@ -317,9 +324,44 @@ describe('handleWebhook', () => {
 // ---------------------------------------------------------------------------
 
 describe('createPayout', () => {
-  it('always throws a not-implemented error', async () => {
+  it('throws when no connect account is found', async () => {
+    mockFrom.mockReturnValueOnce(chain({ data: null, error: { code: 'PGRST116' } }));
+
     await expect(stripeService.createPayout('user-1', 10000)).rejects.toThrow(
-      'Stripe Connect payouts are not yet available'
+      'No Stripe Connect account found'
+    );
+    expect(mockTransfersCreate).not.toHaveBeenCalled();
+  });
+
+  it('throws when payouts are not yet enabled', async () => {
+    mockFrom.mockReturnValueOnce(
+      chain({ data: { stripe_account_id: 'acct_1', payouts_enabled: false }, error: null })
+    );
+
+    await expect(stripeService.createPayout('user-1', 10000)).rejects.toThrow(
+      'not yet verified'
+    );
+    expect(mockTransfersCreate).not.toHaveBeenCalled();
+  });
+
+  it('transfers funds and debits wallet when payouts are enabled', async () => {
+    mockFrom.mockReturnValueOnce(
+      chain({ data: { stripe_account_id: 'acct_1', payouts_enabled: true }, error: null })
+    );
+    mockTransfersCreate.mockResolvedValueOnce({ id: 'tr_test_123' });
+    mockWithdraw.mockResolvedValueOnce(undefined);
+
+    const result = await stripeService.createPayout('user-1', 5000);
+
+    expect(result).toEqual({ status: 'success' });
+    expect(mockTransfersCreate).toHaveBeenCalledWith({
+      amount: 5000,
+      currency: 'usd',
+      destination: 'acct_1',
+      metadata: { userId: 'user-1' },
+    });
+    expect(mockWithdraw).toHaveBeenCalledWith(
+      'user-1', 5000, 'stripe_connect', 'tr_test_123', 'stripe_payout_tr_test_123'
     );
   });
 });

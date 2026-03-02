@@ -217,32 +217,36 @@ class OrderManager {
 
       const grossPool = competition.prize_pool || 0;
       const feePct = competition.platform_fee_pct ?? 10;
-      const netPool = grossPool * (1 - feePct / 100);
+      const platformFeeCents = Math.floor(grossPool * feePct / 100);
+      const netPool = grossPool - platformFeeCents;
 
-      log.info('Prize pool breakdown', { grossPool, feePct, netPool });
+      log.info('Prize pool breakdown', { grossPool, feePct, platformFeeCents, netPool });
 
-      // Simple distribution: 1st gets 60%, 2nd gets 30%, 3rd gets 10%
+      // Distribution: 1st gets 60%, 2nd gets 30%, 3rd gets 10% of net pool
       const splits = [0.6, 0.3, 0.1];
       const payouts: { userId: string; amount: number }[] = [];
 
-      for (let i = 0; i < Math.min(rankings.length, splits.length); i++) {
+      // Filter to participants who have a user_id (skip house/bot agents)
+      const eligibleRankings = rankings.filter(r => r.userId);
+
+      for (let i = 0; i < Math.min(eligibleRankings.length, splits.length); i++) {
         const amount = Math.floor(netPool * splits[i]);
         if (amount > 0) {
-          const wallet = await walletService.getOrCreateWallet(rankings[i].userId);
-          // Credit wallet (negative lock = credit)
-          await serviceClient
-            .from('aio_wallet_transactions')
-            .insert({
-              wallet_id: wallet.id,
-              type: 'prize',
-              amount_cents: amount,
-              description: `Competition prize (rank #${rankings[i].rank})`,
-              reference_id: competitionId,
-            });
-
-          payouts.push({ userId: rankings[i].userId, amount });
+          await walletService.creditPrizeWinning(
+            eligibleRankings[i].userId,
+            competitionId,
+            amount,
+            eligibleRankings[i].rank
+          );
+          payouts.push({ userId: eligibleRankings[i].userId, amount });
         }
       }
+
+      // Record platform fee collected on the competition row
+      await serviceClient
+        .from('aio_competitions')
+        .update({ platform_fee_collected_cents: platformFeeCents })
+        .eq('id', competitionId);
 
       log.info('Competition settled', { competitionId, payouts });
       return { payouts };

@@ -4,6 +4,7 @@ import { getEventsFromLog } from '../../shared/utils/redis.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { competitionManager } from '../../orchestrator/competition-manager.js';
+import { walletService } from '../../services/wallet-service.js';
 import { validateBody } from '../middleware/validate.js';
 import { createCompetitionSchema, joinCompetitionSchema, voteSchema } from '../schemas.js';
 
@@ -289,7 +290,27 @@ router.post('/:id/join', requireAuth, validateBody(joinCompetitionSchema), async
       throw error;
     }
 
-    log.info('User joined competition', { competitionId: id, agentId: agent_id, userId: user.id });
+    // Deduct entry fee for real-money competitions
+    const entryFeeCents = competition.entry_fee ?? 0;
+    if (entryFeeCents > 0 && competition.stake_mode === 'real') {
+      try {
+        await walletService.debitEntryFee(user.id, id as string, entryFeeCents);
+      } catch (feeError) {
+        // Rollback the participant insert since payment failed
+        await supabase
+          .from('aio_competition_participants')
+          .delete()
+          .eq('id', data.id);
+
+        const msg = feeError instanceof Error ? feeError.message : String(feeError);
+        if (msg.includes('Insufficient balance')) {
+          return res.status(402).json({ error: 'Insufficient balance to pay entry fee', entry_fee_cents: entryFeeCents });
+        }
+        throw feeError;
+      }
+    }
+
+    log.info('User joined competition', { competitionId: id, agentId: agent_id, userId: user.id, entryFeeCents });
     res.status(201).json(data);
   } catch (error) {
     log.error('Failed to join competition', { error });
@@ -307,7 +328,7 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
     // Verify competition is still in lobby
     const { data: competition } = await supabase
       .from('aio_competitions')
-      .select('status')
+      .select('status, stake_mode, entry_fee')
       .eq('id', id)
       .single();
 
@@ -326,6 +347,24 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
       .eq('user_id', user.id);
 
     if (error) throw error;
+
+    // Refund entry fee if this was a real-money competition
+    const entryFeeCents = competition.entry_fee ?? 0;
+    if (entryFeeCents > 0 && competition.stake_mode === 'real') {
+      try {
+        const refundKey = `refund_leave_${id}_${user.id}`;
+        await walletService.deposit(user.id, entryFeeCents, 'internal', refundKey, refundKey);
+        log.info('Entry fee refunded on leave', { competitionId: id, userId: user.id, entryFeeCents });
+      } catch (refundError) {
+        // Log but don't fail the leave — participant is already removed
+        log.error('Failed to refund entry fee on leave — manual reconciliation needed', {
+          competitionId: id,
+          userId: user.id,
+          entryFeeCents,
+          error: String(refundError),
+        });
+      }
+    }
 
     log.info('User left competition', { competitionId: id, userId: user.id });
     res.status(204).send();
