@@ -6,13 +6,17 @@ export default {
   ],
   safelist: [
     // Dynamic neon color classes used in games and components
-    { pattern: /bg-neon-(cyan|magenta|green|blue)\/20/ },
-    { pattern: /text-neon-(cyan|magenta|green|blue)/ },
+    { pattern: /bg-neon-(cyan|magenta|green|blue|gold)\/(10|20)/ },
+    { pattern: /text-neon-(cyan|magenta|green|blue|gold)/ },
+    { pattern: /border-neon-(cyan|magenta|green|blue|gold)\/(20|30|50)/ },
     // Additional dynamic color patterns used across the app
-    'bg-neon-cyan/20', 'bg-neon-magenta/20', 'bg-neon-green/20', 'bg-neon-blue/20',
-    'text-neon-cyan', 'text-neon-magenta', 'text-neon-green', 'text-neon-blue',
-    // Game-specific colors (yellow, purple used as neon- variants)
+    'bg-neon-cyan/20', 'bg-neon-magenta/20', 'bg-neon-green/20', 'bg-neon-blue/20', 'bg-neon-gold/10',
+    'text-neon-cyan', 'text-neon-magenta', 'text-neon-green', 'text-neon-blue', 'text-neon-gold',
+    'border-neon-gold', 'border-neon-gold/20',
+    // Game-specific colors
     'bg-yellow-500/20', 'text-yellow-500', 'bg-purple-500/20', 'text-purple-500',
+    'bg-orange-500/20', 'text-orange-500', 'bg-emerald-500/20', 'text-emerald-500',
+    'bg-rose-500/20', 'text-rose-500',
   ],
   theme: {
     extend: {
@@ -27,6 +31,7 @@ export default {
         'neon-magenta': '#FF00FF',
         'neon-blue': '#0066FF',
         'neon-green': '#00FF88',
+        'neon-gold': '#FFD700',
 
         // Agent-specific colors
         'agent-claude': '#D97706',
