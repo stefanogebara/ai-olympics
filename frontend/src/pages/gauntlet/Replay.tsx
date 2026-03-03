@@ -90,6 +90,20 @@ export function GauntletReplay() {
       .finally(() => setLoading(false));
   }, [runId]);
 
+  // Poll every 2s while run is still running
+  useEffect(() => {
+    if (!runId || !data || data.run.status !== 'running') return;
+
+    const poll = setInterval(() => {
+      fetch(`${API_URL}/gauntlet/runs/${runId}/replay`)
+        .then(r => r.ok ? r.json() : null)
+        .then((d: ReplayData | null) => { if (d) setData(d); })
+        .catch(() => { /* silent — keep showing last known state */ });
+    }, 2000);
+
+    return () => clearInterval(poll);
+  }, [runId, data?.run.status]);
+
   const frames = data?.frames ?? [];
   const totalFrames = frames.length;
   const currentFrame = frames[frameIndex] ?? null;
@@ -173,6 +187,12 @@ export function GauntletReplay() {
                   )}>
                     {data.run.status}
                   </span>
+                  {data.run.status === 'running' && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-pulse" />
+                      AGENT RUNNING · {frames.length} frames
+                    </span>
+                  )}
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize bg-neon-cyan/10 border-neon-cyan/30 text-neon-cyan">
                     {data.run.track}
                   </span>
@@ -234,7 +254,15 @@ export function GauntletReplay() {
                       </motion.div>
                     ) : (
                       <p className="text-center text-white/30 py-12 text-sm">
-                        {totalFrames === 0 ? 'No frames recorded for this run' : 'Press play or drag the scrubber'}
+                        {totalFrames === 0
+                          ? data?.run.status === 'running'
+                            ? <span className="inline-flex items-center gap-2 text-neon-cyan text-sm">
+                                <span className="w-4 h-4 border-2 border-neon-cyan border-t-transparent rounded-full animate-spin inline-block" />
+                                Agent is running...
+                              </span>
+                            : 'No frames recorded for this run'
+                          : 'Press play or drag the scrubber'
+                        }
                       </p>
                     )}
                   </AnimatePresence>
