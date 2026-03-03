@@ -6,6 +6,7 @@ import { GauntletRunner } from '../../services/gauntlet-runner.js';
 import { issueRunToken, getRunToken, revokeRunToken } from '../../services/github-credential-service.js';
 import { pickWeeklyTasks } from '../../services/gauntlet-tasks.js';
 import { createLogger } from '../../shared/utils/logger.js';
+import { executeGauntletDropIn } from '../../services/gauntlet-execution.js';
 
 const log = createLogger('GauntletRoutes');
 const router = Router();
@@ -67,10 +68,20 @@ router.get('/weeks/current', requireAuth, async (_req: Request, res: Response) =
 router.post('/runs', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
-    const { agent_id, track } = req.body as { agent_id?: string; track: string };
+    const { agent_id, track, api_key, provider, model } = req.body as {
+      agent_id?: string;
+      track: string;
+      api_key?: string;
+      provider?: string;
+      model?: string;
+    };
 
     if (!track || !['dropin', 'webhook'].includes(track)) {
       return res.status(400).json({ error: "track must be 'dropin' or 'webhook'" });
+    }
+
+    if (track === 'dropin' && (!api_key || !provider || !model)) {
+      return res.status(400).json({ error: 'api_key, provider, and model are required for drop-in track' });
     }
 
     const { weekNumber, year } = getISOWeek(new Date());
@@ -102,6 +113,21 @@ router.post('/runs', requireAuth, async (req: Request, res: Response) => {
     const runner = new GauntletRunner(runId);
     await runner.initialize();
     activeRunners.set(runId, runner);
+
+    if (track === 'dropin' && api_key && provider && model) {
+      executeGauntletDropIn({
+        runner,
+        runId,
+        weekNumber,
+        year,
+        provider,
+        model,
+        apiKey: api_key,
+        githubToken,
+      }).catch((err: unknown) => {
+        log.error('Drop-in execution failed (unhandled)', { runId, err });
+      });
+    }
 
     const tasks = pickWeeklyTasks(weekNumber, year);
 

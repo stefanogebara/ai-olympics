@@ -123,6 +123,10 @@ vi.mock('../../services/gauntlet-tasks.js', () => ({
   pickWeeklyTasks: mockPickWeeklyTasks,
 }));
 
+vi.mock('../../services/gauntlet-execution.js', () => ({
+  executeGauntletDropIn: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../../shared/utils/logger.js', () => ({
   createLogger: () => ({
     info: vi.fn(),
@@ -367,7 +371,7 @@ describe('POST /api/gauntlet/runs', () => {
 
   it('returns 201 with runId, tasks, and githubToken for dropin track', async () => {
     const result = await withServer(async (url) => {
-      return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin' });
+      return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
     });
 
     expect(result.status).toBe(201);
@@ -406,7 +410,7 @@ describe('POST /api/gauntlet/runs', () => {
 
   it('returns tasks array with 5 items', async () => {
     const result = await withServer(async (url) => {
-      return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin' });
+      return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
     });
 
     const body = result.body as Record<string, unknown>;
@@ -415,7 +419,7 @@ describe('POST /api/gauntlet/runs', () => {
 
   it('calls issueRunToken with the new run id', async () => {
     await withServer(async (url) => {
-      return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin' });
+      return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
     });
 
     expect(mockIssueRunToken).toHaveBeenCalledWith('run-uuid-new');
@@ -466,7 +470,7 @@ describe('POST /api/gauntlet/runs/:id/tasks/:index/complete', () => {
 
     await withServer(async (url) => {
       // Create the run first so the runner is in activeRunners
-      const createRes = await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin' });
+      const createRes = await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
       expect(createRes.status).toBe(201);
 
       // Now complete task 0
@@ -508,7 +512,7 @@ describe('POST /api/gauntlet/runs/:id/tasks/:index/complete', () => {
     });
 
     await withServer(async (url) => {
-      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin' });
+      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
       await httpRequest(url, 'POST', `/api/gauntlet/runs/${RUN_ID}/tasks/0/complete`, { answer: 'Sam Altman' });
     });
 
@@ -549,7 +553,7 @@ describe('POST /api/gauntlet/runs/:id/tasks/:index/complete', () => {
     });
 
     const result = await withServer(async (url) => {
-      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin' });
+      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
       return httpRequest(url, 'POST', `/api/gauntlet/runs/${RUN_ID}/tasks/0/complete`, {});
     });
 
@@ -587,7 +591,7 @@ describe('POST /api/gauntlet/runs/:id/finish', () => {
     });
 
     const result = await withServer(async (url) => {
-      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin' });
+      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
       return httpRequest(url, 'POST', `/api/gauntlet/runs/${RUN_ID}/finish`, { status: 'completed' });
     });
 
@@ -621,7 +625,7 @@ describe('POST /api/gauntlet/runs/:id/finish', () => {
     });
 
     await withServer(async (url) => {
-      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin' });
+      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
       await httpRequest(url, 'POST', `/api/gauntlet/runs/${RUN_ID}/finish`, { status: 'completed' });
     });
 
@@ -651,7 +655,7 @@ describe('POST /api/gauntlet/runs/:id/finish', () => {
     });
 
     const result = await withServer(async (url) => {
-      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin' });
+      await httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
       return httpRequest(url, 'POST', `/api/gauntlet/runs/${RUN_ID}/finish`, { status: 'invalid' });
     });
 
