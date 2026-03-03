@@ -126,12 +126,14 @@ export async function executeGauntletDropIn(opts: GauntletDropInOptions): Promis
     apiKey,
   };
 
-  const agentRunner = new AgentRunner(agentConfig, { maxTurns: 30, headless: true });
+  const agentRunner = new AgentRunner(agentConfig, { maxTurns: 30, headless: true, recordActions: false });
 
-  try {
+  const RUN_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+  const tasks = pickWeeklyTasks(weekNumber, year);
+
+  const runWithTimeout = async (): Promise<void> => {
     await agentRunner.initialize(runId, 'gauntlet');
-
-    const tasks = pickWeeklyTasks(weekNumber, year);
 
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i] as GauntletTask;
@@ -152,19 +154,35 @@ export async function executeGauntletDropIn(opts: GauntletDropInOptions): Promis
       }
 
       // Extract the string answer from the result
-      const agentAnswer =
+      let agentAnswer =
         typeof taskRunResult.result === 'string'
           ? taskRunResult.result
-          : taskRunResult.error ?? '';
+          : taskRunResult.result != null
+            ? JSON.stringify(taskRunResult.result)
+            : taskRunResult.error ?? '';
+      if (!agentAnswer) {
+        log.warn('Agent produced no answer for task', { taskId: task.id });
+      }
 
       await runner.completeTask(i, task, agentAnswer, { githubToken });
     }
+  };
 
+  try {
+    await Promise.race([
+      runWithTimeout(),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error('Gauntlet run wall-clock timeout (10min)')),
+          RUN_TIMEOUT_MS,
+        ),
+      ),
+    ]);
     await runner.finalize('completed');
     log.info('Gauntlet run completed', { runId });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    log.error('Gauntlet run failed', { runId, error: message });
+    log.error('Drop-in execution failed', { runId: runner.runId, error: message });
     await runner.finalize('failed');
   } finally {
     await agentRunner.cleanup();
