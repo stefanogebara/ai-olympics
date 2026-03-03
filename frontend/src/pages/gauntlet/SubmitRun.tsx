@@ -177,6 +177,10 @@ export default function SubmitRun() {
             provider: form.provider,
             model: form.model,
           } : {}),
+          ...(track === 'webhook' ? {
+            webhook_url: form.webhookUrl,
+            auth_header: form.authHeader,
+          } : {}),
         }),
       });
 
@@ -407,7 +411,8 @@ export default function SubmitRun() {
                   onClick={handleStart}
                   disabled={
                     !user ||
-                    (track === 'dropin' && (!form.apiKey.trim() || !form.model.trim()))
+                    (track === 'dropin' && (!form.apiKey.trim() || !form.model.trim())) ||
+                    (track === 'webhook' && !form.webhookUrl?.trim())
                   }
                   className="flex-1"
                 >
