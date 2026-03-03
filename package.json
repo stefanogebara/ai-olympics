@@ -26,6 +26,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
     "@google/generative-ai": "^0.21.0",
+    "@octokit/auth-app": "^8.2.0",
     "@polymarket/clob-client": "^4.22.8",
     "@sentry/node": "^10.38.0",
     "@supabase/supabase-js": "^2.94.1",
