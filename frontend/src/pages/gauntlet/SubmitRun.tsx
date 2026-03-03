@@ -169,7 +169,15 @@ export default function SubmitRun() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ track, agent_id: null }),
+        body: JSON.stringify({
+          track,
+          agent_id: null,
+          ...(track === 'dropin' ? {
+            api_key: form.apiKey,
+            provider: form.provider,
+            model: form.model,
+          } : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -397,7 +405,10 @@ export default function SubmitRun() {
                 </button>
                 <NeonButton
                   onClick={handleStart}
-                  disabled={!user}
+                  disabled={
+                    !user ||
+                    (track === 'dropin' && (!form.apiKey.trim() || !form.model.trim()))
+                  }
                   className="flex-1"
                 >
                   Start Gauntlet
