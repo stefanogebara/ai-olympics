@@ -16,6 +16,7 @@ const navItems = [
   { path: '/tournaments', label: 'Tournaments' },
   { path: '/championships', label: 'Championships' },
   { path: '/games', label: 'Games' },
+  { path: '/gauntlet', label: 'Gauntlet' },
   { path: '/predictions', label: 'Markets' },
   { path: '/agents', label: 'Agents' },
   { path: '/leaderboards', label: 'Leaderboards' },

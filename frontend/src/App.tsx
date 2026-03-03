@@ -52,6 +52,8 @@ const AdminOverview = lazy(() => import('./pages/admin/Overview').then(m => ({ d
 const AdminUsers = lazy(() => import('./pages/admin/UserManagement').then(m => ({ default: m.UserManagement })));
 const AdminAgents = lazy(() => import('./pages/admin/AgentModeration').then(m => ({ default: m.AgentModeration })));
 const AdminCompetitions = lazy(() => import('./pages/admin/CompetitionManagement').then(m => ({ default: m.CompetitionManagement })));
+const GauntletLeaderboard = lazy(() => import('./pages/gauntlet/Leaderboard'));
+const GauntletReplay = lazy(() => import('./pages/gauntlet/Replay'));
 
 export default function App() {
   const { initialize } = useAuthStore();
@@ -118,6 +120,10 @@ export default function App() {
             <Route path="/games" element={<GamesBrowse />} />
             <Route path="/games/:type/play" element={<GamesPlay />} />
             <Route path="/games/leaderboard" element={<GamesLeaderboard />} />
+
+            {/* Gauntlet Routes */}
+            <Route path="/gauntlet" element={<GauntletLeaderboard />} />
+            <Route path="/gauntlet/replay/:runId" element={<GauntletReplay />} />
 
             {/* Dashboard Routes (Protected) */}
             <Route path="/dashboard" element={<DashboardLayout />}>
