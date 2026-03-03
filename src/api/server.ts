@@ -51,6 +51,7 @@ import tradingRouter from './routes/trading.js';
 import tournamentsRouter from './routes/tournaments.js';
 import championshipsRouter from './routes/championships.js';
 import adminRouter from './routes/admin.js';
+import gauntletRouter from './routes/gauntlet.js';
 
 // Competition orchestrator
 import { competitionManager, startCompetitionScheduler } from '../orchestrator/competition-manager.js';
@@ -434,6 +435,9 @@ export function createAPIServer() {
 
   // Admin
   app.use('/api/admin', adminRouter);
+
+  // Gauntlet (Real Tasks Gauntlet)
+  app.use('/api/gauntlet', gauntletRouter);
 
   // State
   let currentCompetition: Competition | null = null;
