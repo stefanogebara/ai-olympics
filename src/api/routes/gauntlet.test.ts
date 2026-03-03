@@ -29,6 +29,7 @@ const {
   mockRecordFrame,
   mockCompleteTask,
   mockFinalize,
+  mockExecuteGauntletWebhook,
 } = vi.hoisted(() => {
   const mockPickWeeklyTasks = vi.fn().mockReturnValue([
     { id: 'web-001', title: 'OpenAI CEO', category: 'web-research', timeLimitMs: 300_000, prompt: 'Find CEO', verifierType: 'llm-judge', verifierConfig: {}, criteria: 'Must say Sam Altman' },
@@ -70,6 +71,7 @@ const {
     completedAt: new Date().toISOString(),
   });
   const mockFinalize = vi.fn().mockResolvedValue({ totalScore: 800 });
+  const mockExecuteGauntletWebhook = vi.fn().mockResolvedValue(undefined);
 
   return {
     mockPickWeeklyTasks,
@@ -88,6 +90,7 @@ const {
     mockRecordFrame,
     mockCompleteTask,
     mockFinalize,
+    mockExecuteGauntletWebhook,
   };
 });
 
@@ -127,6 +130,10 @@ vi.mock('../../services/gauntlet-execution.js', () => ({
   executeGauntletDropIn: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../../services/gauntlet-webhook-executor.js', () => ({
+  executeGauntletWebhook: mockExecuteGauntletWebhook,
+}));
+
 vi.mock('../../shared/utils/logger.js', () => ({
   createLogger: () => ({
     info: vi.fn(),
@@ -153,6 +160,7 @@ import { createServer } from 'http';
 import type { AddressInfo } from 'net';
 import http from 'http';
 import { GauntletRunner } from '../../services/gauntlet-runner.js';
+import { executeGauntletWebhook } from '../../services/gauntlet-webhook-executor.js';
 import gauntletRouter, { getISOWeek } from './gauntlet.js';
 
 // ---------------------------------------------------------------------------
@@ -381,9 +389,9 @@ describe('POST /api/gauntlet/runs', () => {
     expect(body).toHaveProperty('githubToken');
   });
 
-  it('returns 201 for webhook track', async () => {
+  it('returns 201 for webhook track with webhook_url', async () => {
     const result = await withServer(async (url) => {
-      return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'webhook' });
+      return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'webhook', webhook_url: 'https://user-server.example.com/agent/turn' });
     });
 
     expect(result.status).toBe(201);
@@ -423,6 +431,51 @@ describe('POST /api/gauntlet/runs', () => {
     });
 
     expect(mockIssueRunToken).toHaveBeenCalledWith('run-uuid-new');
+  });
+
+  it('returns 400 when webhook track is missing webhook_url', async () => {
+    const result = await withServer(async (url) => {
+      return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'webhook' });
+    });
+
+    expect(result.status).toBe(400);
+    const body = result.body as Record<string, unknown>;
+    expect(typeof body.error).toBe('string');
+    expect((body.error as string).toLowerCase()).toContain('webhook_url');
+  });
+
+  it('calls executeGauntletWebhook fire-and-forget when webhook track with webhook_url', async () => {
+    vi.clearAllMocks();
+    resetMockChains();
+    resetRunnerMock();
+    mockPickWeeklyTasks.mockReturnValue([
+      { id: 'web-001', title: 'T1', category: 'web-research', timeLimitMs: 300_000 },
+      { id: 'web-002', title: 'T2', category: 'web-research', timeLimitMs: 300_000 },
+      { id: 'gh-001', title: 'T3', category: 'github-workflow', timeLimitMs: 300_000 },
+      { id: 'gh-002', title: 'T4', category: 'github-workflow', timeLimitMs: 300_000 },
+      { id: 'wild-001', title: 'T5', category: 'wildcard', timeLimitMs: 300_000 },
+    ]);
+    mockIssueRunToken.mockResolvedValue('ghtoken_webhook');
+    mockInitialize.mockResolvedValue(undefined);
+    mockSingle.mockResolvedValue({ data: { id: 'run-webhook-test' }, error: null });
+    vi.mocked(executeGauntletWebhook).mockResolvedValue(undefined);
+
+    const result = await withServer(async (url) => {
+      return httpRequest(url, 'POST', '/api/gauntlet/runs', {
+        track: 'webhook',
+        webhook_url: 'https://user-server.example.com/agent/turn',
+        auth_header: 'Bearer secret-token',
+      });
+    });
+
+    expect(result.status).toBe(201);
+    expect(vi.mocked(executeGauntletWebhook)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 'run-webhook-test',
+        webhookUrl: 'https://user-server.example.com/agent/turn',
+        authHeader: 'Bearer secret-token',
+      }),
+    );
   });
 });
 

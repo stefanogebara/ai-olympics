@@ -7,6 +7,7 @@ import { issueRunToken, getRunToken, revokeRunToken } from '../../services/githu
 import { pickWeeklyTasks } from '../../services/gauntlet-tasks.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { executeGauntletDropIn } from '../../services/gauntlet-execution.js';
+import { executeGauntletWebhook } from '../../services/gauntlet-webhook-executor.js';
 
 const log = createLogger('GauntletRoutes');
 const router = Router();
@@ -68,12 +69,14 @@ router.get('/weeks/current', requireAuth, async (_req: Request, res: Response) =
 router.post('/runs', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as AuthenticatedRequest).user;
-    const { agent_id, track, api_key, provider, model } = req.body as {
+    const { agent_id, track, api_key, provider, model, webhook_url, auth_header } = req.body as {
       agent_id?: string;
       track: string;
       api_key?: string;
       provider?: string;
       model?: string;
+      webhook_url?: string;
+      auth_header?: string;
     };
 
     if (!track || !['dropin', 'webhook'].includes(track)) {
@@ -82,6 +85,10 @@ router.post('/runs', requireAuth, async (req: Request, res: Response) => {
 
     if (track === 'dropin' && (!api_key || !provider || !model)) {
       return res.status(400).json({ error: 'api_key, provider, and model are required for drop-in track' });
+    }
+
+    if (track === 'webhook' && !webhook_url) {
+      return res.status(400).json({ error: 'webhook_url is required for webhook track' });
     }
 
     const { weekNumber, year } = getISOWeek(new Date());
@@ -126,6 +133,20 @@ router.post('/runs', requireAuth, async (req: Request, res: Response) => {
         githubToken,
       }).catch((err: unknown) => {
         log.error('Drop-in execution failed (unhandled)', { runId, err });
+      });
+    }
+
+    if (track === 'webhook' && webhook_url) {
+      executeGauntletWebhook({
+        runner,
+        runId,
+        weekNumber,
+        year,
+        webhookUrl: webhook_url,
+        authHeader: auth_header,
+        githubToken: githubToken,
+      }).catch((err: unknown) => {
+        log.error('Webhook execution failed (unhandled)', { runId, err });
       });
     }
 
