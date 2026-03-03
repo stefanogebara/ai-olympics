@@ -126,12 +126,12 @@ const GITHUB_WORKFLOW_TASKS: GauntletTask[] = [
     category: 'github-workflow',
     title: 'Fork Fixture Repo',
     prompt:
-      "Fork the repository 'ai-olympics/gauntlet-fixture-hello' to your account. Return the fork URL.",
+      "Fork the repository 'stefanogebara/gauntlet-fixture-hello' to your account. Return the fork URL.",
     timeLimitMs: 300_000,
     verifierType: 'github-api',
-    verifierConfig: { checkForkExists: true, upstreamRepo: 'ai-olympics/gauntlet-fixture-hello' },
+    verifierConfig: { checkForkExists: true, upstreamRepo: 'stefanogebara/gauntlet-fixture-hello' },
     criteria:
-      "A fork of ai-olympics/gauntlet-fixture-hello must exist in the agent's account",
+      "A fork of stefanogebara/gauntlet-fixture-hello must exist in the agent's account",
   },
   {
     id: 'gh-003',
@@ -153,12 +153,12 @@ const GITHUB_WORKFLOW_TASKS: GauntletTask[] = [
     category: 'github-workflow',
     title: 'Create Bug Issue',
     prompt:
-      "Create a GitHub issue in 'ai-olympics/gauntlet-fixture-hello' titled 'Bug: missing error handling'. Add the label 'bug' if possible.",
+      "Create a GitHub issue in 'stefanogebara/gauntlet-fixture-hello' titled 'Bug: missing error handling'. Add the label 'bug' if possible.",
     timeLimitMs: 300_000,
     verifierType: 'github-api',
     verifierConfig: {
       checkIssueExists: true,
-      repo: 'ai-olympics/gauntlet-fixture-hello',
+      repo: 'stefanogebara/gauntlet-fixture-hello',
       titlePattern: 'missing error handling',
     },
     criteria:
@@ -168,24 +168,24 @@ const GITHUB_WORKFLOW_TASKS: GauntletTask[] = [
     id: 'gh-005',
     category: 'github-workflow',
     title: 'Star Fixture Repo',
-    prompt: "Star the repository 'ai-olympics/gauntlet-fixture-hello'.",
+    prompt: "Star the repository 'stefanogebara/gauntlet-fixture-hello'.",
     timeLimitMs: 300_000,
     verifierType: 'github-api',
-    verifierConfig: { checkStarred: true, repo: 'ai-olympics/gauntlet-fixture-hello' },
+    verifierConfig: { checkStarred: true, repo: 'stefanogebara/gauntlet-fixture-hello' },
     criteria:
-      "The repository 'ai-olympics/gauntlet-fixture-hello' must be starred by the agent's account",
+      "The repository 'stefanogebara/gauntlet-fixture-hello' must be starred by the agent's account",
   },
   {
     id: 'gh-006',
     category: 'github-workflow',
     title: 'Comment on Issue',
     prompt:
-      "Find any open issue in 'ai-olympics/gauntlet-fixture-hello' and post a comment saying 'Working on a fix'.",
+      "Find any open issue in 'stefanogebara/gauntlet-fixture-hello' and post a comment saying 'Working on a fix'.",
     timeLimitMs: 300_000,
     verifierType: 'github-api',
     verifierConfig: {
       checkComment: true,
-      repo: 'ai-olympics/gauntlet-fixture-hello',
+      repo: 'stefanogebara/gauntlet-fixture-hello',
       commentPattern: 'Working on a fix',
     },
     criteria: "A comment containing 'Working on a fix' must exist on any open issue",
@@ -210,7 +210,7 @@ const GITHUB_WORKFLOW_TASKS: GauntletTask[] = [
     category: 'github-workflow',
     title: 'Summarize Fixture README',
     prompt:
-      "Read the README of 'ai-olympics/gauntlet-fixture-hello' and summarize what the project does in one sentence.",
+      "Read the README of 'stefanogebara/gauntlet-fixture-hello' and summarize what the project does in one sentence.",
     timeLimitMs: 300_000,
     verifierType: 'llm-judge',
     verifierConfig: {},
