@@ -6,6 +6,7 @@ import { overlayManager } from './streaming/overlay-manager.js';
 import { commentator } from './streaming/commentary.js';
 import { config, validateConfig } from './shared/config.js';
 import { createLogger } from './shared/utils/logger.js';
+import { startGauntletScheduler } from './services/gauntlet-scheduler.js';
 
 const log = createLogger('Main');
 
@@ -30,6 +31,10 @@ async function main() {
   const server = createAPIServer();
   await server.start(config.port);
 
+  // Start gauntlet weekly scheduler
+  const stopGauntletScheduler = startGauntletScheduler();
+  log.info('Gauntlet scheduler started');
+
   log.info('✅ AI Olympics Ready');
   log.info(`📺 Dashboard: http://localhost:${config.port}`);
   log.info(`🔌 WebSocket: ws://localhost:${config.port}`);
@@ -38,6 +43,7 @@ async function main() {
   // Handle shutdown
   const shutdown = async () => {
     log.info('Shutting down...');
+    stopGauntletScheduler();
     await sandboxManager.cleanup();
     await server.stop();
     process.exit(0);
