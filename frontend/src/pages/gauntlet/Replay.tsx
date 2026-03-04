@@ -45,6 +45,60 @@ interface ReplayData {
   frames: ReplayFrame[];
 }
 
+// API returns flat shape — transform to the nested ReplayData the component expects
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function transformApiResponse(raw: any): ReplayData {
+  // Parse JSON strings if needed
+  const rawFrames = typeof raw.frames === 'string' ? JSON.parse(raw.frames) : (raw.frames ?? []);
+  const rawTasks = typeof raw.tasks === 'string' ? JSON.parse(raw.tasks) : (raw.tasks ?? []);
+
+  const startedAt = raw.startedAt ?? raw.started_at ?? '';
+  const completedAt = raw.completedAt ?? raw.completed_at ?? '';
+  const durationSeconds = startedAt && completedAt
+    ? Math.round((new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 1000)
+    : startedAt
+      ? Math.round((Date.now() - new Date(startedAt).getTime()) / 1000)
+      : 0;
+
+  const frames: ReplayFrame[] = rawFrames.map((f: any, i: number) => ({
+    frame_index: f.frame_index ?? f.frameIndex ?? i,
+    action: f.action ?? f.type ?? 'unknown',
+    payload: f.payload ?? f.url ?? f.selector ?? undefined,
+    reasoning: f.reasoning ?? undefined,
+    screenshot_b64: f.screenshot_b64 ?? f.screenshotB64 ?? undefined,
+    accessibility_tree: f.accessibility_tree ?? f.accessibilityTree ?? undefined,
+  }));
+
+  const tasks: TaskResult[] = rawTasks.map((t: any, i: number) => ({
+    task_id: t.task_id ?? t.taskId ?? `task-${i}`,
+    title: t.title ?? t.taskId ?? t.task_id ?? `Task ${i + 1}`,
+    score: t.score ?? (t.qualityPct != null ? t.qualityPct / 100 : null),
+    max_score: t.max_score ?? t.maxScore ?? 1,
+    status: t.completedAt || t.completed_at
+      ? (t.score != null && t.score > 0 ? 'completed' : 'failed')
+      : t.startedAt || t.started_at ? 'in_progress' : 'pending',
+  }));
+
+  const totalScore = raw.totalScore ?? raw.total_score ?? 0;
+  const taskCount = tasks.length || 1;
+
+  return {
+    run: {
+      run_id: raw.runId ?? raw.id ?? '',
+      agent_name: raw.agentName ?? raw.agent_name ?? raw.model ?? 'Agent',
+      username: raw.username ?? '',
+      total_score: totalScore,
+      max_possible: taskCount,
+      status: raw.status ?? 'running',
+      track: raw.track ?? 'drop-in',
+      duration_seconds: durationSeconds,
+      started_at: startedAt,
+    },
+    tasks,
+    frames,
+  };
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDuration(seconds: number): string {
@@ -85,7 +139,7 @@ export function GauntletReplay() {
 
     fetch(`${API_URL}/gauntlet/runs/${runId}/replay`)
       .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => Promise.reject(b.error || 'Not found')))
-      .then((d: ReplayData) => setData(d))
+      .then((raw) => setData(transformApiResponse(raw)))
       .catch((e: unknown) => setError(String(e)))
       .finally(() => setLoading(false));
   }, [runId]);
@@ -97,7 +151,7 @@ export function GauntletReplay() {
     const poll = setInterval(() => {
       fetch(`${API_URL}/gauntlet/runs/${runId}/replay`)
         .then(r => r.ok ? r.json() : null)
-        .then((d: ReplayData | null) => { if (d) setData(d); })
+        .then((raw) => { if (raw) setData(transformApiResponse(raw)); })
         .catch(() => { /* silent — keep showing last known state */ });
     }, 2000);
 

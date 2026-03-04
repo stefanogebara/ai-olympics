@@ -392,7 +392,7 @@ router.get('/runs/:id/replay', async (req: Request, res: Response) => {
 
     const { data, error } = await serviceClient
       .from('aio_gauntlet_runs')
-      .select('id, user_id, frames, tasks, total_score, status, started_at, completed_at')
+      .select('id, user_id, track, frames, tasks, total_score, status, started_at, completed_at')
       .eq('id', runId)
       .single();
 
@@ -403,6 +403,7 @@ router.get('/runs/:id/replay', async (req: Request, res: Response) => {
     return res.json({
       runId: data.id,
       userId: data.user_id,
+      track: data.track,
       frames: data.frames,
       tasks: data.tasks,
       totalScore: data.total_score,
