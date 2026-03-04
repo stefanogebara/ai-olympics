@@ -464,6 +464,81 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// Cancel competition (creator only, lobby status only)
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as AuthenticatedRequest).user;
+    const userDb = (req as AuthenticatedRequest).userClient;
+    const { id } = req.params;
+
+    // Verify ownership and current status (user-scoped query enforces RLS)
+    const { data: comp } = await userDb
+      .from('aio_competitions')
+      .select('id, status, created_by, stake_mode, entry_fee')
+      .eq('id', id)
+      .single();
+
+    if (!comp) {
+      return res.status(404).json({ error: 'Competition not found' });
+    }
+
+    if (comp.created_by !== user.id) {
+      return res.status(403).json({ error: 'Only the creator can cancel this competition' });
+    }
+
+    if (comp.status !== 'lobby') {
+      return res.status(400).json({ error: 'Cannot cancel a competition that has already started' });
+    }
+
+    // Mark as cancelled
+    const { error: updateError } = await userDb
+      .from('aio_competitions')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .eq('status', 'lobby'); // atomic guard
+
+    if (updateError) throw updateError;
+
+    // Refund all participants their entry fees
+    const entryFeeCents = comp.entry_fee ?? 0;
+    if (entryFeeCents > 0 && comp.stake_mode === 'real') {
+      const { data: participants } = await supabase
+        .from('aio_competition_participants')
+        .select('user_id')
+        .eq('competition_id', id)
+        .not('user_id', 'is', null);
+
+      for (const p of participants ?? []) {
+        try {
+          const refundKey = `refund_cancel_${id}_${p.user_id}`;
+          await walletService.deposit(
+            p.user_id,
+            entryFeeCents,
+            'internal',
+            refundKey,
+            refundKey
+          );
+          log.info('Entry fee refunded on cancel', { competitionId: id, userId: p.user_id, entryFeeCents });
+        } catch (refundErr) {
+          log.error('Failed to refund entry fee on cancel — manual reconciliation needed', {
+            competitionId: id,
+            userId: p.user_id,
+            entryFeeCents,
+            error: String(refundErr),
+          });
+          // Don't block cancellation — participant is already removed from active competition
+        }
+      }
+    }
+
+    log.info('Competition cancelled', { competitionId: id, userId: user.id });
+    res.status(204).send();
+  } catch (error) {
+    log.error('Failed to cancel competition', { error });
+    res.status(500).json({ error: 'Failed to cancel competition' });
+  }
+});
+
 // Get live competition state (in-memory, no auth required)
 router.get('/:id/live', async (req: Request, res: Response) => {
   try {
