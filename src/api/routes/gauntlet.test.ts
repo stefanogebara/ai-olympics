@@ -19,6 +19,7 @@ const {
   mockLimit,
   mockOrder,
   mockEq,
+  mockDelete,
   mockInsert,
   mockSelect,
   mockFrom,
@@ -44,15 +45,17 @@ const {
   const mockLimit = vi.fn().mockResolvedValue({ data: [], error: null });
   const mockOrder = vi.fn();
   const mockEq = vi.fn();
+  const mockDelete = vi.fn();
   const mockInsert = vi.fn();
   const mockSelect = vi.fn();
   const mockFrom = vi.fn();
 
   mockOrder.mockReturnValue({ limit: mockLimit });
   mockEq.mockReturnValue({ eq: mockEq, single: mockSingle, maybeSingle: mockMaybeSingle, order: mockOrder, limit: mockLimit });
+  mockDelete.mockReturnValue({ eq: mockEq });
   mockSelect.mockReturnValue({ eq: mockEq, single: mockSingle, maybeSingle: mockMaybeSingle, order: mockOrder });
   mockInsert.mockReturnValue({ select: mockSelect });
-  mockFrom.mockReturnValue({ select: mockSelect, insert: mockInsert, eq: mockEq });
+  mockFrom.mockReturnValue({ select: mockSelect, insert: mockInsert, delete: mockDelete, eq: mockEq });
 
   const mockIssueRunToken = vi.fn().mockResolvedValue('ghtoken_abc123');
   const mockGetRunToken = vi.fn().mockReturnValue('ghtoken_abc123');
@@ -80,6 +83,7 @@ const {
     mockLimit,
     mockOrder,
     mockEq,
+    mockDelete,
     mockInsert,
     mockSelect,
     mockFrom,
@@ -237,9 +241,10 @@ function httpRequest(
 function resetMockChains() {
   mockOrder.mockReturnValue({ limit: mockLimit });
   mockEq.mockReturnValue({ eq: mockEq, single: mockSingle, maybeSingle: mockMaybeSingle, order: mockOrder, limit: mockLimit });
+  mockDelete.mockReturnValue({ eq: mockEq });
   mockSelect.mockReturnValue({ eq: mockEq, single: mockSingle, maybeSingle: mockMaybeSingle, order: mockOrder });
   mockInsert.mockReturnValue({ select: mockSelect });
-  mockFrom.mockReturnValue({ select: mockSelect, insert: mockInsert, eq: mockEq });
+  mockFrom.mockReturnValue({ select: mockSelect, insert: mockInsert, delete: mockDelete, eq: mockEq });
 }
 
 /** Restore the GauntletRunner constructor mock after vi.clearAllMocks() resets it. */
