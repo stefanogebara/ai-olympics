@@ -133,15 +133,19 @@ export async function executeGauntletDropIn(opts: GauntletDropInOptions): Promis
   const tasks = pickWeeklyTasks(weekNumber, year);
 
   const runWithTimeout = async (): Promise<void> => {
+    log.info('Initializing agent browser', { runId, provider, model });
     await agentRunner.initialize(runId, 'gauntlet');
+    log.info('Agent browser ready', { runId });
 
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i] as GauntletTask;
+      log.info(`Starting task ${i + 1}/${tasks.length}`, { runId, taskId: task.id, title: task.title });
       runner.startTask(i);
 
       const taskDef: TaskDefinition = adaptTask(task);
 
       const taskRunResult = await agentRunner.runTask(taskDef);
+      log.info(`Task ${i + 1} complete`, { runId, taskId: task.id, success: taskRunResult.success, error: taskRunResult.error });
 
       // Record any actions produced by the agent as frames
       for (const action of taskRunResult.actions ?? []) {

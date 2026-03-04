@@ -380,9 +380,12 @@ export class AgentRunner {
         headless: this.runnerConfig.headless,
         args: [
           '--start-maximized',
-          '--disable-gpu',  // More stable on Windows
+          '--disable-gpu',
           '--no-sandbox',
-          '--disable-dev-shm-usage'  // Prevent shared memory issues
+          '--disable-setuid-sandbox',   // Required in Linux containers (Fly.io)
+          '--disable-dev-shm-usage',    // Prevent shared memory issues
+          '--no-first-run',
+          '--disable-extensions',
         ]
       });
 
@@ -429,7 +432,7 @@ export class AgentRunner {
       throw new Error('Agent not initialized. Call initialize() first.');
     }
 
-    log.agent(this.id, `Starting task: ${task.name}`);
+    log.agent(this.id, `Starting task: ${task.name} (turns=${this.runnerConfig.maxTurns}, timeout=${this.runnerConfig.turnTimeout}ms)`);
 
     // Initialize the adapter with task prompts (inject dynamic context)
     const apiBase = process.env.API_BASE_URL || `http://localhost:${config.port}`;
@@ -466,7 +469,9 @@ export class AgentRunner {
         }
 
         // Get current page state
+        log.agent(this.id, `Turn ${turnCount}: getting page state`);
         const pageState = await this.getPageState();
+        log.agent(this.id, `Turn ${turnCount}: calling LLM adapter`);
 
         // Let the agent decide what to do
         const turnResult = await Promise.race([
@@ -475,8 +480,10 @@ export class AgentRunner {
         ]);
 
         if (!turnResult) {
+          log.agent(this.id, `Turn ${turnCount}: LLM call timed out after ${this.runnerConfig.turnTimeout}ms`);
           throw new Error('Turn timeout');
         }
+        log.agent(this.id, `Turn ${turnCount}: LLM responded, toolCalls=${turnResult.toolCalls?.length ?? 0}`);
 
         // SECURITY: Validate response structure
         const responseCheck = validateAgentResponse(turnResult);
@@ -632,52 +639,62 @@ export class AgentRunner {
     };
   }
 
-  // Get a simplified accessibility tree for the agent
+  // Get a simplified accessibility tree for the agent (with timeout guard)
   private async getAccessibilityTree(): Promise<string> {
     if (!this.page) return '';
 
+    const PAGE_TIMEOUT_MS = 10_000;
+    const timeoutFallback = <T>(p: Promise<T>): Promise<T> =>
+      Promise.race([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error('page operation timeout')), PAGE_TIMEOUT_MS)
+        ),
+      ]);
+
     try {
-      // Use ariaSnapshot for modern Playwright
-      const snapshot = await this.page.locator('body').ariaSnapshot();
+      // Use ariaSnapshot for modern Playwright — with timeout to prevent hanging on Fly.io
+      const snapshot = await timeoutFallback(this.page.locator('body').ariaSnapshot());
       return snapshot || 'No accessibility information available';
     } catch {
-      // Fallback: Extract interactive elements manually
-      const elements = await this.page.evaluate((): string => {
-        const interactiveElements: string[] = [];
-
-        // Get all form elements and interactive items
-        const selectors = [
-          'input', 'button', 'select', 'textarea', 'a[href]',
-          '[role="button"]', '[role="link"]', '[role="textbox"]',
-          '[role="combobox"]', '[role="checkbox"]', '[role="radio"]'
-        ];
-
-        const els = document.querySelectorAll(selectors.join(', '));
-        els.forEach((el: Element, index: number) => {
-          const tag = el.tagName.toLowerCase();
-          const type = el.getAttribute('type') || '';
-          const name = el.getAttribute('name') || '';
-          const id = el.getAttribute('id') || '';
-          const label = el.getAttribute('aria-label') ||
-                       el.getAttribute('placeholder') ||
-                       (el as unknown as { innerText?: string }).innerText?.slice(0, 50) || '';
-          const value = (el as unknown as { value?: string }).value || '';
-
-          let desc = `[${index}] <${tag}`;
-          if (type) desc += ` type="${type}"`;
-          if (name) desc += ` name="${name}"`;
-          if (id) desc += ` id="${id}"`;
-          if (label) desc += ` label="${label}"`;
-          if (value) desc += ` value="${value}"`;
-          desc += '>';
-
-          interactiveElements.push(desc);
-        });
-
-        return interactiveElements.join('\n');
-      });
-
-      return elements || 'No interactive elements found';
+      log.agent(this.id, 'ariaSnapshot failed/timed out, using element fallback');
+      try {
+        // Fallback: Extract interactive elements manually (also guarded)
+        const elements = await timeoutFallback(
+          this.page.evaluate((): string => {
+            const interactiveElements: string[] = [];
+            const selectors = [
+              'input', 'button', 'select', 'textarea', 'a[href]',
+              '[role="button"]', '[role="link"]', '[role="textbox"]',
+              '[role="combobox"]', '[role="checkbox"]', '[role="radio"]'
+            ];
+            const els = document.querySelectorAll(selectors.join(', '));
+            els.forEach((el: Element, index: number) => {
+              const tag = el.tagName.toLowerCase();
+              const type = el.getAttribute('type') || '';
+              const name = el.getAttribute('name') || '';
+              const id = el.getAttribute('id') || '';
+              const label = el.getAttribute('aria-label') ||
+                           el.getAttribute('placeholder') ||
+                           (el as unknown as { innerText?: string }).innerText?.slice(0, 50) || '';
+              const value = (el as unknown as { value?: string }).value || '';
+              let desc = `[${index}] <${tag}`;
+              if (type) desc += ` type="${type}"`;
+              if (name) desc += ` name="${name}"`;
+              if (id) desc += ` id="${id}"`;
+              if (label) desc += ` label="${label}"`;
+              if (value) desc += ` value="${value}"`;
+              desc += '>';
+              interactiveElements.push(desc);
+            });
+            return interactiveElements.join('\n');
+          })
+        );
+        return elements || 'No interactive elements found';
+      } catch {
+        log.agent(this.id, 'Element fallback also timed out, returning empty state');
+        return 'Page state unavailable';
+      }
     }
   }
 
