@@ -55,7 +55,9 @@ async function runLlmJudge(task: GauntletTask, agentResult: string): Promise<Ver
       ],
     });
 
-    const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    // Strip markdown code fences if the LLM wrapped the JSON
+    const text = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
 
     try {
       const parsed = JSON.parse(text) as { score: unknown; reasoning: unknown };
