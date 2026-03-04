@@ -207,11 +207,17 @@ async function runTest(page: import('playwright').Page, token: string) {
   console.log(`Status:    ${final?.status ?? lastStatus}`);
   console.log(`Score:     ${final?.totalScore ?? lastScore ?? '—'}`);
   console.log(`Frames:    ${final?.frames?.length ?? lastFrames}`);
-  const tasks = final?.tasks ?? [];
+  const rawTasks = final?.tasks ?? '[]';
+  const tasks = typeof rawTasks === 'string' ? JSON.parse(rawTasks) : rawTasks;
   if (tasks.length > 0) {
     console.log('Tasks:');
     for (const t of tasks) {
-      console.log(`  [${t.index ?? '?'}] ${t.title ?? t.id} → score=${t.score ?? '—'} answer="${t.agentAnswer ?? '—'}"`);
+      const idx = t.taskIndex ?? t.index ?? '?';
+      const name = t.taskId ?? t.title ?? t.id ?? 'unknown';
+      const answer = t.agentAnswer ? t.agentAnswer.substring(0, 80) : '—';
+      console.log(`  [${idx}] ${name} → score=${t.score ?? '—'} quality=${t.qualityPct ?? '—'} (${t.elapsedMs ? Math.round(t.elapsedMs / 1000) + 's' : '—'})`);
+      console.log(`      answer: "${answer}${(t.agentAnswer?.length ?? 0) > 80 ? '...' : ''}"`);
+      if (t.verifierReasoning) console.log(`      judge: ${t.verifierReasoning}`);
     }
   }
   console.log(`\nReplay:    ${FRONTEND_URL}/gauntlet/runs/${runId}`);
