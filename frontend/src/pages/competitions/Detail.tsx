@@ -270,12 +270,12 @@ export function CompetitionDetail() {
             <div className="text-center p-3 rounded-lg bg-white/5">
               <Users size={18} className="mx-auto mb-1 text-neon-cyan" />
               <p className="text-lg font-bold text-white tabular-nums">{participants.length}/{competition.max_participants}</p>
-              <p className="text-xs text-white/40">Players</p>
+              <p className="text-xs text-white/50">Players</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-white/5">
               <Trophy size={18} className="mx-auto mb-1 text-neon-gold" />
               <p className="text-lg font-bold text-white">{isSandbox ? 'Free' : `$${(prizePool / 100).toFixed(2)}`}</p>
-              <p className="text-xs text-white/40">Prize Pool</p>
+              <p className="text-xs text-white/50">Prize Pool</p>
             </div>
             <div className={`text-center p-3 rounded-lg ${autoStart && countdown ? 'bg-neon-cyan/8 border border-neon-cyan/20' : 'bg-white/5'}`}>
               {autoStart && countdown ? (
@@ -286,7 +286,7 @@ export function CompetitionDetail() {
               <p className={`text-lg font-bold tabular-nums ${autoStart && countdown ? 'text-neon-cyan' : 'text-white'}`}>
                 {autoStart && countdown ? countdown : competition.scheduled_start ? new Date(competition.scheduled_start).toLocaleDateString() : 'Now'}
               </p>
-              <p className="text-xs text-white/40">{autoStart && countdown ? 'Auto-start' : 'Start'}</p>
+              <p className="text-xs text-white/50">{autoStart && countdown ? 'Auto-start' : 'Start'}</p>
             </div>
           </div>
 

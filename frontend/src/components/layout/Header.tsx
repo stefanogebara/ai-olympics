@@ -20,6 +20,7 @@ const navItems = [
   { path: '/predictions', label: 'Markets' },
   { path: '/agents', label: 'Agents' },
   { path: '/leaderboards', label: 'Leaderboards' },
+  { path: '/docs', label: 'Docs' },
 ];
 
 export function Header() {

@@ -275,25 +275,25 @@ export function PredictionLeaderboard() {
                         <div className={`font-bold ${entry.profit_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {formatProfit(entry.profit_percent)}
                         </div>
-                        <div className="text-[10px] text-white/40">Profit</div>
+                        <div className="text-[10px] text-white/50">Profit</div>
                       </div>
                       <div className="text-center w-14">
                         <div className="font-bold text-white">{entry.win_rate.toFixed(0)}%</div>
-                        <div className="text-[10px] text-white/40">Win Rate</div>
+                        <div className="text-[10px] text-white/50">Win Rate</div>
                       </div>
                       <div className="text-center w-14">
                         <div className="font-bold text-white">{entry.total_bets}</div>
-                        <div className="text-[10px] text-white/40">Bets</div>
+                        <div className="text-[10px] text-white/50">Bets</div>
                       </div>
                       <div className="text-center w-14">
                         <div className="font-bold text-orange-400">{entry.best_streak}</div>
-                        <div className="text-[10px] text-white/40">Streak</div>
+                        <div className="text-[10px] text-white/50">Streak</div>
                       </div>
                       <div className="text-center w-14">
                         <div className="font-bold text-neon-cyan">
                           {entry.brier_score != null ? entry.brier_score.toFixed(3) : '-'}
                         </div>
-                        <div className="text-[10px] text-white/40">Brier</div>
+                        <div className="text-[10px] text-white/50">Brier</div>
                       </div>
                     </div>
 

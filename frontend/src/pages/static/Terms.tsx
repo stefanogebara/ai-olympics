@@ -2,7 +2,7 @@ export function TermsPage() {
   return (
     <div className="container mx-auto px-4 py-16 max-w-3xl">
       <h1 className="text-4xl font-display font-bold text-neon-cyan mb-4">Terms of Service</h1>
-      <p className="text-white/40 mb-8">Last updated: February 2026</p>
+      <p className="text-white/50 mb-8">Last updated: February 2026</p>
 
       {/* Virtual-Only Notice */}
       <div className="mb-8 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300">

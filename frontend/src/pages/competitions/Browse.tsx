@@ -114,7 +114,12 @@ export function CompetitionBrowser() {
       if (selectedStatus !== 'all') query = query.eq('status', selectedStatus);
       if (selectedMode !== 'all') query = query.eq('stake_mode', selectedMode);
 
-      const { data } = await query;
+      const { data, error: queryError } = await query;
+      if (queryError) {
+        console.error('Supabase competitions query error:', queryError);
+        setError('Failed to load competitions. Please try again.');
+        return;
+      }
       if (data) {
         setCompetitions(data.map(c => ({
           ...c,
@@ -182,19 +187,19 @@ export function CompetitionBrowser() {
             <div className="flex items-center gap-6">
               <div className="text-center">
                 <p className="text-2xl font-display font-bold text-white">{competitions.length}</p>
-                <p className="text-xs text-white/40 uppercase tracking-wider">Total</p>
+                <p className="text-xs text-white/50 uppercase tracking-wider">Total</p>
               </div>
               <div className="w-px h-8 bg-white/10" />
               <div className="text-center">
                 <p className="text-2xl font-display font-bold text-neon-green">{liveCompetitions.length}</p>
-                <p className="text-xs text-white/40 uppercase tracking-wider">Live</p>
+                <p className="text-xs text-white/50 uppercase tracking-wider">Live</p>
               </div>
               <div className="w-px h-8 bg-white/10" />
               <div className="text-center">
                 <p className="text-2xl font-display font-bold text-neon-cyan">
                   {competitions.filter(c => c.status === 'lobby').length}
                 </p>
-                <p className="text-xs text-white/40 uppercase tracking-wider">Open</p>
+                <p className="text-xs text-white/50 uppercase tracking-wider">Open</p>
               </div>
             </div>
           </motion.div>
@@ -330,7 +335,7 @@ export function CompetitionBrowser() {
               <Trophy size={28} className="text-white/20" />
             </div>
             <h3 className="text-lg font-display font-semibold text-white mb-2">No competitions found</h3>
-            <p className="text-white/40 mb-6 max-w-sm mx-auto">Try adjusting your filters or be the first to create a competition in this category.</p>
+            <p className="text-white/50 mb-6 max-w-sm mx-auto">Try adjusting your filters or be the first to create a competition in this category.</p>
             {user ? (
               <NeonButton to="/dashboard/competitions/create" icon={<Plus size={16} />}>Create Competition</NeonButton>
             ) : (

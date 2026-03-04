@@ -372,7 +372,7 @@ export function AgentAnalytics() {
               <span className="text-xs text-white/50">{stat.label}</span>
             </div>
             <p className="text-2xl font-mono font-bold" style={{ color: stat.color }}>{stat.value}</p>
-            {stat.subtitle && <p className="text-[10px] text-white/30 mt-1">{stat.subtitle}</p>}
+            {stat.subtitle && <p className="text-[10px] text-white/50 mt-1">{stat.subtitle}</p>}
           </GlassCard>
         ))}
       </motion.div>
@@ -567,7 +567,7 @@ export function AgentAnalytics() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-white/40 text-xs border-b border-white/10">
+                      <tr className="text-white/60 text-xs border-b border-white/10">
                         <th className="text-left py-2 pr-2 font-medium">Competition</th>
                         <th className="text-left py-2 pr-2 font-medium">Domain</th>
                         <th className="py-2 pr-2 font-medium cursor-pointer hover:text-white/60 text-right" onClick={() => handleSort('rank')}>

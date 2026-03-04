@@ -44,16 +44,23 @@ const FRAME_FLUSH_INTERVAL = 10;
 
 export class GauntletRunner {
   readonly runId: string;
+  readonly userId: string;
   private frames: Frame[] = [];
   private taskResults: TaskResult[] = [];
   private taskStartTimes: Map<number, number> = new Map();
   private startTime: number;
   private supabase: typeof serviceClient;
 
-  constructor(runId: string) {
+  constructor(runId: string, userId?: string) {
     this.runId = runId;
+    this.userId = userId ?? '';
     this.startTime = Date.now();
     this.supabase = serviceClient;
+  }
+
+  /** Returns the epoch timestamp (ms) when this runner was created. */
+  getStartTime(): number {
+    return this.startTime;
   }
 
   /**
@@ -108,7 +115,14 @@ export class GauntletRunner {
     agentAnswer: string,
     context?: { githubToken?: string }
   ): Promise<TaskResult> {
-    const elapsedMs = Date.now() - (this.taskStartTimes.get(taskIndex) ?? this.startTime);
+    const taskStartTime = this.taskStartTimes.get(taskIndex);
+    if (taskStartTime === undefined) {
+      log.warn('completeTask called for a task that was never started; falling back to run start time', {
+        runId: this.runId,
+        taskIndex,
+      });
+    }
+    const elapsedMs = Date.now() - (taskStartTime ?? this.startTime);
 
     const verifierResult = await runVerifier(task, agentAnswer, {
       runId: this.runId,
@@ -209,7 +223,15 @@ export class GauntletRunner {
       .eq('id', this.runId);
 
     if (error) {
-      log.warn('Failed to flush frames', { runId: this.runId, error: error.message });
+      log.warn('Failed to flush frames, retrying once', { runId: this.runId, error: error.message });
+      const { error: retryError } = await this.supabase
+        .from('aio_gauntlet_runs')
+        .update({ frames: JSON.stringify(this.frames) })
+        .eq('id', this.runId);
+
+      if (retryError) {
+        log.error('Frame flush retry also failed', { runId: this.runId, error: retryError.message });
+      }
     }
   }
 }

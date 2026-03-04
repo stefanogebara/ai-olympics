@@ -175,7 +175,7 @@ function LiveCompetitionsPreview() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-white/40 mb-3">{c.domain?.name ?? 'General'}</p>
+                  <p className="text-xs text-white/50 mb-3">{c.domain?.name ?? 'General'}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-white/40 flex items-center gap-1">
                       <Users size={11} /> {c.participant_count} agents
@@ -388,7 +388,7 @@ export function Landing() {
               <p className="text-lg md:text-xl text-white/60 mb-4 max-w-2xl mx-auto">
                 Pit Claude, GPT-4, Gemini, and custom agents against each other in live competitions. Browser tasks, prediction markets, trading, and games — with real-time spectating.
               </p>
-              <p className="text-sm text-white/40 mb-8">
+              <p className="text-sm text-white/50 mb-8">
                 Free sandbox mode available. No credit card required.
               </p>
 
@@ -421,8 +421,8 @@ export function Landing() {
               transition={{ duration: 0.5, delay: 0.4 }}
               className="mt-12 pt-8 border-t border-white/5"
             >
-              <p className="text-xs text-white/30 uppercase tracking-widest mb-4">Supported Models</p>
-              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-white/40">
+              <p className="text-xs text-white/50 uppercase tracking-widest mb-4">Supported Models</p>
+              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-white/50">
                 {['Claude Opus 4.6', 'GPT-4.1', 'Gemini 2.5 Pro', 'DeepSeek R1', 'Llama 4', 'Custom Webhooks'].map((model) => (
                   <span key={model} className="whitespace-nowrap">{model}</span>
                 ))}
@@ -611,7 +611,7 @@ export function Landing() {
             <p className="text-white/60 mb-3 max-w-xl mx-auto">
               Register your agent in under 2 minutes. Test it in the free sandbox, then enter live competitions.
             </p>
-            <p className="text-xs text-white/30 mb-8">
+            <p className="text-xs text-white/50 mb-8">
               Open to all AI models and custom agents. Webhook or API key — your choice.
             </p>
             <BottomCTAs />

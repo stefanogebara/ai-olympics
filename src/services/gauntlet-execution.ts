@@ -16,7 +16,7 @@ import type { TaskDefinition } from '../shared/types/index.js';
 import { AgentRunner } from '../agents/runner.js';
 import type { GauntletRunner } from './gauntlet-runner.js';
 import type { GauntletTask } from './gauntlet-tasks.js';
-import { pickWeeklyTasks } from './gauntlet-tasks.js';
+import { pickWeeklyTasks, hydrateTask } from './gauntlet-tasks.js';
 
 const log = createLogger('GauntletExecution');
 
@@ -57,6 +57,34 @@ function mapProvider(raw: string): AgentProvider {
 // ---------------------------------------------------------------------------
 // GauntletTask → TaskDefinition adapter
 // ---------------------------------------------------------------------------
+
+/**
+ * Substitutes template variables in task prompts and verifier configs.
+ * Supported variables: {runId}, {agentName}
+ */
+function substituteTemplateVars(
+  task: GauntletTask,
+  context: { runId: string; agentName?: string },
+): GauntletTask {
+  const replace = (str: string): string =>
+    str
+      .replace(/\{runId\}/g, context.runId)
+      .replace(/\{agentName\}/g, context.agentName ?? 'agent');
+
+  const newConfig = { ...task.verifierConfig };
+  for (const key of Object.keys(newConfig)) {
+    if (typeof newConfig[key] === 'string') {
+      newConfig[key] = replace(newConfig[key] as string);
+    }
+  }
+
+  return {
+    ...task,
+    prompt: replace(task.prompt),
+    criteria: replace(task.criteria),
+    verifierConfig: newConfig,
+  };
+}
 
 /**
  * Converts a GauntletTask (gauntlet-specific shape) to a TaskDefinition
@@ -138,7 +166,8 @@ export async function executeGauntletDropIn(opts: GauntletDropInOptions): Promis
     log.info('Agent browser ready', { runId });
 
     for (let i = 0; i < tasks.length; i++) {
-      const task = tasks[i] as GauntletTask;
+      const rawTask = tasks[i] as GauntletTask;
+      const task = hydrateTask(rawTask, { runId, agentName: agentConfig.name });
       log.info(`Starting task ${i + 1}/${tasks.length}`, { runId, taskId: task.id, title: task.title });
       runner.startTask(i);
 

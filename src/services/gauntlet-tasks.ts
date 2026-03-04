@@ -314,6 +314,33 @@ export function pickWeeklyTasks(weekNumber: number, year: number): GauntletTask[
 }
 
 /**
+ * Substitute template variables in a task's prompt, criteria, and verifierConfig.
+ * Known variables: {runId}, {agentName}
+ * Returns a new GauntletTask with all placeholders replaced — never mutates the original.
+ */
+export function hydrateTask(
+  task: GauntletTask,
+  vars: { runId: string; agentName?: string },
+): GauntletTask {
+  const replace = (str: string): string =>
+    str
+      .replace(/\{runId\}/g, vars.runId)
+      .replace(/\{agentName\}/g, vars.agentName ?? 'AI Agent');
+
+  const hydratedConfig: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(task.verifierConfig)) {
+    hydratedConfig[key] = typeof value === 'string' ? replace(value) : value;
+  }
+
+  return {
+    ...task,
+    prompt: replace(task.prompt),
+    criteria: replace(task.criteria),
+    verifierConfig: hydratedConfig,
+  };
+}
+
+/**
  * Computes the time multiplier for scoring.
  *
  * - At <= 20% of timeLimitMs: multiplier = 2.0

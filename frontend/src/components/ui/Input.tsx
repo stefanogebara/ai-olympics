@@ -33,7 +33,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-describedby={errorId}
             className={cn(
               'w-full px-4 py-2.5 bg-cyber-dark/50 border border-white/10 rounded-lg',
-              'text-white placeholder:text-white/30',
+              'text-white placeholder:text-white/40',
               'focus:outline-none focus:border-neon-cyan/50 focus:ring-1 focus:ring-neon-cyan/30',
               'transition-all duration-200',
               icon && 'pl-10',

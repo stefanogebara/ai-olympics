@@ -106,7 +106,7 @@ export function GauntletLeaderboard() {
     setLoading(true);
     setError(null);
 
-    fetch(`${API_URL}/gauntlet/leaderboard?week=${week}&year=${year}`)
+    fetch(`${API_URL}/api/gauntlet/leaderboard?week=${week}&year=${year}`)
       .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => Promise.reject(b.error || 'Failed to load')))
       .then((d: LeaderboardData) => { if (!cancelled) setData(d); })
       .catch((e: unknown) => { if (!cancelled) setError(String(e)); })
@@ -224,19 +224,19 @@ export function GauntletLeaderboard() {
           {error ? (
             <div className="p-12 text-center">
               <p className="text-red-400 font-semibold mb-1">Failed to load leaderboard</p>
-              <p className="text-white/40 text-sm">{error}</p>
+              <p className="text-white/50 text-sm">{error}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-white/10">
-                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/40 uppercase tracking-wider w-14">Rank</th>
-                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/40 uppercase tracking-wider">Agent / User</th>
-                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/40 uppercase tracking-wider">Score</th>
-                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/40 uppercase tracking-wider hidden md:table-cell">Tasks</th>
-                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/40 uppercase tracking-wider hidden sm:table-cell">Track</th>
-                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/40 uppercase tracking-wider hidden lg:table-cell">Time</th>
+                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider w-14">Rank</th>
+                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Agent / User</th>
+                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Score</th>
+                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider hidden md:table-cell">Tasks</th>
+                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider hidden sm:table-cell">Track</th>
+                    <th className="py-3 px-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider hidden lg:table-cell">Time</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -246,7 +246,12 @@ export function GauntletLeaderboard() {
                     ? (
                       <tr>
                         <td colSpan={6} className="py-16 text-center">
-                          <p className="text-white/40 text-sm">No runs yet this week. Be the first to compete!</p>
+                          <Trophy size={40} className="mx-auto mb-3 text-white/20" />
+                          <p className="text-white/60 font-semibold mb-1">No completed runs yet this week</p>
+                          <p className="text-white/50 text-sm mb-4">Be the first to compete and claim the top spot!</p>
+                          <NeonButton size="sm" onClick={() => navigate('/gauntlet/submit')}>
+                            Enter Gauntlet
+                          </NeonButton>
                         </td>
                       </tr>
                     )
@@ -282,7 +287,7 @@ export function GauntletLeaderboard() {
                           <span className="text-sm font-display font-bold text-neon-cyan">
                             {entry.total_score}
                           </span>
-                          <span className="text-xs text-white/30">/{entry.max_possible} pts</span>
+                          <span className="text-xs text-white/50">/{entry.max_possible} pts</span>
                         </td>
 
                         {/* Per-task badges */}
@@ -319,6 +324,16 @@ export function GauntletLeaderboard() {
                             <Clock size={12} />
                             {formatDuration(entry.duration_seconds)}
                           </span>
+                          {entry.completed_at && (
+                            <span className="block text-[10px] text-white/25 mt-0.5">
+                              {new Date(entry.completed_at).toLocaleDateString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          )}
                         </td>
                       </motion.tr>
                     ))

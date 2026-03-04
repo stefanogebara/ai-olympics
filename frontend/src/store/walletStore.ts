@@ -31,14 +31,21 @@ interface CryptoWallet {
   created_at: string;
 }
 
+// Wallet data is considered stale after 60 seconds
+const WALLET_STALE_MS = 60_000;
+
 interface WalletState {
   wallet: Wallet | null;
   transactions: Transaction[];
   cryptoWallets: CryptoWallet[];
   isLoading: boolean;
   error: string | null;
+  /** Timestamp of last successful wallet fetch (ms since epoch) */
+  lastFetchedAt: number | null;
 
   fetchWallet: (token: string) => Promise<void>;
+  /** Fetch wallet only if data is stale (older than WALLET_STALE_MS) or missing */
+  fetchWalletIfStale: (token: string) => Promise<void>;
   createWallet: (token: string) => Promise<void>;
   depositStripe: (token: string, amountCents: number, email: string) => Promise<string | null>;
   depositCrypto: (token: string) => Promise<{ address: string } | null>;
@@ -57,6 +64,7 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
   cryptoWallets: [],
   isLoading: false,
   error: null,
+  lastFetchedAt: null,
 
   fetchWallet: async (token: string) => {
     set({ isLoading: true, error: null });
@@ -72,9 +80,18 @@ export const useWalletStore = create<WalletState>()((set, get) => ({
       });
       if (!res.ok) throw new Error('Failed to load wallet');
       const data = await res.json();
-      set({ wallet: data.wallet as Wallet, isLoading: false });
+      set({ wallet: data.wallet as Wallet, isLoading: false, lastFetchedAt: Date.now() });
     } catch (err) {
       set({ error: (err as Error).message, isLoading: false });
+    }
+  },
+
+  fetchWalletIfStale: async (token: string) => {
+    const { lastFetchedAt, wallet, isLoading } = get();
+    if (isLoading) return;
+    const isStale = !wallet || !lastFetchedAt || (Date.now() - lastFetchedAt) > WALLET_STALE_MS;
+    if (isStale) {
+      await get().fetchWallet(token);
     }
   },
 

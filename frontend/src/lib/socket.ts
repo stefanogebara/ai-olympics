@@ -3,6 +3,7 @@ import { API_BASE } from './api';
 
 // Socket.io client singleton
 let socket: Socket | null = null;
+let cleanupRegistered = false;
 
 export function getSocket(): Socket {
   if (!socket) {
@@ -25,6 +26,14 @@ export function getSocket(): Socket {
     socket.on('connect_error', (error) => {
       if (import.meta.env.DEV) console.error('Socket connection error:', error);
     });
+
+    // Register page-level cleanup once to prevent leaked connections
+    if (!cleanupRegistered) {
+      cleanupRegistered = true;
+      window.addEventListener('beforeunload', () => {
+        disconnectSocket();
+      });
+    }
   }
 
   return socket;

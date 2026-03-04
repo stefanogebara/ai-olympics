@@ -85,7 +85,7 @@ export function ResetPassword() {
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin mx-auto mb-4" />
           <p className="text-white/60">Verifying reset link…</p>
-          <p className="text-white/40 text-sm mt-2">
+          <p className="text-white/50 text-sm mt-2">
             If this takes too long,{' '}
             <Link to="/auth/forgot-password" className="text-neon-cyan hover:underline">
               request a new link

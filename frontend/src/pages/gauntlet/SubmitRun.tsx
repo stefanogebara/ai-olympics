@@ -185,6 +185,9 @@ export default function SubmitRun() {
       });
 
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error("You've reached the maximum runs per hour. Please try again later.");
+        }
         const msg = await response.text().catch(() => '');
         throw new Error(msg || `Server error ${response.status}`);
       }
@@ -204,7 +207,7 @@ export default function SubmitRun() {
   return (
     <>
       <SEO
-        title="Enter Gauntlet — AI Olympics"
+        title="Enter Gauntlet"
         description="Submit your agent to the Real Tasks Gauntlet. Choose drop-in or webhook track."
       />
 
@@ -265,10 +268,11 @@ export default function SubmitRun() {
 
               {/* Agent name (both tracks) */}
               <div>
-                <label className="block text-sm text-white/60 mb-1.5">
-                  Agent name <span className="text-white/30">(optional)</span>
+                <label htmlFor="agent-name" className="block text-sm text-white/60 mb-1.5">
+                  Agent name <span className="text-white/50">(optional)</span>
                 </label>
                 <input
+                  id="agent-name"
                   type="text"
                   placeholder="My Awesome Agent"
                   value={form.agentName}
@@ -281,10 +285,11 @@ export default function SubmitRun() {
                 <>
                   {/* Provider */}
                   <div>
-                    <label className="block text-sm text-white/60 mb-1.5">
+                    <label htmlFor="provider" className="block text-sm text-white/60 mb-1.5">
                       Provider
                     </label>
                     <select
+                      id="provider"
                       value={form.provider}
                       onChange={e => handleProviderChange(e.target.value)}
                       className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-neon-cyan/50 transition-colors appearance-none"
@@ -299,10 +304,11 @@ export default function SubmitRun() {
 
                   {/* Model */}
                   <div>
-                    <label className="block text-sm text-white/60 mb-1.5">
+                    <label htmlFor="model" className="block text-sm text-white/60 mb-1.5">
                       Model
                     </label>
                     <input
+                      id="model"
                       type="text"
                       placeholder={PROVIDER_DEFAULTS[form.provider] ?? 'model-name'}
                       value={form.model}
@@ -313,11 +319,12 @@ export default function SubmitRun() {
 
                   {/* API Key */}
                   <div>
-                    <label className="block text-sm text-white/60 mb-1.5">
+                    <label htmlFor="api-key" className="block text-sm text-white/60 mb-1.5">
                       API Key
                     </label>
                     <div className="relative">
                       <input
+                        id="api-key"
                         type={showApiKey ? 'text' : 'password'}
                         placeholder="sk-..."
                         value={form.apiKey}
@@ -333,7 +340,7 @@ export default function SubmitRun() {
                         {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    <p className="text-xs text-white/30 mt-1">
+                    <p className="text-xs text-white/50 mt-1">
                       Your key is used only for this run and never stored.
                     </p>
                   </div>
@@ -344,10 +351,11 @@ export default function SubmitRun() {
                 <>
                   {/* Webhook URL */}
                   <div>
-                    <label className="block text-sm text-white/60 mb-1.5">
+                    <label htmlFor="webhook-url" className="block text-sm text-white/60 mb-1.5">
                       Endpoint URL
                     </label>
                     <input
+                      id="webhook-url"
                       type="url"
                       placeholder="https://your-server.com/agent/turn"
                       value={form.webhookUrl}
@@ -358,11 +366,12 @@ export default function SubmitRun() {
 
                   {/* Auth header */}
                   <div>
-                    <label className="block text-sm text-white/60 mb-1.5">
+                    <label htmlFor="auth-header" className="block text-sm text-white/60 mb-1.5">
                       Auth header value{' '}
-                      <span className="text-white/30">(optional Bearer token)</span>
+                      <span className="text-white/50">(optional Bearer token)</span>
                     </label>
                     <input
+                      id="auth-header"
                       type="password"
                       placeholder="Bearer sk-..."
                       value={form.authHeader}
@@ -434,7 +443,7 @@ export default function SubmitRun() {
             <NeonText as="p" className="text-xl font-semibold mb-2">
               Launching your agent...
             </NeonText>
-            <p className="text-white/40 text-sm">Setting up tasks and sandbox environment</p>
+            <p className="text-white/50 text-sm">Setting up tasks and sandbox environment</p>
           </motion.div>
         )}
       </div>

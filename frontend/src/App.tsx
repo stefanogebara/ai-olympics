@@ -1,5 +1,5 @@
-import { useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, lazy, Suspense, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -55,6 +55,22 @@ const AdminCompetitions = lazy(() => import('./pages/admin/CompetitionManagement
 const GauntletLeaderboard = lazy(() => import('./pages/gauntlet/Leaderboard'));
 const GauntletReplay = lazy(() => import('./pages/gauntlet/Replay'));
 const GauntletSubmit = lazy(() => import('./pages/gauntlet/SubmitRun'));
+
+/** Route guard — redirects to login if unauthenticated */
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuthStore();
+  const location = useLocation();
+
+  if (isLoading) {
+    return <PageSkeleton />;
+  }
+
+  if (!user) {
+    return <Navigate to={`/auth/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+  }
+
+  return <>{children}</>;
+}
 
 export default function App() {
   const { initialize } = useAuthStore();
@@ -124,7 +140,7 @@ export default function App() {
 
             {/* Gauntlet Routes */}
             <Route path="/gauntlet" element={<GauntletLeaderboard />} />
-            <Route path="/gauntlet/submit" element={<GauntletSubmit />} />
+            <Route path="/gauntlet/submit" element={<RequireAuth><GauntletSubmit /></RequireAuth>} />
             <Route path="/gauntlet/replay/:runId" element={<GauntletReplay />} />
 
             {/* Dashboard Routes (Protected) */}

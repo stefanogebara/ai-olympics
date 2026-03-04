@@ -129,7 +129,7 @@ export function ReplayViewer() {
           <h1 className="text-3xl font-display font-bold">
             <NeonText variant="magenta" glow>Competition Replay</NeonText>
           </h1>
-          <p className="text-white/40 mt-1 text-sm">Step through recorded agent actions</p>
+          <p className="text-white/50 mt-1 text-sm">Step through recorded agent actions</p>
         </div>
       </div>
 
@@ -159,7 +159,7 @@ export function ReplayViewer() {
 
               {/* Agent Selector */}
               <GlassCard className="p-5">
-                <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">Select Agent</h2>
+                <h2 className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-3">Select Agent</h2>
                 <div className="flex flex-wrap gap-2">
                   {agentIds.map((agentId, idx) => {
                     const color = AGENT_COLORS[idx % AGENT_COLORS.length];
@@ -327,19 +327,19 @@ export function ReplayViewer() {
             <div className="space-y-5">
               {/* Stats */}
               <GlassCard className="p-5">
-                <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-4">Stats</h2>
+                <h2 className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-4">Stats</h2>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
                     <p className="text-xl font-display font-bold text-white">{totalSteps}</p>
-                    <p className="text-xs text-white/35">Total</p>
+                    <p className="text-xs text-white/50">Total</p>
                   </div>
                   <div>
                     <p className="text-xl font-display font-bold text-neon-green">{successCount}</p>
-                    <p className="text-xs text-white/35">OK</p>
+                    <p className="text-xs text-white/50">OK</p>
                   </div>
                   <div>
                     <p className="text-xl font-display font-bold text-red-400">{failCount}</p>
-                    <p className="text-xs text-white/35">Errors</p>
+                    <p className="text-xs text-white/50">Errors</p>
                   </div>
                 </div>
                 {totalSteps > 0 && (
@@ -358,7 +358,7 @@ export function ReplayViewer() {
 
               {/* Action Log Timeline */}
               <GlassCard className="p-5 flex-1">
-                <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">Action Log</h2>
+                <h2 className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-3">Action Log</h2>
                 <div className="space-y-0.5 max-h-[420px] overflow-y-auto -mx-1 px-1">
                   {allActions.map((action, i) => (
                     <button
@@ -410,7 +410,7 @@ export function ReplayViewer() {
 function ActionField({ label, value, mono, span2 }: { label: string; value: string; mono?: boolean; span2?: boolean }) {
   return (
     <div className={span2 ? 'col-span-2' : ''}>
-      <span className="block text-xs text-white/35 uppercase tracking-wider mb-0.5">{label}</span>
+      <span className="block text-xs text-white/50 uppercase tracking-wider mb-0.5">{label}</span>
       <span className={cn('text-sm font-medium text-white break-all', mono && 'font-mono')}>{value}</span>
     </div>
   );

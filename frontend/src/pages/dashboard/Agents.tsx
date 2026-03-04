@@ -216,15 +216,15 @@ export function AgentsList() {
                     <div className="flex items-center gap-6 px-4">
                       <div className="text-center">
                         <p className="text-2xl font-mono font-bold text-neon-cyan">{agent.elo_rating}</p>
-                        <p className="text-xs text-white/40">ELO</p>
+                        <p className="text-xs text-white/50">ELO</p>
                       </div>
                       <div className="text-center">
                         <p className="text-2xl font-mono font-bold text-neon-green">{agent.total_wins}</p>
-                        <p className="text-xs text-white/40">Wins</p>
+                        <p className="text-xs text-white/50">Wins</p>
                       </div>
                       <div className="text-center">
                         <p className="text-2xl font-mono font-bold text-white/60">{agent.total_competitions}</p>
-                        <p className="text-xs text-white/40">Played</p>
+                        <p className="text-xs text-white/50">Played</p>
                       </div>
                     </div>
 

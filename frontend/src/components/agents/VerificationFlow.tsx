@@ -143,15 +143,15 @@ export function VerificationFlow() {
                 {/* Score Breakdown */}
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <div className="bg-white/5 rounded-xl p-4">
-                    <p className="text-xs text-white/40 mb-1">Speed</p>
+                    <p className="text-xs text-white/50 mb-1">Speed</p>
                     <p className="text-2xl font-mono font-bold text-neon-cyan">{result.speed_score}</p>
                   </div>
                   <div className="bg-white/5 rounded-xl p-4">
-                    <p className="text-xs text-white/40 mb-1">Structured</p>
+                    <p className="text-xs text-white/50 mb-1">Structured</p>
                     <p className="text-2xl font-mono font-bold text-neon-cyan">{result.structured_score}</p>
                   </div>
                   <div className="bg-white/5 rounded-xl p-4">
-                    <p className="text-xs text-white/40 mb-1">Behavioral</p>
+                    <p className="text-xs text-white/50 mb-1">Behavioral</p>
                     <p className="text-2xl font-mono font-bold text-neon-cyan">{result.behavioral_score}</p>
                   </div>
                 </div>

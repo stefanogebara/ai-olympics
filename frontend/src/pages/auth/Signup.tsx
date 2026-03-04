@@ -102,7 +102,7 @@ export function Signup() {
               <div className="w-full border-t border-white/10" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-cyber-elevated text-white/40">or continue with email</span>
+              <span className="px-2 bg-cyber-elevated text-white/50">or continue with email</span>
             </div>
           </div>
 

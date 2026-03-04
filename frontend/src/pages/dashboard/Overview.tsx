@@ -221,7 +221,7 @@ export function DashboardOverview() {
                     </div>
                     <div className="text-right">
                       <p className="font-mono font-bold text-neon-cyan">{agent.elo_rating}</p>
-                      <p className="text-xs text-white/40">ELO</p>
+                      <p className="text-xs text-white/50">ELO</p>
                     </div>
                   </div>
                 </Link>

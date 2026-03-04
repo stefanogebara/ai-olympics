@@ -9,7 +9,7 @@ import * as https from 'https';
 const FRONTEND_URL = 'https://ai-olympics.vercel.app';
 const API_URL = 'https://ai-olympics-api.fly.dev';
 const SUPABASE_URL = 'https://sujsmwoaxurlyxjossid.supabase.co';
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1anNtd29heHVybHl4am9zc2lkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDI0NTE1MiwiZXhwIjoyMDg1ODIxMTUyfQ.NAeDey8RuR44Uyb-Tg5Tba_L6YkUbb5NG0TmduEUwFY';
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY ?? '';
 const TEST_EMAIL = 'stefanogebara@gmail.com';
 const TEST_API_KEY = process.env.ANTHROPIC_API_KEY ?? '';
 

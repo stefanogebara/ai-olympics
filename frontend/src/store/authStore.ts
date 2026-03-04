@@ -211,8 +211,8 @@ export const useAuthStore = create<AuthState>()(
             await get().loadProfile(session.user.id);
           }
 
-          // Listen for auth changes
-          supabase.auth.onAuthStateChange(async (event, session) => {
+          // Listen for auth changes — store subscription for cleanup
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             set({
               user: session?.user ?? null,
               session,
@@ -225,6 +225,8 @@ export const useAuthStore = create<AuthState>()(
               set({ profile: null });
             }
           });
+          // Store subscription so it can be cleaned up
+          (window as unknown as Record<string, unknown>).__authSubscription = subscription;
         } catch (error) {
           if (import.meta.env.DEV) console.error('Error initializing auth:', error);
         } finally {
@@ -234,9 +236,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({
-        // Only persist what's needed
-        isAuthenticated: state.isAuthenticated,
+      partialize: () => ({
+        // Don't persist isAuthenticated — it's derived from session on init
       }),
     }
   )

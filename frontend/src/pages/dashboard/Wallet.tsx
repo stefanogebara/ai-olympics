@@ -42,6 +42,7 @@ export function WalletDashboard() {
     isLoading,
     error,
     fetchWallet,
+    fetchWalletIfStale,
     fetchTransactions,
     fetchCryptoWallets,
     linkCryptoWallet,
@@ -66,7 +67,8 @@ export function WalletDashboard() {
 
   useEffect(() => {
     if (token) {
-      fetchWallet(token);
+      // Use staleness check so navigating away and back doesn't re-fetch unnecessarily
+      fetchWalletIfStale(token);
       fetchTransactions(token);
       fetchCryptoWallets(token);
       // Fetch Stripe Connect status
@@ -77,7 +79,7 @@ export function WalletDashboard() {
         .then(data => { if (data) setConnectStatus(data); })
         .catch(() => {});
     }
-  }, [token, fetchWallet, fetchTransactions, fetchCryptoWallets]);
+  }, [token, fetchWalletIfStale, fetchTransactions, fetchCryptoWallets]);
 
   const handleRefresh = () => {
     if (!token) return;

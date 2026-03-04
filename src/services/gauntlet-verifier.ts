@@ -68,8 +68,9 @@ async function runLlmJudge(task: GauntletTask, agentResult: string): Promise<Ver
     } catch {
       return { score: 0, reasoning: 'Failed to parse judge response', passed: false };
     }
-  } catch {
-    return { score: 0, reasoning: 'Failed to parse judge response', passed: false };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { score: 0, reasoning: `Verification failed: ${message}`, passed: false };
   }
 }
 
@@ -173,5 +174,5 @@ async function runGitHubVerifier(
  * API state verifier: placeholder for future use
  */
 async function runApiStateVerifier(_task: GauntletTask, _agentResult: string): Promise<VerifierResult> {
-  return { score: 0.5, reasoning: 'API state verifier not yet implemented', passed: true };
+  return { score: 0, reasoning: 'API state verifier not yet implemented', passed: false };
 }

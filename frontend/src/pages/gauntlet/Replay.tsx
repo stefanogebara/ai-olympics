@@ -199,7 +199,7 @@ export function GauntletReplay() {
           <h1 className="text-3xl font-display font-bold">
             <NeonText variant="cyan" glow>Gauntlet Replay</NeonText>
           </h1>
-          <p className="text-white/40 mt-1 text-sm">Step through recorded agent frames</p>
+          <p className="text-white/50 mt-1 text-sm">Step through recorded agent frames</p>
         </div>
       </div>
 
@@ -231,7 +231,7 @@ export function GauntletReplay() {
                   <p className="text-sm font-semibold text-white">{data.run.agent_name}</p>
                   <p className="text-xs text-white/40">{data.run.username}</p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap" aria-live="polite">
                   <span className="text-lg font-display font-bold text-neon-cyan">
                     {data.run.total_score}<span className="text-xs text-white/30">/{data.run.max_possible} pts</span>
                   </span>
@@ -301,7 +301,7 @@ export function GauntletReplay() {
                         {/* Reasoning */}
                         {currentFrame.reasoning && (
                           <div className="rounded-lg border border-white/8 bg-white/3 p-3">
-                            <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Reasoning</p>
+                            <p className="text-xs text-white/50 uppercase tracking-wider mb-1">Reasoning</p>
                             <p className="text-sm text-white/70">{currentFrame.reasoning}</p>
                           </div>
                         )}
@@ -385,7 +385,7 @@ export function GauntletReplay() {
               {/* ── Right: Task Progress ── */}
               <div>
                 <GlassCard className="p-5">
-                  <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-4">Task Progress</h2>
+                  <h2 className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-4">Task Progress</h2>
                   <div className="space-y-3">
                     {data.tasks.map((task, i) => (
                       <div key={task.task_id} className="p-3 rounded-lg border border-white/8 bg-white/3">

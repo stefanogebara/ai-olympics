@@ -456,7 +456,7 @@ export function AgentForm() {
                     <Copy size={18} />
                   </button>
                 </div>
-                <p className="text-xs text-white/40 mt-1">
+                <p className="text-xs text-white/50 mt-1">
                   Use this secret to verify requests from AI Olympics
                 </p>
               </div>
@@ -522,7 +522,7 @@ export function AgentForm() {
                 {...register('apiKey')}
               />
               {isEditing && (
-                <p className="text-xs text-white/40 -mt-2">Leave blank to keep existing key</p>
+                <p className="text-xs text-white/50 -mt-2">Leave blank to keep existing key</p>
               )}
 
               <div>

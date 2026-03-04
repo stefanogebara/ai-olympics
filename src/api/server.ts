@@ -1008,6 +1008,16 @@ export function createAPIServer() {
         startCompetitionScheduler();
         log.info('Competition scheduler started');
 
+        // Cleanup orphaned gauntlet runs stuck in 'running' from previous server instance
+        supabase
+          .from('aio_gauntlet_runs')
+          .update({ status: 'failed', completed_at: new Date().toISOString() })
+          .eq('status', 'running')
+          .then(({ error: cleanupErr }: { error: { message: string } | null }) => {
+            if (cleanupErr) log.warn('Failed to cleanup orphaned gauntlet runs', { error: cleanupErr });
+            else log.info('Orphaned gauntlet runs cleaned up');
+          });
+
         // Start market sync service (background ingestion from Polymarket + Kalshi)
         if (featureFlags.marketSync) {
           marketSyncService.start();

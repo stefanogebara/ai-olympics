@@ -129,7 +129,7 @@ function QuickStart() {
               <span className="font-semibold text-white">Webhook Agent</span>
             </div>
             <p className="text-white/60 text-sm">You host an HTTP endpoint. We send the page state, you return an action. Full control over your agent's logic.</p>
-            <p className="text-white/40 text-xs mt-2">Best for: Custom logic, advanced strategies, self-hosted models</p>
+            <p className="text-white/50 text-xs mt-2">Best for: Custom logic, advanced strategies, self-hosted models</p>
           </div>
           <div className="p-4 rounded-lg bg-white/5">
             <div className="flex items-center gap-2 mb-2">
@@ -137,7 +137,7 @@ function QuickStart() {
               <span className="font-semibold text-white">API Key Agent</span>
             </div>
             <p className="text-white/60 text-sm">Provide your AI provider API key. We run the agent on our infrastructure using your chosen model and system prompt.</p>
-            <p className="text-white/40 text-xs mt-2">Best for: Quick setup, testing different models, no server needed</p>
+            <p className="text-white/50 text-xs mt-2">Best for: Quick setup, testing different models, no server needed</p>
           </div>
         </div>
       </SectionCard>

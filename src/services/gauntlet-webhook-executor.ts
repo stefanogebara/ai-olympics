@@ -10,7 +10,7 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { createLogger } from '../shared/utils/logger.js';
 import type { GauntletRunner } from './gauntlet-runner.js';
 import type { GauntletTask } from './gauntlet-tasks.js';
-import { pickWeeklyTasks } from './gauntlet-tasks.js';
+import { pickWeeklyTasks, hydrateTask } from './gauntlet-tasks.js';
 
 const log = createLogger('GauntletWebhook');
 
@@ -22,23 +22,57 @@ const RUN_TIMEOUT_MS  = 10 * 60 * 1000; // 10 min wall-clock
 // SSRF protection — block private / loopback ranges
 // ---------------------------------------------------------------------------
 
-const BLOCKED_PATTERNS = [
-  /^https?:\/\/localhost/i,
-  /^https?:\/\/127\.\d+\.\d+\.\d+/,
-  /^https?:\/\/0\.0\.0\.0/,
-  /^https?:\/\/10\.\d+\.\d+\.\d+/,
-  /^https?:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+/,
-  /^https?:\/\/192\.168\.\d+\.\d+/,
-  /^https?:\/\/169\.254\.\d+\.\d+/,
-  /^https?:\/\/::1/,
-  /^https?:\/\/\[::1\]/,
-];
+/**
+ * Validate a webhook URL for SSRF safety.
+ * Requirements:
+ *   - Must be HTTPS (no HTTP)
+ *   - Must not point to localhost, loopback, or private/internal IP ranges
+ *   - Must not point to cloud metadata endpoints (169.254.169.254)
+ *
+ * Throws on invalid URLs so callers get a descriptive error.
+ */
+export function validateWebhookUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('Invalid URL format');
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('Webhook URL must use HTTPS');
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Block localhost variants
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]' || hostname === '0.0.0.0') {
+    throw new Error('Webhook URL must not point to localhost');
+  }
+
+  // Block private/internal IP ranges by parsing the hostname as an IP
+  const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4Match) {
+    const [, a, b] = ipv4Match.map(Number);
+    // 127.0.0.0/8 (loopback)
+    if (a === 127) throw new Error('Webhook URL must not point to loopback addresses (127.0.0.0/8)');
+    // 10.0.0.0/8 (private)
+    if (a === 10) throw new Error('Webhook URL must not point to private IP ranges (10.0.0.0/8)');
+    // 172.16.0.0/12 (private)
+    if (a === 172 && b !== undefined && b >= 16 && b <= 31) throw new Error('Webhook URL must not point to private IP ranges (172.16.0.0/12)');
+    // 192.168.0.0/16 (private)
+    if (a === 192 && b === 168) throw new Error('Webhook URL must not point to private IP ranges (192.168.0.0/16)');
+    // 169.254.0.0/16 (link-local / cloud metadata)
+    if (a === 169 && b === 254) throw new Error('Webhook URL must not point to link-local or metadata endpoints (169.254.0.0/16)');
+    // 0.0.0.0/8
+    if (a === 0) throw new Error('Webhook URL must not point to 0.0.0.0/8');
+  }
+}
 
 function isSsrfSafe(url: string): boolean {
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
-    return !BLOCKED_PATTERNS.some(p => p.test(url));
+    validateWebhookUrl(url);
+    return true;
   } catch {
     return false;
   }
@@ -245,7 +279,9 @@ export async function executeGauntletWebhook(opts: GauntletWebhookOptions): Prom
     return;
   }
 
-  const tasks = pickWeeklyTasks(weekNumber, year);
+  // Substitute template variables ({runId}, {agentName}) in task prompts
+  const rawTasks = pickWeeklyTasks(weekNumber, year);
+  const tasks = rawTasks.map(t => hydrateTask(t, { runId: runner.runId }));
 
   let browser: Browser | null = null;
 

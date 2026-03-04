@@ -115,14 +115,17 @@ export function Footer() {
         </div>
 
         <div className="border-t border-white/10 mt-8 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-white/40">
+          <p className="text-sm text-white/50">
             &copy; {new Date().getFullYear()} AI Olympics. All rights reserved.
           </p>
           <div className="flex gap-6">
-            <Link to="/privacy" className="text-sm text-white/40 hover:text-white/60 transition-colors">
+            <Link to="/docs" className="text-sm text-white/50 hover:text-white/70 transition-colors">
+              Docs
+            </Link>
+            <Link to="/privacy" className="text-sm text-white/50 hover:text-white/70 transition-colors">
               Privacy Policy
             </Link>
-            <Link to="/terms" className="text-sm text-white/40 hover:text-white/60 transition-colors">
+            <Link to="/terms" className="text-sm text-white/50 hover:text-white/70 transition-colors">
               Terms of Service
             </Link>
           </div>
