@@ -188,20 +188,24 @@ class OrderManager {
 
   /**
    * Settle a competition and distribute winnings with platform fee deduction.
+   * Distributes net pool 60% / 30% / 10% to rank 1 / 2 / 3.
+   * Idempotent: uses creditPrizeWinning which generates deterministic idempotency keys.
+   * Skips participants without a userId (house/bot agents).
+   *
    * @param competitionId - The competition to settle
-   * @param rankings - Array of { userId, rank } ordered by placement
+   * @param rankedParticipants - Array of { userId?, rank } — userId is optional (house agents have none)
    */
   async settleCompetition(
     competitionId: string,
-    rankings: { userId: string; rank: number }[]
-  ): Promise<{ payouts: { userId: string; amount: number }[] }> {
+    rankedParticipants: Array<{ userId?: string; rank: number }>
+  ): Promise<void> {
     try {
-      log.info('Settling competition', { competitionId, rankings: rankings.length });
+      log.info('Settling competition', { competitionId, participants: rankedParticipants.length });
 
-      // Fetch competition details including platform fee
+      // Fetch competition details including gross prize pool and platform fee
       const { data: competition, error: compError } = await serviceClient
         .from('aio_competitions')
-        .select('id, prize_pool, entry_fee, platform_fee_pct, stake_mode')
+        .select('id, prize_pool, platform_fee_pct')
         .eq('id', competitionId)
         .single();
 
@@ -209,47 +213,50 @@ class OrderManager {
         throw new Error(`Competition not found: ${competitionId}`);
       }
 
-      // Sandbox competitions have no payouts
-      if (competition.stake_mode === 'sandbox') {
-        log.info('Sandbox competition, no payouts', { competitionId });
-        return { payouts: [] };
+      const grossPool: number = competition.prize_pool || 0;
+
+      // No money to distribute — exit early
+      if (grossPool === 0) {
+        log.info('Prize pool is zero, skipping settlement', { competitionId });
+        return;
       }
 
-      const grossPool = competition.prize_pool || 0;
-      const feePct = competition.platform_fee_pct ?? 10;
-      const platformFeeCents = Math.floor(grossPool * feePct / 100);
-      const netPool = grossPool - platformFeeCents;
+      const feePct: number = competition.platform_fee_pct ?? 10;
+      const platformFee = Math.floor(grossPool * feePct / 100);
+      const netPool = grossPool - platformFee;
 
-      log.info('Prize pool breakdown', { grossPool, feePct, platformFeeCents, netPool });
+      log.info('Prize pool breakdown', { grossPool, feePct, platformFee, netPool });
 
-      // Distribution: 1st gets 60%, 2nd gets 30%, 3rd gets 10% of net pool
-      const splits = [0.6, 0.3, 0.1];
-      const payouts: { userId: string; amount: number }[] = [];
-
-      // Filter to participants who have a user_id (skip house/bot agents)
-      const eligibleRankings = rankings.filter(r => r.userId);
-
-      for (let i = 0; i < Math.min(eligibleRankings.length, splits.length); i++) {
-        const amount = Math.floor(netPool * splits[i]);
-        if (amount > 0) {
-          await walletService.creditPrizeWinning(
-            eligibleRankings[i].userId,
-            competitionId,
-            amount,
-            eligibleRankings[i].rank
-          );
-          payouts.push({ userId: eligibleRankings[i].userId, amount });
-        }
-      }
-
-      // Record platform fee collected on the competition row
+      // Record platform fee on the competition row
       await serviceClient
         .from('aio_competitions')
-        .update({ platform_fee_collected_cents: platformFeeCents })
+        .update({ platform_fee_collected_cents: platformFee })
         .eq('id', competitionId);
 
-      log.info('Competition settled', { competitionId, payouts });
-      return { payouts };
+      // Distribution: rank 1 → 60%, rank 2 → 30%, rank 3 → 10% of net pool
+      const splits: Record<number, number> = { 1: 0.60, 2: 0.30, 3: 0.10 };
+
+      for (const [rankStr, splitPct] of Object.entries(splits)) {
+        const rank = Number(rankStr);
+
+        // Find the participant at this rank who has a real user (not a house agent)
+        const participant = rankedParticipants.find(p => p.rank === rank && p.userId);
+        if (!participant || !participant.userId) {
+          log.info('No eligible participant for rank, skipping', { competitionId, rank });
+          continue;
+        }
+
+        const payout = Math.floor(netPool * splitPct);
+        if (payout === 0) {
+          log.info('Payout rounds to zero, skipping', { competitionId, rank });
+          continue;
+        }
+
+        await walletService.creditPrizeWinning(participant.userId, competitionId, payout, rank);
+        log.info('Prize credited', { competitionId, userId: participant.userId, rank, payout });
+      }
+
+      log.info('Competition settlement complete', { competitionId, grossPool, netPool, platformFee });
     } catch (error) {
       log.error('Failed to settle competition', { competitionId, error: String(error) });
       throw error;

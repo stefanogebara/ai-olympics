@@ -16,6 +16,7 @@ vi.mock('./wallet-service.js', () => ({
     getOrCreateWallet: vi.fn(),
     lockForBet: vi.fn(),
     unlockForBet: vi.fn(),
+    creditPrizeWinning: vi.fn(),
   },
 }));
 
@@ -291,5 +292,120 @@ describe('Order Manager - Fund Unlock Paths', () => {
       );
       expect(walletService.unlockForBet).not.toHaveBeenCalled();
     });
+  });
+});
+
+// ============================================================================
+// settleCompetition — prize pool distribution integration tests
+// ============================================================================
+
+describe('Order Manager - settleCompetition', () => {
+  let orderManager: (typeof import('./order-manager.js'))['orderManager'];
+  let walletService: typeof import('./wallet-service.js')['walletService'];
+  let serviceClient: typeof import('../shared/utils/supabase.js')['serviceClient'];
+
+  // Chainable Supabase builder mock (mirrors the helper in wallet-service.test.ts)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function makeChain(result: { data: unknown; error: unknown }): any {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const q: any = {};
+    for (const m of ['select', 'eq', 'update', 'insert']) {
+      q[m] = vi.fn().mockReturnValue(q);
+    }
+    q.single = vi.fn().mockResolvedValue(result);
+    q.then = (
+      resolve: (v: unknown) => unknown,
+      _reject: (e: unknown) => unknown
+    ) => Promise.resolve(result).then(resolve, _reject);
+    return q;
+  }
+
+  function stubCompetition(overrides: Record<string, unknown> = {}) {
+    const competition = {
+      id: 'comp-1',
+      prize_pool: 1000,       // 1000 cents = $10
+      platform_fee_pct: 10,
+      ...overrides,
+    };
+    const chain = makeChain({ data: competition, error: null });
+    // first from() call = select competition; second = update platform_fee_collected_cents
+    vi.mocked(serviceClient.from).mockReturnValue(chain);
+    return { competition, chain };
+  }
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    ({ orderManager } = await import('./order-manager.js'));
+    ({ walletService } = await import('./wallet-service.js'));
+    ({ serviceClient } = await import('../shared/utils/supabase.js'));
+    vi.mocked(walletService.creditPrizeWinning).mockResolvedValue(undefined);
+  });
+
+  it('distributes 60/30/10 of net pool to top 3', async () => {
+    // grossPool = 1000 cents, feePct = 10
+    // platformFee = floor(1000 * 10 / 100) = 100
+    // netPool = 900
+    // rank1 = floor(900 * 0.60) = 540
+    // rank2 = floor(900 * 0.30) = 270
+    // rank3 = floor(900 * 0.10) = 90
+    stubCompetition({ prize_pool: 1000, platform_fee_pct: 10 });
+
+    const rankedParticipants = [
+      { userId: 'user-a', rank: 1 },
+      { userId: 'user-b', rank: 2 },
+      { userId: 'user-c', rank: 3 },
+    ];
+
+    await orderManager.settleCompetition('comp-1', rankedParticipants);
+
+    expect(walletService.creditPrizeWinning).toHaveBeenCalledTimes(3);
+    expect(walletService.creditPrizeWinning).toHaveBeenCalledWith('user-a', 'comp-1', 540, 1);
+    expect(walletService.creditPrizeWinning).toHaveBeenCalledWith('user-b', 'comp-1', 270, 2);
+    expect(walletService.creditPrizeWinning).toHaveBeenCalledWith('user-c', 'comp-1', 90, 3);
+  });
+
+  it('returns early when prize_pool is 0', async () => {
+    stubCompetition({ prize_pool: 0 });
+
+    const rankedParticipants = [
+      { userId: 'user-a', rank: 1 },
+      { userId: 'user-b', rank: 2 },
+    ];
+
+    await orderManager.settleCompetition('comp-1', rankedParticipants);
+
+    // Should not attempt to credit any prizes
+    expect(walletService.creditPrizeWinning).not.toHaveBeenCalled();
+  });
+
+  it('skips participants without userId (house agents)', async () => {
+    // rank 1 is a house agent with no userId, rank 2 is a real user
+    stubCompetition({ prize_pool: 1000, platform_fee_pct: 10 });
+
+    const rankedParticipants = [
+      { rank: 1 },                       // no userId — house agent
+      { userId: 'user-b', rank: 2 },
+      { userId: 'user-c', rank: 3 },
+    ];
+
+    await orderManager.settleCompetition('comp-1', rankedParticipants);
+
+    // rank 1 prize should be skipped; rank 2 and 3 should be credited
+    const calls = vi.mocked(walletService.creditPrizeWinning).mock.calls;
+    const calledRanks = calls.map(c => c[3]); // 4th arg is rank
+    expect(calledRanks).not.toContain(1);
+    expect(calledRanks).toContain(2);
+    expect(calledRanks).toContain(3);
+  });
+
+  it('throws when competition is not found', async () => {
+    const chain = makeChain({ data: null, error: { message: 'not found' } });
+    vi.mocked(serviceClient.from).mockReturnValue(chain);
+
+    await expect(
+      orderManager.settleCompetition('missing-comp', [{ userId: 'u1', rank: 1 }])
+    ).rejects.toThrow('Competition not found: missing-comp');
+
+    expect(walletService.creditPrizeWinning).not.toHaveBeenCalled();
   });
 });
