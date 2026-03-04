@@ -93,6 +93,15 @@ router.post('/runs', requireAuth, async (req: Request, res: Response) => {
 
     const { weekNumber, year } = getISOWeek(new Date());
 
+    // Delete any previous run for this user+week+track (re-runs allowed; we keep newest)
+    await serviceClient
+      .from('aio_gauntlet_runs')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('week_number', weekNumber)
+      .eq('year', year)
+      .eq('track', track);
+
     const { data, error } = await serviceClient
       .from('aio_gauntlet_runs')
       .insert({
