@@ -6,7 +6,7 @@ import { GlassCard, NeonText, NeonButton } from '../../components/ui';
 import { ArrowLeft, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_BASE } from '../../lib/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -137,7 +137,7 @@ export function GauntletReplay() {
     setLoading(true);
     setError(null);
 
-    fetch(`${API_URL}/gauntlet/runs/${runId}/replay`)
+    fetch(`${API_BASE}/api/gauntlet/runs/${runId}/replay`)
       .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => Promise.reject(b.error || 'Not found')))
       .then((raw) => setData(transformApiResponse(raw)))
       .catch((e: unknown) => setError(String(e)))
@@ -149,7 +149,7 @@ export function GauntletReplay() {
     if (!runId || !data || data.run.status !== 'running') return;
 
     const poll = setInterval(() => {
-      fetch(`${API_URL}/gauntlet/runs/${runId}/replay`)
+      fetch(`${API_BASE}/api/gauntlet/runs/${runId}/replay`)
         .then(r => r.ok ? r.json() : null)
         .then((raw) => { if (raw) setData(transformApiResponse(raw)); })
         .catch(() => { /* silent — keep showing last known state */ });

@@ -21,7 +21,7 @@ const activeRunners = new Map<string, GauntletRunner>();
 const STALE_RUN_CHECK_INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 const MAX_RUN_AGE_MS = 30 * 60 * 1000;               // 30 minutes
 
-setInterval(() => {
+const staleRunCleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [runId, runner] of activeRunners.entries()) {
     if (now - runner.getStartTime() > MAX_RUN_AGE_MS) {
@@ -36,21 +36,31 @@ setInterval(() => {
 }, STALE_RUN_CHECK_INTERVAL_MS);
 
 // ---------------------------------------------------------------------------
-// Rate limiting: max 3 runs per user per hour (in-memory)
+// Rate limiting: max 3 runs per user per hour (in-memory, bounded)
 // ---------------------------------------------------------------------------
 const runCreationTimestamps = new Map<string, number[]>();
 const MAX_RUNS_PER_HOUR = 3;
 const HOUR_MS = 60 * 60 * 1000;
+const MAX_RATE_LIMIT_ENTRIES = 10_000;
 
 function isRunRateLimited(userId: string): boolean {
   const now = Date.now();
   const timestamps = runCreationTimestamps.get(userId) ?? [];
   const recent = timestamps.filter(ts => now - ts < HOUR_MS);
-  runCreationTimestamps.set(userId, recent);
+  if (recent.length === 0) {
+    runCreationTimestamps.delete(userId);
+  } else {
+    runCreationTimestamps.set(userId, recent);
+  }
   return recent.length >= MAX_RUNS_PER_HOUR;
 }
 
 function recordRunCreation(userId: string): void {
+  // Evict oldest entries if map grows too large
+  if (runCreationTimestamps.size >= MAX_RATE_LIMIT_ENTRIES) {
+    const firstKey = runCreationTimestamps.keys().next().value as string;
+    runCreationTimestamps.delete(firstKey);
+  }
   const now = Date.now();
   const timestamps = runCreationTimestamps.get(userId) ?? [];
   const recent = timestamps.filter(ts => now - ts < HOUR_MS);
@@ -565,6 +575,7 @@ router.get('/runs/:id/replay', async (req: Request, res: Response) => {
 // Graceful shutdown: finalize all active runners on SIGTERM (e.g. Fly.io deploy)
 // ---------------------------------------------------------------------------
 process.on('SIGTERM', () => {
+  clearInterval(staleRunCleanupInterval);
   log.info('SIGTERM received — finalizing all active gauntlet runners', {
     activeCount: activeRunners.size,
   });

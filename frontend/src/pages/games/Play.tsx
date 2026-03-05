@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GlassCard, NeonButton, NeonText, Badge, PageSkeleton } from '../../components/ui';
 import { useAuthStore } from '../../store/authStore';
+import { API_BASE } from '../../lib/api';
 import {
   ArrowLeft,
   Play,
@@ -123,8 +124,7 @@ export function GamesPlay() {
 
     setSubmitting(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(`${apiUrl}/api/games/${type}/session`, {
+      const response = await fetch(`${API_BASE}/api/games/${type}/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

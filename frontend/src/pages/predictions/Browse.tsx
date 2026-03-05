@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { SEO } from '../../components/SEO';
+import { API_BASE } from '../../lib/api';
 import { GlassCard, NeonButton, NeonText, SkeletonCard, ErrorBanner } from '../../components/ui';
 import {
   TrendingUp,
@@ -87,9 +88,8 @@ export function PredictionBrowse() {
   const loadCategories = async () => {
     try {
       // Fetch source counts from backend stats API (Supabase count:exact is unreliable here)
-      const statsUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || 'https://ai-olympics-api.fly.dev';
       const [statsRes, catRes] = await Promise.all([
-        fetch(`${statsUrl}/api/predictions/stats`).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(`${API_BASE}/api/predictions/stats`).then(r => r.ok ? r.json() : null).catch(() => null),
         supabase.from('aio_markets').select('category').eq('status', 'open').limit(1000),
       ]);
 

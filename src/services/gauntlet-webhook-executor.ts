@@ -149,6 +149,12 @@ async function callWebhook(
     throw new Error(`Webhook returned invalid action: '${action ?? 'undefined'}'`);
   }
 
+  // Validate payload size to prevent memory exhaustion
+  const payload = (data as Record<string, unknown>).payload;
+  if (typeof payload === 'string' && payload.length > 50_000) {
+    throw new Error(`Webhook payload too large: ${payload.length} chars (max 50000)`);
+  }
+
   return data as WebhookAction;
 }
 

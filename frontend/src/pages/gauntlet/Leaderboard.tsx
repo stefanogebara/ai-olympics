@@ -6,7 +6,7 @@ import { GlassCard, NeonButton, NeonText } from '../../components/ui';
 import { ChevronLeft, ChevronRight, Trophy, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_BASE } from '../../lib/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ export function GauntletLeaderboard() {
     setLoading(true);
     setError(null);
 
-    fetch(`${API_URL}/api/gauntlet/leaderboard?week=${week}&year=${year}`)
+    fetch(`${API_BASE}/api/gauntlet/leaderboard?week=${week}&year=${year}`)
       .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => Promise.reject(b.error || 'Failed to load')))
       .then((d: LeaderboardData) => { if (!cancelled) setData(d); })
       .catch((e: unknown) => { if (!cancelled) setError(String(e)); })

@@ -6,7 +6,7 @@ import { SEO } from '../../components/SEO';
 import { ArrowLeft, Play, Pause, SkipForward, SkipBack, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_BASE } from '../../lib/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ interface ReplayData {
 const AGENT_COLORS = ['#00F5FF', '#FF00FF', '#00FF88', '#FFD700', '#FF6B6B', '#7C3AED'];
 
 async function fetchReplay(id: string): Promise<ReplayData> {
-  const res = await fetch(`${API_URL}/api/competitions/${id}/replay`);
+  const res = await fetch(`${API_BASE}/api/competitions/${id}/replay`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error || 'Failed to load replay');
