@@ -474,46 +474,56 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid week or year parameter' });
     }
 
-    const { data, error } = await serviceClient
+    // Step 1: fetch completed runs (no FK join — aio_gauntlet_runs references auth.users, not aio_profiles)
+    const { data: runs, error: runsErr } = await serviceClient
       .from('aio_gauntlet_runs')
-      .select(`
-        id,
-        user_id,
-        total_score,
-        track,
-        completed_at,
-        profile:aio_profiles!user_id(username, avatar_url)
-      `)
+      .select('id, user_id, total_score, track, completed_at')
       .eq('week_number', weekNum)
       .eq('year', yr)
       .eq('status', 'completed')
       .order('total_score', { ascending: false })
       .limit(50);
 
-    if (error) {
-      log.error('Failed to query leaderboard', { error });
+    if (runsErr) {
+      log.error('Failed to query leaderboard', { error: runsErr });
       return res.status(500).json({ error: 'Failed to fetch leaderboard' });
     }
 
-    const leaderboard = (data ?? []).map((row: Record<string, unknown>, idx: number) => {
-      // Supabase may return profile as a single object or an array depending on FK cardinality
-      const rawProfile = row.profile;
-      const profile = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile) as
-        | { username?: string; avatar_url?: string }
-        | null
-        | undefined;
+    // Step 2: batch-fetch profiles for the user IDs
+    const userIds = [...new Set((runs ?? []).map((r: Record<string, unknown>) => r.user_id as string))];
+    const profileMap = new Map<string, { username?: string; avatar_url?: string }>();
+    if (userIds.length > 0) {
+      const { data: profiles } = await serviceClient
+        .from('aio_profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds);
+      for (const p of (profiles ?? []) as Array<{ id: string; username?: string; avatar_url?: string }>) {
+        profileMap.set(p.id, p);
+      }
+    }
+
+    const entries = (runs ?? []).map((row: Record<string, unknown>, idx: number) => {
+      const profile = profileMap.get(row.user_id as string);
       return {
         rank: idx + 1,
-        userId: row.user_id,
-        username: profile?.username ?? null,
-        avatar: profile?.avatar_url ?? null,
-        totalScore: row.total_score,
-        track: row.track,
-        completedAt: row.completed_at,
+        run_id: row.id,
+        username: profile?.username ?? 'Anonymous',
+        agent_name: profile?.username ?? 'Agent',
+        total_score: row.total_score ?? 0,
+        max_possible: 100,
+        track: row.track ?? 'drop-in',
+        task_scores: [],
+        completed_at: row.completed_at ?? '',
+        duration_seconds: 0,
       };
     });
 
-    return res.json({ leaderboard });
+    return res.json({
+      week: weekNum,
+      year: yr,
+      prize_pool: 0,
+      entries,
+    });
   } catch (error) {
     log.error('Failed to get leaderboard', { error });
     return res.status(500).json({ error: 'Failed to get leaderboard' });
