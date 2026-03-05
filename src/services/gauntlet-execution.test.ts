@@ -6,7 +6,10 @@ import { pickWeeklyTasks } from './gauntlet-tasks.js';
 
 vi.mock('../agents/runner.js');
 vi.mock('./gauntlet-runner.js');
-vi.mock('./gauntlet-tasks.js');
+vi.mock('./gauntlet-tasks.js', () => ({
+  pickWeeklyTasks: vi.fn(),
+  hydrateTask: vi.fn((task: unknown) => task),
+}));
 
 const MockAgentRunner = vi.mocked(AgentRunner);
 const mockPickWeeklyTasks = vi.mocked(pickWeeklyTasks);

@@ -206,15 +206,15 @@ describe('GitHub verifier — checkRepoExists', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. api-state verifier → score=0.5, passed=true
+// 7. api-state verifier → score=0, passed=false
 // ---------------------------------------------------------------------------
 describe('runApiStateVerifier', () => {
-  it('returns score=0.5 and passed=true', async () => {
+  it('returns score=0 and passed=false', async () => {
     const task = makeTask({ verifierType: 'api-state' });
     const result = await runVerifier(task, 'some result');
 
-    expect(result.score).toBe(0.5);
-    expect(result.passed).toBe(true);
+    expect(result.score).toBe(0);
+    expect(result.passed).toBe(false);
     expect(result.reasoning).toContain('not yet implemented');
   });
 });

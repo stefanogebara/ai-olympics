@@ -10,7 +10,10 @@ vi.mock('playwright', () => ({
   },
 }));
 vi.mock('./gauntlet-runner.js');
-vi.mock('./gauntlet-tasks.js');
+vi.mock('./gauntlet-tasks.js', () => ({
+  pickWeeklyTasks: vi.fn(),
+  hydrateTask: vi.fn((task: unknown) => task),
+}));
 
 const mockLocator = {
   ariaSnapshot: vi.fn().mockResolvedValue('- WebArea'),

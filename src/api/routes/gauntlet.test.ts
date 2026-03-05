@@ -128,6 +128,7 @@ vi.mock('../../services/github-credential-service.js', () => ({
 
 vi.mock('../../services/gauntlet-tasks.js', () => ({
   pickWeeklyTasks: mockPickWeeklyTasks,
+  hydrateTask: (task: unknown) => task,
 }));
 
 vi.mock('../../services/gauntlet-execution.js', () => ({
@@ -147,9 +148,15 @@ vi.mock('../../shared/utils/logger.js', () => ({
   }),
 }));
 
+let authUserId = 'user-abc';
+let userIdCounter = 0;
+function freshUserId(): string {
+  return `user-test-${++userIdCounter}`;
+}
+
 vi.mock('../middleware/auth.js', () => ({
   requireAuth: (req: Record<string, unknown>, _res: unknown, next: () => void) => {
-    req.user = { id: 'user-abc', email: 'test@example.com' };
+    req.user = { id: authUserId, email: 'test@example.com' };
     req.userClient = { from: mockFrom };
     next();
   },
@@ -370,6 +377,7 @@ describe('POST /api/gauntlet/runs', () => {
     vi.clearAllMocks();
     resetMockChains();
     resetRunnerMock();
+    authUserId = freshUserId();
     mockPickWeeklyTasks.mockReturnValue([
       { id: 'web-001', title: 'T1', category: 'web-research', timeLimitMs: 300_000 },
       { id: 'web-002', title: 'T2', category: 'web-research', timeLimitMs: 300_000 },
@@ -382,7 +390,7 @@ describe('POST /api/gauntlet/runs', () => {
     mockSingle.mockResolvedValue({ data: { id: 'run-uuid-new' }, error: null });
   });
 
-  it('returns 201 with runId, tasks, and githubToken for dropin track', async () => {
+  it('returns 201 with runId and tasks for dropin track (no githubToken in response)', async () => {
     const result = await withServer(async (url) => {
       return httpRequest(url, 'POST', '/api/gauntlet/runs', { track: 'dropin', api_key: 'sk-test', provider: 'anthropic', model: 'claude-sonnet-4-5' });
     });
@@ -391,7 +399,7 @@ describe('POST /api/gauntlet/runs', () => {
     const body = result.body as Record<string, unknown>;
     expect(body).toHaveProperty('runId');
     expect(Array.isArray(body.tasks)).toBe(true);
-    expect(body).toHaveProperty('githubToken');
+    expect(body).not.toHaveProperty('githubToken');
   });
 
   it('returns 201 for webhook track with webhook_url', async () => {
@@ -453,6 +461,7 @@ describe('POST /api/gauntlet/runs', () => {
     vi.clearAllMocks();
     resetMockChains();
     resetRunnerMock();
+    authUserId = freshUserId();
     mockPickWeeklyTasks.mockReturnValue([
       { id: 'web-001', title: 'T1', category: 'web-research', timeLimitMs: 300_000 },
       { id: 'web-002', title: 'T2', category: 'web-research', timeLimitMs: 300_000 },
@@ -502,6 +511,7 @@ describe('POST /api/gauntlet/runs/:id/tasks/:index/complete', () => {
     vi.clearAllMocks();
     resetMockChains();
     resetRunnerMock();
+    authUserId = freshUserId();
     mockPickWeeklyTasks.mockReturnValue(FIVE_TASKS);
     mockIssueRunToken.mockResolvedValue('tok');
     mockInitialize.mockResolvedValue(undefined);
@@ -520,10 +530,11 @@ describe('POST /api/gauntlet/runs/:id/tasks/:index/complete', () => {
     // Alternating single responses: first for INSERT (gives run id), then for ownership check
     let callCount = 0;
     const RUN_ID = 'run-complete-test-1';
+    const currentUserId = authUserId;
     mockSingle.mockImplementation(() => {
       callCount++;
       if (callCount === 1) return Promise.resolve({ data: { id: RUN_ID }, error: null });
-      return Promise.resolve({ data: { user_id: 'user-abc', week_number: 9, year: 2026 }, error: null });
+      return Promise.resolve({ data: { user_id: currentUserId, week_number: 9, year: 2026 }, error: null });
     });
 
     await withServer(async (url) => {
@@ -552,6 +563,7 @@ describe('POST /api/gauntlet/runs/:id/tasks/:index/complete', () => {
     vi.clearAllMocks();
     resetMockChains();
     resetRunnerMock();
+    authUserId = freshUserId();
     mockPickWeeklyTasks.mockReturnValue(FIVE_TASKS);
     mockIssueRunToken.mockResolvedValue('tok');
     mockInitialize.mockResolvedValue(undefined);
@@ -563,10 +575,11 @@ describe('POST /api/gauntlet/runs/:id/tasks/:index/complete', () => {
 
     const RUN_ID = 'run-complete-test-2';
     let callCount = 0;
+    const currentUserId = authUserId;
     mockSingle.mockImplementation(() => {
       callCount++;
       if (callCount === 1) return Promise.resolve({ data: { id: RUN_ID }, error: null });
-      return Promise.resolve({ data: { user_id: 'user-abc', week_number: 9, year: 2026 }, error: null });
+      return Promise.resolve({ data: { user_id: currentUserId, week_number: 9, year: 2026 }, error: null });
     });
 
     await withServer(async (url) => {
@@ -598,16 +611,18 @@ describe('POST /api/gauntlet/runs/:id/tasks/:index/complete', () => {
     vi.clearAllMocks();
     resetMockChains();
     resetRunnerMock();
+    authUserId = freshUserId();
     mockPickWeeklyTasks.mockReturnValue(FIVE_TASKS);
     mockIssueRunToken.mockResolvedValue('tok');
     mockInitialize.mockResolvedValue(undefined);
 
     const RUN_ID = 'run-no-answer-test';
     let callCount = 0;
+    const currentUserId = authUserId;
     mockSingle.mockImplementation(() => {
       callCount++;
       if (callCount === 1) return Promise.resolve({ data: { id: RUN_ID }, error: null });
-      return Promise.resolve({ data: { user_id: 'user-abc', week_number: 9, year: 2026 }, error: null });
+      return Promise.resolve({ data: { user_id: currentUserId, week_number: 9, year: 2026 }, error: null });
     });
 
     const result = await withServer(async (url) => {
@@ -628,6 +643,7 @@ describe('POST /api/gauntlet/runs/:id/finish', () => {
     vi.clearAllMocks();
     resetMockChains();
     resetRunnerMock();
+    authUserId = freshUserId();
     mockPickWeeklyTasks.mockReturnValue([
       { id: 'web-001', title: 'T1', category: 'web-research', timeLimitMs: 300_000 },
       { id: 'web-002', title: 'T2', category: 'web-research', timeLimitMs: 300_000 },
@@ -642,10 +658,11 @@ describe('POST /api/gauntlet/runs/:id/finish', () => {
 
     const RUN_ID = 'run-finish-test-1';
     let callCount = 0;
+    const currentUserId = authUserId;
     mockSingle.mockImplementation(() => {
       callCount++;
       if (callCount === 1) return Promise.resolve({ data: { id: RUN_ID }, error: null });
-      return Promise.resolve({ data: { user_id: 'user-abc' }, error: null });
+      return Promise.resolve({ data: { user_id: currentUserId, status: 'running' }, error: null });
     });
 
     const result = await withServer(async (url) => {
@@ -663,6 +680,7 @@ describe('POST /api/gauntlet/runs/:id/finish', () => {
     vi.clearAllMocks();
     resetMockChains();
     resetRunnerMock();
+    authUserId = freshUserId();
     mockPickWeeklyTasks.mockReturnValue([
       { id: 'web-001', title: 'T1', category: 'web-research', timeLimitMs: 300_000 },
       { id: 'web-002', title: 'T2', category: 'web-research', timeLimitMs: 300_000 },
@@ -676,10 +694,11 @@ describe('POST /api/gauntlet/runs/:id/finish', () => {
 
     const RUN_ID = 'run-finish-revoke-test';
     let callCount = 0;
+    const currentUserId = authUserId;
     mockSingle.mockImplementation(() => {
       callCount++;
       if (callCount === 1) return Promise.resolve({ data: { id: RUN_ID }, error: null });
-      return Promise.resolve({ data: { user_id: 'user-abc' }, error: null });
+      return Promise.resolve({ data: { user_id: currentUserId, status: 'running' }, error: null });
     });
 
     await withServer(async (url) => {
@@ -694,6 +713,7 @@ describe('POST /api/gauntlet/runs/:id/finish', () => {
     vi.clearAllMocks();
     resetMockChains();
     resetRunnerMock();
+    authUserId = freshUserId();
     mockPickWeeklyTasks.mockReturnValue([
       { id: 'web-001', title: 'T1', category: 'web-research', timeLimitMs: 300_000 },
       { id: 'web-002', title: 'T2', category: 'web-research', timeLimitMs: 300_000 },
@@ -706,10 +726,11 @@ describe('POST /api/gauntlet/runs/:id/finish', () => {
 
     const RUN_ID = 'run-bad-status-test';
     let callCount = 0;
+    const currentUserId = authUserId;
     mockSingle.mockImplementation(() => {
       callCount++;
       if (callCount === 1) return Promise.resolve({ data: { id: RUN_ID }, error: null });
-      return Promise.resolve({ data: { user_id: 'user-abc' }, error: null });
+      return Promise.resolve({ data: { user_id: currentUserId, status: 'running' }, error: null });
     });
 
     const result = await withServer(async (url) => {
@@ -731,41 +752,49 @@ describe('GET /api/gauntlet/leaderboard', () => {
     resetMockChains();
     resetRunnerMock();
 
-    const fakeData = [
-      { id: 'run-1', user_id: 'u1', total_score: 900, track: 'dropin', completed_at: '2026-03-01T10:00:00Z', profile: { username: 'alice', avatar_url: null } },
-      { id: 'run-2', user_id: 'u2', total_score: 800, track: 'webhook', completed_at: '2026-03-01T11:00:00Z', profile: { username: 'bob', avatar_url: null } },
+    const fakeRuns = [
+      { id: 'run-1', user_id: 'u1', total_score: 900, track: 'dropin', completed_at: '2026-03-01T10:00:00Z' },
+      { id: 'run-2', user_id: 'u2', total_score: 800, track: 'webhook', completed_at: '2026-03-01T11:00:00Z' },
     ];
 
-    mockLimit.mockResolvedValue({ data: fakeData, error: null });
+    const fakeProfiles = [
+      { id: 'u1', username: 'alice', avatar_url: null },
+      { id: 'u2', username: 'bob', avatar_url: null },
+    ];
+
+    // mockIn is used by the profiles query (.in('id', userIds))
+    const mockIn = vi.fn().mockResolvedValue({ data: fakeProfiles, error: null });
+
+    mockLimit.mockResolvedValue({ data: fakeRuns, error: null });
     mockOrder.mockReturnValue({ limit: mockLimit });
     mockEq.mockReturnValue({ eq: mockEq, single: mockSingle, maybeSingle: mockMaybeSingle, order: mockOrder, limit: mockLimit });
-    mockSelect.mockReturnValue({ eq: mockEq, single: mockSingle, maybeSingle: mockMaybeSingle, order: mockOrder });
+    mockSelect.mockReturnValue({ eq: mockEq, single: mockSingle, maybeSingle: mockMaybeSingle, order: mockOrder, in: mockIn });
     mockFrom.mockReturnValue({ select: mockSelect, insert: mockInsert, eq: mockEq });
   });
 
-  it('returns 200 with leaderboard array', async () => {
+  it('returns 200 with entries array', async () => {
     const result = await withServer(async (url) => {
       return httpRequest(url, 'GET', '/api/gauntlet/leaderboard');
     });
 
     expect(result.status).toBe(200);
     const body = result.body as Record<string, unknown>;
-    expect(body).toHaveProperty('leaderboard');
-    expect(Array.isArray(body.leaderboard)).toBe(true);
+    expect(body).toHaveProperty('entries');
+    expect(Array.isArray(body.entries)).toBe(true);
   });
 
-  it('leaderboard entries have rank, userId, totalScore, track', async () => {
+  it('leaderboard entries have rank, run_id, total_score, track', async () => {
     const result = await withServer(async (url) => {
       return httpRequest(url, 'GET', '/api/gauntlet/leaderboard');
     });
 
     const body = result.body as Record<string, unknown>;
-    const leaderboard = body.leaderboard as Array<Record<string, unknown>>;
-    expect(leaderboard.length).toBe(2);
-    expect(leaderboard[0]).toHaveProperty('rank', 1);
-    expect(leaderboard[0]).toHaveProperty('userId');
-    expect(leaderboard[0]).toHaveProperty('totalScore');
-    expect(leaderboard[0]).toHaveProperty('track');
+    const entries = body.entries as Array<Record<string, unknown>>;
+    expect(entries.length).toBe(2);
+    expect(entries[0]).toHaveProperty('rank', 1);
+    expect(entries[0]).toHaveProperty('run_id');
+    expect(entries[0]).toHaveProperty('total_score');
+    expect(entries[0]).toHaveProperty('track');
   });
 
   it('leaderboard entries include username from profile', async () => {
@@ -774,8 +803,8 @@ describe('GET /api/gauntlet/leaderboard', () => {
     });
 
     const body = result.body as Record<string, unknown>;
-    const leaderboard = body.leaderboard as Array<Record<string, unknown>>;
-    expect(leaderboard[0]).toHaveProperty('username', 'alice');
+    const entries = body.entries as Array<Record<string, unknown>>;
+    expect(entries[0]).toHaveProperty('username', 'alice');
   });
 
   it('returns 400 for invalid week parameter', async () => {
