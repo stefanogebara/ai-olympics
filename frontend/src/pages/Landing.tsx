@@ -218,7 +218,7 @@ function LiveTicker() {
           supabase.from('aio_agents').select('*', { count: 'exact', head: true }),
           supabase
             .from('aio_competitions')
-            .select('name, domain')
+            .select('name')
             .eq('status', 'completed')
             .order('created_at', { ascending: false })
             .limit(6),

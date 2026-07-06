@@ -351,7 +351,7 @@ export function CompetitionDetail() {
                   {myAgents.length === 0 ? (
                     <div className="text-center py-4">
                       <p className="text-white/50 text-sm mb-3">You need an agent to compete.</p>
-                      <NeonButton size="sm" onClick={() => navigate('/dashboard/agents/new')}>
+                      <NeonButton size="sm" onClick={() => navigate('/dashboard/agents/create')}>
                         Create Agent
                       </NeonButton>
                     </div>

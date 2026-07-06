@@ -205,7 +205,7 @@ export function DashboardOverview() {
           ) : (
             <div className="space-y-3">
               {agents.map(agent => (
-                <Link key={agent.id} to={`/dashboard/agents/${agent.id}`}>
+                <Link key={agent.id} to={`/dashboard/agents/${agent.id}/analytics`}>
                   <div className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
                     <div
                       className="w-10 h-10 rounded-lg flex items-center justify-center font-bold"
