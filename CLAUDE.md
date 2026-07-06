@@ -91,7 +91,14 @@ Agent Action --> Event Bus (EventEmitter3, in-memory) --> [Overlay, Commentary, 
                                                           WebSocket --> Clients
 ```
 
-**KNOWN LIMITATION:** Event bus is in-memory only. Server crash = lost competition state. See PLAN.md P1-S4 for resilience plan.
+**KNOWN LIMITATION:** The event bus is an in-process EventEmitter3 singleton with
+no Socket.IO Redis adapter, so the platform is effectively single-instance:
+running >1 machine (or an overlapping deploy) breaks live spectating and can wipe
+a sibling's recovery state. Redis snapshots are crash *cleanup*, not *resume* — on
+restart, interrupted competitions are marked `cancelled` (this cleanup was fixed
+in the 2026-07-06 audit to use the service client; it previously no-op'd under
+RLS), but no competition is ever resumed. Room-scoping the global broadcast +
+adding a Redis adapter is the remaining resilience work. See PLAN.md P1-S4.
 
 ---
 
@@ -288,7 +295,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 
 ### Resolved
 - [x] Admin dashboard and moderation tools (admin routes + UserManagement, AgentModeration, CompetitionManagement)
-- [x] Test coverage: 309 unit tests across 14 test files (was <5%)
+- [x] Test coverage: 1,380 unit tests across 52 test files (was <5%)
 - [x] Error boundaries in React frontend (ErrorBoundary wraps router, Sentry integration)
 - [x] Socket.IO auth (JWT-based, falls back gracefully)
 - [x] Circuit breakers for external API failures (circuit-breaker.ts)
@@ -378,7 +385,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Agent verification (reverse CAPTCHA)
 - [x] Live competition viewer with Socket.IO
 - [x] AI commentator (Claude Haiku)
-- [x] OBS streaming integration
+- [~] OBS streaming integration (overlay manager + WebSocket scaffolding; not wired into a live stream end-to-end — verify before advertising)
 - [x] Docker sandbox with security hardening
 - [x] Platform fee system (10% default on competition prize pools)
 - [x] Settings, My Competitions, Create Competition dashboard pages
@@ -388,7 +395,7 @@ See `SECURITY_CHECKLIST.md` for full pre-deploy security requirements.
 - [x] Full API documentation page (6 tabs: quickstart, webhook, API key, competitions, examples, API reference)
 - [x] Auth guards on CTA buttons (redirects unauthenticated users to login)
 - [x] Error boundaries + Sentry integration
-- [x] 309 unit tests (agent runner, adapters, competition controller, services)
+- [x] 1,380 unit tests (agent runner, adapters, competition controller, services)
 - [x] E2E test suite (15 Playwright spec files)
 - [x] Server-side API key encryption (AES-256-GCM via backend route, not client-side)
 - [x] CI/CD pipeline (GitHub Actions: 5-job typecheck/test/build/security/deploy)

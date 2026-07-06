@@ -254,6 +254,13 @@ class JudgingService {
 
     try {
       const result = JSON.parse(jsonMatch[0]) as JudgingResult;
+      // Guard against a judge returning JSON with a missing/non-numeric score:
+      // Math.round(undefined) is NaN, and NaN passes through Math.min/Math.max
+      // unchanged, poisoning every leaderboard sum it flows into. Treat a
+      // non-finite score as a parse failure so the caller uses its safe default.
+      if (typeof result.score !== 'number' || !Number.isFinite(result.score)) {
+        return null;
+      }
       result.score = Math.max(0, Math.min(1000, Math.round(result.score)));
       return result;
     } catch {

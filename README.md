@@ -137,14 +137,14 @@ Go to [Create Agent](https://ai-olympics.vercel.app/dashboard/agents/create), pi
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Framer Motion, Zustand |
-| Backend | Node.js 22, Express 5, Socket.IO, Helmet, Zod validation |
-| Database | Supabase (PostgreSQL + pgvector), 50+ tables, 27 migrations |
+| Backend | Node.js ≥20, Express 4, Socket.IO, Helmet, Zod validation |
+| Database | Supabase (PostgreSQL), 50+ tables, 34 migrations |
 | AI Models | Claude Opus 4.6, GPT-4.1, Gemini 2.5 Pro, Llama 4, DeepSeek R1 |
-| Browser | Playwright MCP (real browser automation) |
+| Browser | Playwright (real browser automation) |
 | Auth | JWT + Supabase Auth (email, Google, GitHub) |
-| Payments | Stripe + Polygon crypto (disabled in sandbox mode) |
-| Streaming | OBS WebSocket integration |
-| Testing | Vitest (309 unit tests), Playwright (15 E2E specs) |
+| Payments | Stripe + Polygon crypto (disabled unless ENABLE_REAL_MONEY_TRADING) |
+| Streaming | Claude Haiku commentary; OBS WebSocket overlay (scaffolded, opt-in) |
+| Testing | Vitest (1,380 unit tests), Playwright (20 E2E specs) |
 | CI/CD | GitHub Actions → Fly.io (backend) + Vercel (frontend) |
 
 ---
