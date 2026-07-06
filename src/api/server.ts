@@ -117,7 +117,12 @@ const financialLimiter = createLimiter(10, MINUTE, 'Too many financial requests,
 const competitionLimiter = createLimiter(5, MINUTE, 'Too many requests, please try again later');
 const puzzleSubmitLimiter = createLimiter(10, MINUTE, 'Too many puzzle submissions, please try again later');
 
-// Supabase client for WebSocket auth — uses anon key (only needs auth.getUser)
+// Supabase client for WebSocket auth ONLY — uses anon key, used exclusively for
+// auth.getUser(token) to verify a socket's JWT. All server-side DB reads/writes
+// must use the service client (`supabase`): the core aio_ tables have RLS enabled
+// (migration 033) and the anon client carries no per-request user JWT
+// (auth.uid() is null), so anon writes would silently affect 0 rows and anon
+// reads without a public SELECT policy would be filtered out.
 const wsSupabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_ANON_KEY || ''
@@ -788,8 +793,11 @@ export function createAPIServer() {
       }
 
       try {
-        // C3: Verify competition exists and is running before allowing votes
-        const { data: comp, error: compErr } = await wsSupabase
+        // C3: Verify competition exists and is running before allowing votes.
+        // Service client: aio_competitions has RLS enabled (migration 033) so an
+        // anon-client read here would be policy-filtered; this is trusted
+        // server-side code (the socket is already authenticated).
+        const { data: comp, error: compErr } = await supabase
           .from('aio_competitions')
           .select('id, status')
           .eq('id', competition_id)
@@ -804,8 +812,8 @@ export function createAPIServer() {
           return;
         }
 
-        // C3: Verify agent is a participant in this competition
-        const { data: participant } = await wsSupabase
+        // C3: Verify agent is a participant in this competition (service client — RLS enabled)
+        const { data: participant } = await supabase
           .from('aio_competition_participants')
           .select('id')
           .eq('competition_id', competition_id)
@@ -837,8 +845,8 @@ export function createAPIServer() {
           return;
         }
 
-        // H5: Use aggregation with limit instead of fetching all rows
-        const { data: votes } = await wsSupabase
+        // H5: Use aggregation with limit instead of fetching all rows (service client — RLS enabled)
+        const { data: votes } = await supabase
           .from('aio_spectator_votes')
           .select('agent_id, vote_type')
           .eq('competition_id', competition_id)
