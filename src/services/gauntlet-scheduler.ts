@@ -1,21 +1,12 @@
 import { createLogger } from '../shared/utils/logger.js';
 import { serviceClient } from '../shared/utils/supabase.js';
+import { getISOWeek } from '../shared/utils/iso-week.js';
 import { pickWeeklyTasks } from './gauntlet-tasks.js';
 
 const log = createLogger('GauntletScheduler');
 
-/**
- * Get ISO week number and year for a given date.
- * ISO 8601: week starts on Monday; week 1 = week containing the first Thursday.
- */
-export function getISOWeek(date: Date): { weekNumber: number; year: number } {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7; // 1=Mon, 7=Sun
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNumber = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  return { weekNumber, year: d.getUTCFullYear() };
-}
+// Re-exported for backward compatibility with existing importers/tests.
+export { getISOWeek };
 
 /**
  * Compute the Monday 00:00:00 UTC date for a given ISO week number and year.
