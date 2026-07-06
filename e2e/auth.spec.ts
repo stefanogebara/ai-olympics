@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './test-config';
 
 const BASE = 'http://localhost:5173';
 
@@ -600,20 +601,18 @@ test.describe('Supabase Connectivity', () => {
   test('Supabase client is configured and reachable', async ({ page }) => {
     await page.goto('/');
 
-    // Execute a simple Supabase health check via the client
-    const supabaseStatus = await page.evaluate(async () => {
+    // Execute a simple Supabase health check via the client. URL + anon key are
+    // passed in from env-sourced test config (never inlined).
+    const supabaseStatus = await page.evaluate(async ({ url, anonKey }) => {
       try {
-        // Access the Supabase URL from env
-        const response = await fetch('https://lurebwaudisfilhuhmnj.supabase.co/rest/v1/', {
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1cmVid2F1ZGlzZmlsaHVobW5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NjYyNDksImV4cCI6MjA3MzU0MjI0OX0.tXqCn_VGB3OTbXFvKLAd5HNOYqs0FYbLCBvFQ0JVi8A',
-          }
+        const response = await fetch(`${url}/rest/v1/`, {
+          headers: { 'apikey': anonKey },
         });
         return { status: response.status, ok: response.ok };
       } catch (e) {
         return { status: 0, ok: false, error: String(e) };
       }
-    });
+    }, { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY });
 
     console.log(`SUPABASE: Status ${supabaseStatus.status}, OK: ${supabaseStatus.ok}`);
     expect(supabaseStatus.ok).toBe(true);

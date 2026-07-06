@@ -3,9 +3,7 @@
  * Run: npx playwright test e2e/ux-audit.spec.ts
  */
 import { test, expect, type Page } from '@playwright/test';
-
-const TEST_EMAIL = 'e2e-agent-test@gmail.com';
-const TEST_PASSWORD = 'E2eTestPass1234';
+import { TEST_EMAIL, TEST_PASSWORD } from './test-config';
 
 async function loginViaUI(page: Page) {
   await page.goto('/auth/login');

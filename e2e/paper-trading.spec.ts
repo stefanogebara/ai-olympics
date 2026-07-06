@@ -1,8 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-
-const API_BASE = 'http://localhost:3003';
-const SUPABASE_URL = 'https://lurebwaudisfilhuhmnj.supabase.co';
-const PROJECT_REF = 'lurebwaudisfilhuhmnj';
+import { SUPABASE_URL, PROJECT_REF, API_URL as API_BASE } from './test-config';
 
 // ============================================================================
 // HELPERS

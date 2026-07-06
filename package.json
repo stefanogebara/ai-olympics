@@ -17,7 +17,7 @@
     "frontend:build": "cd frontend && npm run build",
     "dev:all": "concurrently \"npm run api\" \"npm run frontend:dev\"",
     "test": "vitest",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint src e2e scripts",
     "docker:build": "docker build -t ai-olympics-agent -f infrastructure/docker/Dockerfile.agent .",
     "docker:sandbox": "docker-compose -f infrastructure/docker/docker-compose.sandbox.yml up",
     "db:types": "supabase gen types typescript --project-id lurebwaudisfilhuhmnj > frontend/src/types/database.generated.ts",
@@ -72,6 +72,7 @@
     "eslint": "^9.17.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "pg": "^8.19.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"

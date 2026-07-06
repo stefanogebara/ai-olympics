@@ -37,6 +37,12 @@ coverage/
 test-results/
 playwright-report/
 e2e/screenshots/
+.playwright-mcp/
+
+# Loose debug/smoke artifacts (keep them out of git)
+smoke-*.png
+bet-error-screenshot.png
+*.stackdump
 
 # Docker
 .docker/

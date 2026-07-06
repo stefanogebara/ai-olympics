@@ -8,6 +8,7 @@ import { pickWeeklyTasks, hydrateTask } from '../../services/gauntlet-tasks.js';
 import { createLogger } from '../../shared/utils/logger.js';
 import { executeGauntletDropIn } from '../../services/gauntlet-execution.js';
 import { executeGauntletWebhook } from '../../services/gauntlet-webhook-executor.js';
+import { getISOWeek } from '../../shared/utils/iso-week.js';
 
 const log = createLogger('GauntletRoutes');
 const router = Router();
@@ -96,17 +97,11 @@ function isValidHttpsUrl(url: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: compute ISO week number and year for a given date
+// Helper: compute ISO week number and year for a given date.
+// Re-exported from the shared util so both the scheduler and this route use the
+// same (UTC-correct) implementation.
 // ---------------------------------------------------------------------------
-export function getISOWeek(date: Date): { weekNumber: number; year: number } {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  // ISO weeks start on Monday; day 0 = Sunday
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNumber = Math.ceil((((d.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7);
-  return { weekNumber, year: d.getUTCFullYear() };
-}
+export { getISOWeek };
 
 // ---------------------------------------------------------------------------
 // GET /api/gauntlet/weeks/current
