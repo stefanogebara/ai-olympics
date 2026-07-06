@@ -320,13 +320,19 @@ export class TournamentController {
         match.loserId = match.results[1 - winner].agentId;
       }
 
-      await controller.cleanup();
-
     } catch (error) {
       log.error(`Match failed: ${match.id}`, { error });
       // On error, randomly pick a winner
       match.winnerId = match.agentIds[Math.floor(Math.random() * 2)];
       match.loserId = match.agentIds.find((id) => id !== match.winnerId);
+    } finally {
+      // Always release the match's two Chromium instances. Previously cleanup
+      // sat at the end of the try, so a thrown startCompetition() (turn timeout,
+      // page crash, provider outage) leaked ~600MB-1GB per failed match until
+      // process exit — a few failures OOM'd the 2GB VM mid-tournament.
+      await controller.cleanup().catch((err) => {
+        log.warn(`Failed to clean up match controller ${match.id}`, { error: String(err) });
+      });
     }
 
     match.status = 'completed';

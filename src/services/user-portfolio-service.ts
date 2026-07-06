@@ -8,6 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { serviceClient as supabase } from '../shared/utils/supabase.js';
 import { createLogger } from '../shared/utils/logger.js';
 import { marketService, type UnifiedMarket } from './market-service.js';
+import { calculateShares } from './manifold-client.js';
 
 const log = createLogger('UserPortfolioService');
 
@@ -127,22 +128,9 @@ const MAX_DAILY_BETS = 10;         // 10 bets per day
 const MAX_OPEN_POSITIONS = 20;     // 20 simultaneous positions
 const CLOSE_TIME_BUFFER_MS = 3600000; // 1 hour buffer before market close
 
-// ============================================================================
-// CPMM MATH (from virtual-portfolio.ts)
-// ============================================================================
-
-function calculateShares(pool: { YES: number; NO: number }, amount: number, outcome: 'YES' | 'NO'): number {
-  const k = pool.YES * pool.NO;
-  if (outcome === 'YES') {
-    const newNo = pool.NO + amount;
-    const newYes = k / newNo;
-    return pool.YES - newYes + amount;
-  } else {
-    const newYes = pool.YES + amount;
-    const newNo = k / newYes;
-    return pool.NO - newNo + amount;
-  }
-}
+// CPMM share math — single shared implementation (see manifold-client.ts). This
+// path and the agent virtual-portfolio path previously had divergent copies that
+// disagreed by the bet amount; both now use the one correct formula.
 
 // ============================================================================
 // USER PORTFOLIO SERVICE
