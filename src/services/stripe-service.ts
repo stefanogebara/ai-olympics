@@ -270,17 +270,49 @@ class StripeService {
         throw new Error('Your bank account is not yet verified. Please complete Stripe onboarding.');
       }
 
-      // Transfer funds to connected account
-      const transfer = await this.getStripe().transfers.create({
-        amount: amountCents,
-        currency: 'usd',
-        destination: connectAccount.stripe_account_id,
-        metadata: { userId },
-      });
+      if (!Number.isInteger(amountCents) || amountCents <= 0) {
+        throw new Error('Payout amount must be a positive integer number of cents');
+      }
 
-      // Debit the wallet
-      const idempotencyKey = `stripe_payout_${transfer.id}`;
-      await walletService.withdraw(userId, amountCents, 'stripe_connect', transfer.id, idempotencyKey);
+      // RESERVE funds FIRST via an atomic, row-locked, balance-checked debit —
+      // BEFORE creating the Stripe transfer. Previously the transfer was created
+      // first and only then debited, so an over-balance (or concurrent) payout
+      // moved real money out before any balance check.
+      const idempotencyKey = `stripe_payout_${crypto.randomUUID()}`;
+      await walletService.withdraw(userId, amountCents, 'stripe_connect', 'pending', idempotencyKey);
+
+      let transfer: Stripe.Transfer;
+      try {
+        transfer = await this.getStripe().transfers.create(
+          {
+            amount: amountCents,
+            currency: 'usd',
+            destination: connectAccount.stripe_account_id,
+            metadata: { userId },
+          },
+          // Stripe-level idempotency: a retried create won't double-transfer.
+          { idempotencyKey }
+        );
+      } catch (transferError) {
+        log.error('Stripe transfer failed after reserving funds — reversing debit', {
+          userId, amountCents, error: String(transferError),
+        });
+        try {
+          await walletService.reverseWithdrawal(userId, amountCents, 'stripe_connect', `${idempotencyKey}_reversal`);
+        } catch (reverseError) {
+          log.error('CRITICAL: failed to reverse Stripe payout debit — manual reconciliation needed', {
+            userId, amountCents, idempotencyKey, reverseError: String(reverseError),
+          });
+        }
+        throw transferError;
+      }
+
+      // Annotate the debit with the real transfer id for reconciliation.
+      await serviceClient
+        .from('aio_transactions')
+        .update({ provider_ref: transfer.id })
+        .eq('idempotency_key', idempotencyKey)
+        .then(undefined, () => { /* best-effort */ });
 
       log.info('Stripe Connect payout successful', { userId, amountCents, transferId: transfer.id });
       return { status: 'success' };

@@ -22,6 +22,28 @@ dashboard access and are NOT complete until done:
 - [x] Removed hardcoded keys/passwords from source; env-sourced via `e2e/test-config.ts`.
 - [x] Added a `gitleaks` secret-scan job to CI so this cannot recur (see `.github/workflows/ci.yml`).
 
+## Real-money hardening — remaining before enabling ENABLE_REAL_MONEY_TRADING
+
+Fixed in the 2026-07-06 audit remediation (see git history):
+- [x] Withdrawals now RESERVE funds via an atomic, balance-checked debit BEFORE
+      the external transfer, and reverse the reservation on transfer failure
+      (crypto + Stripe). Crypto withdrawals require a verified, linked address.
+- [x] Entry-fee refunds decrement `prize_pool` (were leaving it over-funded →
+      insolvent settlement) and neutralize the original charge (closes free
+      re-join). New idempotent `refund_entry_fee` RPC + migration 031.
+- [x] Partial unique index on internal `provider_ref` closes the entry-fee /
+      prize double-charge race.
+
+Still required (need verification against live DB state — the migration history
+has conflicting `aio_transactions.type` CHECK definitions, so recreate carefully):
+- [ ] Add `FOR UPDATE` to `settle_real_bet`'s bet-row SELECT (double-settlement
+      race between the periodic resolver and manual resolve).
+- [ ] Record `shares`/`price_per_share` on real bets and pay `shares * $1` at
+      resolution instead of the current flat `amount * 2` (market payouts are
+      currently disconnected from the price paid).
+- [ ] Run migration 031 against staging and confirm it applies cleanly (no
+      pre-existing duplicate internal `provider_ref` values).
+
 ## Key Regeneration Status
 
 The following keys should be regenerated before any public or production deployment.

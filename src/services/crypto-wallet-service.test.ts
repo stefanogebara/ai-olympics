@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const {
   mockFrom,
   mockWithdraw,
+  mockReverseWithdrawal,
   MockProvider,
   MockWallet,
   MockContract,
@@ -41,6 +42,7 @@ const {
   return {
     mockFrom: vi.fn(),
     mockWithdraw: vi.fn(),
+    mockReverseWithdrawal: vi.fn(),
     MockProvider,
     MockWallet,
     MockContract,
@@ -67,7 +69,7 @@ vi.mock('../shared/utils/supabase.js', () => ({
 }));
 
 vi.mock('./wallet-service.js', () => ({
-  walletService: { withdraw: mockWithdraw },
+  walletService: { withdraw: mockWithdraw, reverseWithdrawal: mockReverseWithdrawal },
 }));
 
 vi.mock('../shared/utils/logger.js', () => ({
@@ -93,6 +95,7 @@ function chain(result: { data: unknown; error: unknown } = { data: null, error: 
     q[m] = vi.fn().mockReturnValue(q);
   }
   q.single = vi.fn().mockResolvedValue(result);
+  q.maybeSingle = vi.fn().mockResolvedValue(result);
   q.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
     Promise.resolve(result).then(resolve, reject);
   return q;
@@ -256,7 +259,15 @@ describe('verifyWalletOwnership', () => {
 // ---------------------------------------------------------------------------
 
 describe('executeWithdrawal', () => {
-  it('transfers correct USDC amount and returns txHash', async () => {
+  /** Queue mockFrom for: 1) verified-wallet lookup, 2) provider_ref annotation. */
+  function withVerifiedWallet() {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { is_verified: true }, error: null })) // address verified
+      .mockReturnValueOnce(chain({ data: null, error: null }));                 // annotation update
+  }
+
+  it('reserves funds BEFORE transferring, then transfers the correct USDC amount', async () => {
+    withVerifiedWallet();
     const mockTx = { wait: vi.fn().mockResolvedValueOnce({ hash: '0xtxhash' }) };
     mockTransfer.mockResolvedValueOnce(mockTx);
     mockWithdraw.mockResolvedValueOnce(undefined);
@@ -266,9 +277,14 @@ describe('executeWithdrawal', () => {
     expect(result).toEqual({ txHash: '0xtxhash' });
     // 500 cents * 10_000 = 5_000_000 USDC units (6 decimals)
     expect(mockTransfer).toHaveBeenCalledWith('0xTO', BigInt(5_000_000));
+    // Debit (reserve) happened BEFORE the on-chain transfer — the CRITICAL fix.
+    expect(mockWithdraw.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTransfer.mock.invocationCallOrder[0]
+    );
   });
 
-  it('calls walletService.withdraw with correct args', async () => {
+  it('reserves via withdraw with a pending ref and a generated idempotency key', async () => {
+    withVerifiedWallet();
     const mockTx = { wait: vi.fn().mockResolvedValueOnce({ hash: '0xtxhash' }) };
     mockTransfer.mockResolvedValueOnce(mockTx);
     mockWithdraw.mockResolvedValueOnce(undefined);
@@ -276,21 +292,34 @@ describe('executeWithdrawal', () => {
     await cryptoWalletService.executeWithdrawal('user-1', '0xTO', 500);
 
     expect(mockWithdraw).toHaveBeenCalledWith(
-      'user-1',
-      500,
-      'polygon_usdc',
-      '0xtxhash',
-      'crypto_withdrawal_0xtxhash'
+      'user-1', 500, 'polygon_usdc', 'pending', expect.stringMatching(/^crypto_withdrawal_/)
     );
   });
 
-  it('throws when the on-chain transfer fails', async () => {
-    mockTransfer.mockRejectedValueOnce(new Error('insufficient funds'));
+  it('rejects withdrawals to an address that is not a verified, linked wallet', async () => {
+    mockFrom.mockReturnValueOnce(chain({ data: null, error: null })); // no verified wallet
+
+    await expect(
+      cryptoWalletService.executeWithdrawal('user-1', '0xUNKNOWN', 500)
+    ).rejects.toThrow('verified, linked wallet');
+    expect(mockWithdraw).not.toHaveBeenCalled();
+    expect(mockTransfer).not.toHaveBeenCalled();
+  });
+
+  it('reverses the reservation when the on-chain transfer fails', async () => {
+    mockFrom.mockReturnValueOnce(chain({ data: { is_verified: true }, error: null }));
+    mockWithdraw.mockResolvedValueOnce(undefined);
+    mockTransfer.mockRejectedValueOnce(new Error('insufficient gas'));
 
     await expect(
       cryptoWalletService.executeWithdrawal('user-1', '0xTO', 500)
-    ).rejects.toThrow('insufficient funds');
-    expect(mockWithdraw).not.toHaveBeenCalled();
+    ).rejects.toThrow('insufficient gas');
+
+    // Funds were reserved, then reversed — user keeps their balance.
+    expect(mockWithdraw).toHaveBeenCalledOnce();
+    expect(mockReverseWithdrawal).toHaveBeenCalledWith(
+      'user-1', 500, 'polygon_usdc', expect.stringMatching(/^crypto_withdrawal_.*_reversal$/)
+    );
   });
 });
 

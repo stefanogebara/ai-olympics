@@ -353,7 +353,9 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
     if (entryFeeCents > 0 && competition.stake_mode === 'real') {
       try {
         const refundKey = `refund_leave_${id}_${user.id}`;
-        await walletService.deposit(user.id, entryFeeCents, 'internal', refundKey, refundKey);
+        // refundEntryFee also decrements prize_pool (deposit() did not — that
+        // left the pool over-funded and settlement paid out refunded money).
+        await walletService.refundEntryFee(user.id, String(id), entryFeeCents, refundKey);
         log.info('Entry fee refunded on leave', { competitionId: id, userId: user.id, entryFeeCents });
       } catch (refundError) {
         // Log but don't fail the leave — participant is already removed
@@ -514,13 +516,8 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
       for (const p of participants ?? []) {
         try {
           const refundKey = `refund_cancel_${id}_${p.user_id}`;
-          await walletService.deposit(
-            p.user_id,
-            entryFeeCents,
-            'internal',
-            refundKey,
-            refundKey
-          );
+          // refundEntryFee decrements prize_pool too (deposit() did not).
+          await walletService.refundEntryFee(p.user_id, String(id), entryFeeCents, refundKey);
           log.info('Entry fee refunded on cancel', { competitionId: id, userId: p.user_id, entryFeeCents });
         } catch (refundErr) {
           log.error('Failed to refund entry fee on cancel — manual reconciliation needed', {

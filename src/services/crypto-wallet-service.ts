@@ -4,6 +4,7 @@
  */
 
 import { ethers } from 'ethers';
+import { randomUUID } from 'crypto';
 import { config } from '../shared/config.js';
 import { serviceClient } from '../shared/utils/supabase.js';
 import { walletService } from './wallet-service.js';
@@ -141,34 +142,64 @@ class CryptoWalletService {
     toAddress: string,
     amountCents: number
   ): Promise<{ txHash: string }> {
-    try {
-      log.info('Executing USDC withdrawal', { userId, toAddress, amountCents });
+    // Validate amount up front (defense in depth; the route also validates).
+    if (!Number.isInteger(amountCents) || amountCents <= 0) {
+      throw new Error('Withdrawal amount must be a positive integer number of cents');
+    }
 
+    // 1. The destination MUST be a verified, linked wallet for this user. This
+    //    prevents draining a balance to an attacker-controlled address if a
+    //    session is ever compromised.
+    const normalized = toAddress.toLowerCase();
+    const { data: linked } = await serviceClient
+      .from('aio_crypto_wallets')
+      .select('is_verified')
+      .eq('user_id', userId)
+      .eq('wallet_address', normalized)
+      .maybeSingle();
+    if (!linked || !linked.is_verified) {
+      throw new Error('Withdrawals are only allowed to a verified, linked wallet address');
+    }
+
+    // 2. RESERVE funds FIRST via an atomic, row-locked, balance-checked debit.
+    //    Doing this BEFORE the on-chain transfer closes the theft/double-spend
+    //    hole where funds left the platform wallet before any balance check, so
+    //    an over-balance (or concurrent) withdrawal drained the hot wallet.
+    const idempotencyKey = `crypto_withdrawal_${randomUUID()}`;
+    await walletService.withdraw(userId, amountCents, 'polygon_usdc', 'pending', idempotencyKey);
+
+    // 3. Perform the on-chain transfer. If it fails, REVERSE the reservation so
+    //    the user keeps their funds.
+    try {
       const wallet = this.getPlatformWallet();
       const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
-
-      // Convert cents to USDC (6 decimals). 1 USDC = 100 cents = 1_000_000 units
-      const usdcAmount = BigInt(amountCents) * BigInt(10_000); // cents * 10000 = 6-decimal units
+      const usdcAmount = BigInt(amountCents) * BigInt(10_000); // cents -> 6-decimal USDC units
 
       const tx = await usdc.transfer(toAddress, usdcAmount);
       const receipt = await tx.wait();
       const txHash = receipt.hash as string;
 
-      const idempotencyKey = `crypto_withdrawal_${txHash}`;
-
-      await walletService.withdraw(
-        userId,
-        amountCents,
-        'polygon_usdc',
-        txHash,
-        idempotencyKey
-      );
+      // Record the real tx hash against the debit for reconciliation.
+      await serviceClient
+        .from('aio_transactions')
+        .update({ provider_ref: txHash })
+        .eq('idempotency_key', idempotencyKey)
+        .then(undefined, () => { /* best-effort annotation; non-fatal */ });
 
       log.info('USDC withdrawal completed', { userId, toAddress, amountCents, txHash });
       return { txHash };
-    } catch (error) {
-      log.error('USDC withdrawal failed', { userId, toAddress, amountCents, error: String(error) });
-      throw error;
+    } catch (transferError) {
+      log.error('USDC transfer failed after reserving funds — reversing debit', {
+        userId, amountCents, error: String(transferError),
+      });
+      try {
+        await walletService.reverseWithdrawal(userId, amountCents, 'polygon_usdc', `${idempotencyKey}_reversal`);
+      } catch (reverseError) {
+        log.error('CRITICAL: failed to reverse withdrawal debit — manual reconciliation needed', {
+          userId, amountCents, idempotencyKey, reverseError: String(reverseError),
+        });
+      }
+      throw transferError;
     }
   }
 
