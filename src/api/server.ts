@@ -117,7 +117,11 @@ const financialLimiter = createLimiter(10, MINUTE, 'Too many financial requests,
 const competitionLimiter = createLimiter(5, MINUTE, 'Too many requests, please try again later');
 const puzzleSubmitLimiter = createLimiter(10, MINUTE, 'Too many puzzle submissions, please try again later');
 
-// Supabase client for WebSocket auth — uses anon key (only needs auth.getUser)
+// Supabase client for WebSocket auth ONLY — uses anon key, used exclusively for
+// auth.getUser(token) to verify a socket's JWT. All server-side DB reads/writes
+// must use the service client (`supabase`), because these core aio_ tables have
+// RLS enabled and the anon client carries no per-request user JWT (auth.uid() is
+// null), so anon writes would silently affect 0 rows and reads would be filtered.
 const wsSupabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_ANON_KEY || ''
@@ -788,8 +792,11 @@ export function createAPIServer() {
       }
 
       try {
-        // C3: Verify competition exists and is running before allowing votes
-        const { data: comp, error: compErr } = await wsSupabase
+        // C3: Verify competition exists and is running before allowing votes.
+        // Uses the service client: this is trusted server-side code (socket is
+        // already authenticated and the vote is validated below), and aio_competitions
+        // now has RLS enabled so anon-client reads would be policy-filtered.
+        const { data: comp, error: compErr } = await supabase
           .from('aio_competitions')
           .select('id, status')
           .eq('id', competition_id)
@@ -805,7 +812,7 @@ export function createAPIServer() {
         }
 
         // C3: Verify agent is a participant in this competition
-        const { data: participant } = await wsSupabase
+        const { data: participant } = await supabase
           .from('aio_competition_participants')
           .select('id')
           .eq('competition_id', competition_id)
@@ -817,7 +824,12 @@ export function createAPIServer() {
           return;
         }
 
-        const { error } = await wsSupabase
+        // Insert via the service client: user_id is trusted (derived from the
+        // socket's verified JWT above). aio_spectator_votes has RLS enabled with an
+        // insert policy of auth.uid() = user_id, which the anon client cannot satisfy
+        // (no per-request JWT), so this write must bypass RLS. The UNIQUE constraint
+        // still guards against double-voting (23505 handled below).
+        const { error } = await supabase
           .from('aio_spectator_votes')
           .insert({
             competition_id,
@@ -832,7 +844,7 @@ export function createAPIServer() {
         }
 
         // H5: Use aggregation with limit instead of fetching all rows
-        const { data: votes } = await wsSupabase
+        const { data: votes } = await supabase
           .from('aio_spectator_votes')
           .select('agent_id, vote_type')
           .eq('competition_id', competition_id)
@@ -967,10 +979,13 @@ export function createAPIServer() {
         competitions: interrupted.map(c => ({ id: c.competitionId, name: c.name, status: c.status })),
       });
 
-      // Mark interrupted competitions as cancelled in DB and clean up Redis
+      // Mark interrupted competitions as cancelled in DB and clean up Redis.
+      // Uses the service client: this is a trusted server-side recovery task with no
+      // user context. aio_competitions has RLS enabled and only creators/admins can
+      // update, so an anon-client update would silently match 0 rows.
       for (const snapshot of interrupted) {
         try {
-          const { error } = await wsSupabase
+          const { error } = await supabase
             .from('aio_competitions')
             .update({ status: 'cancelled', updated_at: new Date().toISOString() })
             .eq('id', snapshot.competitionId);
