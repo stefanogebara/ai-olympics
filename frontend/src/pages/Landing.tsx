@@ -344,12 +344,64 @@ function HeroCTAs() {
   );
 }
 
-// ── Hero centerpiece: a mocked "live match" between two agents ────────────────
+// ── Hero centerpiece: an animated, mocked "live match" between two agents ─────
+const ARENA_AGENTS = [
+  { name: 'Claude', tag: 'Opus 4.6', color: '#F59E0B' },
+  { name: 'GPT-4.1', tag: 'OpenAI', color: '#10B981' },
+];
+
+const ARENA_ACTIONS = [
+  'navigate → openai.com/about',
+  'click → "Leadership"',
+  'read → team page',
+  'extract → CEO name',
+  'type → "Sam Altman"',
+  'click → "Submit"',
+  'done ✓ verified',
+];
+
+type ArenaState = { p: [number, number]; s: [number, number]; turn: number; actionIdx: number; actor: 0 | 1 };
+
+function initialArena(): ArenaState {
+  return { p: [82, 66], s: [92, 84], turn: 14, actionIdx: 1, actor: 0 };
+}
+
+function stepArena(prev: ArenaState): ArenaState {
+  // A competitor finished the task — reset and start a fresh round.
+  if (prev.p[0] >= 100 || prev.p[1] >= 100) {
+    return { p: [6, 3], s: [8, 5], turn: 1, actionIdx: 0, actor: 0 };
+  }
+  const bump = (v: number) => Math.min(100, v + 4 + Math.floor(Math.random() * 12));
+  const p: [number, number] = [bump(prev.p[0]), bump(prev.p[1])];
+  const score = (prog: number, i: number) => Math.min(99, Math.round(prog * 0.9 + i * 2 + Math.random() * 6));
+  return {
+    p,
+    s: [score(p[0], 0), score(p[1], 1)],
+    turn: prev.turn + 1,
+    actionIdx: (prev.actionIdx + 1) % ARENA_ACTIONS.length,
+    actor: prev.actor === 0 ? 1 : 0,
+  };
+}
+
 function LiveArena() {
-  const rows = [
-    { name: 'Claude', tag: 'Opus 4.6', color: '#F59E0B', score: 92, progress: 82, lead: true },
-    { name: 'GPT-4.1', tag: 'OpenAI', color: '#10B981', score: 84, progress: 66, lead: false },
-  ];
+  const [arena, setArena] = useState<ArenaState>(initialArena);
+
+  useEffect(() => {
+    // Respect reduced-motion: hold a single static frame instead of ticking.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = setInterval(() => setArena(stepArena), 1100);
+    return () => clearInterval(id);
+  }, []);
+
+  const leadIndex = arena.s[0] >= arena.s[1] ? 0 : 1;
+  const rows = ARENA_AGENTS.map((a, i) => ({
+    ...a,
+    score: arena.s[i],
+    progress: arena.p[i],
+    lead: i === leadIndex,
+  }));
+  const actor = ARENA_AGENTS[arena.actor].name.toLowerCase();
+
   return (
     <div className="relative">
       {/* Ambient glow behind the panel */}
@@ -382,16 +434,23 @@ function LiveArena() {
                   <p className="text-sm font-semibold text-white leading-tight truncate">{r.name}</p>
                   <p className="text-[11px] text-white/40 leading-tight">{r.tag}</p>
                 </div>
-                {r.lead && (
-                  <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-neon-gold/15 text-neon-gold border border-neon-gold/30">
-                    Lead
-                  </span>
-                )}
-                <span className="font-mono font-bold text-lg tabular-nums" style={{ color: r.color }}>{r.score}</span>
+                {/* Reserve the badge slot on both rows to avoid layout shift when the lead flips */}
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border transition-opacity duration-500 ${
+                    r.lead
+                      ? 'bg-neon-gold/15 text-neon-gold border-neon-gold/30 opacity-100'
+                      : 'border-transparent opacity-0'
+                  }`}
+                >
+                  Lead
+                </span>
+                <span className="font-mono font-bold text-lg tabular-nums w-8 text-right" style={{ color: r.color }}>
+                  {r.score}
+                </span>
               </div>
               <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                 <div
-                  className="h-full rounded-full"
+                  className="h-full rounded-full transition-[width] duration-700 ease-out"
                   style={{ width: `${r.progress}%`, background: `linear-gradient(90deg, ${r.color}, ${r.color}88)` }}
                 />
               </div>
@@ -410,8 +469,9 @@ function LiveArena() {
         <div className="rounded-lg bg-black/30 border border-white/5 px-3 py-2 font-mono text-[11px] text-white/50 flex items-center gap-2">
           <Activity size={12} className="text-neon-cyan shrink-0" />
           <span className="truncate">
-            <span className="text-neon-cyan">claude</span> → click &quot;Leadership&quot; · turn 14
+            <span className="text-neon-cyan">{actor}</span> {ARENA_ACTIONS[arena.actionIdx]} · turn {arena.turn}
           </span>
+          <span className="ml-auto text-neon-cyan animate-pulse" aria-hidden="true">▍</span>
         </div>
       </GlassCard>
     </div>
