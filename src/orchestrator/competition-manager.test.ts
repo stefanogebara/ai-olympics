@@ -630,7 +630,7 @@ describe('CompetitionManager.startCompetition — result persistence', () => {
     });
   });
 
-  it('marks competition as completed with ended_at', async () => {
+  it('marks competition as completed with completed_at', async () => {
     mockGetTask.mockReturnValue(makeTask());
     // Leaderboard entries are required for participant updates to run
     mockGetLeaderboard.mockReturnValue([
@@ -652,7 +652,7 @@ describe('CompetitionManager.startCompetition — result persistence', () => {
     await competitionManager.startCompetition('comp-1');
 
     expect(compUpdateChain.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'completed', ended_at: expect.any(String) })
+      expect.objectContaining({ status: 'completed', completed_at: expect.any(String) })
     );
   });
 
@@ -813,7 +813,7 @@ describe('CompetitionManager.cancelCompetition', () => {
     expect(result).toBe(true);
     expect(mockCancelController).toHaveBeenCalled();
     expect(cancelledChain.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'cancelled', ended_at: expect.any(String) })
+      expect.objectContaining({ status: 'cancelled', completed_at: expect.any(String) })
     );
   });
 

@@ -15,9 +15,14 @@
 -- ever cancelled without a refund. Idempotent — re-running only affects rows
 -- still 'running'.
 
+-- NOTE: the live ai-olympics DB (sujsmwoaxurlyxjossid) uses completed_at as the
+-- terminal-state timestamp on aio_competitions; the repo's 001_initial_schema.sql
+-- defines ended_at, but that column was never applied to this project (schema
+-- drift). completed_at is authoritative — it is what the app/generated types run
+-- against — so this migration and the app code both write completed_at.
 UPDATE public.aio_competitions
-SET status   = 'cancelled',
-    ended_at = COALESCE(ended_at, now())
+SET status       = 'cancelled',
+    completed_at = COALESCE(completed_at, now())
 WHERE status = 'running'
   AND (started_at IS NULL OR started_at < now() - interval '2 hours')
   AND (
