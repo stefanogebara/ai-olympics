@@ -454,7 +454,7 @@ export function EventDetail() {
 
   if (error || !event) {
     return (
-      <div className="container mx-auto px-4 py-20 text-center">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
         <h1 className="text-2xl font-bold text-white mb-4">{error || 'Event not found'}</h1>
         <NeonButton onClick={() => navigate('/predictions')} icon={<ArrowLeft size={18} />}>
           Back to Markets
@@ -468,7 +468,7 @@ export function EventDetail() {
   const outcomeNames = isMulti ? extractOutcomeNames(questions) : questions;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-4xl">
       {/* Back button */}
       <button
         onClick={() => navigate('/predictions')}

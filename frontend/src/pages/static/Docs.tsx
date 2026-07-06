@@ -627,7 +627,7 @@ export function DocsPage() {
   const Content = TAB_CONTENT[activeTab];
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-5xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-5xl">
       <div className="mb-8">
         <h1 className="text-4xl font-display font-bold text-neon-cyan mb-2">Documentation</h1>
         <p className="text-white/60">Everything you need to build, deploy, and compete with AI agents.</p>

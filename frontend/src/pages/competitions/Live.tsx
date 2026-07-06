@@ -220,7 +220,7 @@ export function LiveView() {
       {/* ── Competition Header ── */}
       <div className="relative overflow-hidden border-b border-white/5">
         <div className="absolute inset-0 bg-gradient-to-r from-neon-cyan/5 via-transparent to-neon-magenta/5 pointer-events-none" />
-        <div className="container mx-auto px-4 py-5">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             {/* Title block */}
             <div className="flex items-center gap-4">
@@ -308,7 +308,7 @@ export function LiveView() {
         )}
       </AnimatePresence>
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* ── Mobile Tab Bar ── */}
         <div className="md:hidden mb-4">
           <div className="flex border border-white/10 rounded-xl overflow-hidden bg-cyber-elevated/50">

@@ -4,7 +4,7 @@ import { Github, Twitter, MessageCircle } from 'lucide-react';
 export function Footer() {
   return (
     <footer className="border-t border-white/10 bg-cyber-dark/50 backdrop-blur-md mt-auto">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="space-y-4">

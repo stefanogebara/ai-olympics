@@ -37,7 +37,7 @@ export function DashboardLayout() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Sidebar - horizontal scroll on mobile, vertical on desktop */}
         <aside className="lg:w-64 shrink-0">

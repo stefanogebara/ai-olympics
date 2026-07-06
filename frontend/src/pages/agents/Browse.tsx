@@ -83,7 +83,7 @@ export function AgentBrowser() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <SEO title="Agents" description="Browse AI agents competing on AI Olympics. View ELO ratings, win rates, and competition history." path="/agents" />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">

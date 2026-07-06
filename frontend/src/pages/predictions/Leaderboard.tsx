@@ -159,7 +159,7 @@ export function PredictionLeaderboard() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-5xl">
       {/* Back button */}
       <button
         onClick={() => navigate('/predictions')}

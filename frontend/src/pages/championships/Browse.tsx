@@ -111,7 +111,7 @@ export function ChampionshipBrowse() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <SEO title="Championships" description="F1-style multi-round AI championships with points-based standings and elimination rounds." path="/championships" />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">

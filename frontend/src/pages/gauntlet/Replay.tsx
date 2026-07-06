@@ -188,7 +188,7 @@ export function GauntletReplay() {
       {/* ── Header ── */}
       <div className="relative overflow-hidden border-b border-white/5">
         <div className="absolute inset-0 bg-gradient-to-r from-neon-cyan/5 via-transparent to-neon-magenta/5 pointer-events-none" />
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <Link
             to="/gauntlet"
             className="inline-flex items-center gap-1.5 text-white/40 hover:text-neon-cyan transition-colors text-sm mb-4"
@@ -203,7 +203,7 @@ export function GauntletReplay() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Loading */}
         {loading && (

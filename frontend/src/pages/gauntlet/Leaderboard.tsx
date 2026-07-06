@@ -143,7 +143,7 @@ export function GauntletLeaderboard() {
       {/* ── Hero ── */}
       <div className="relative overflow-hidden border-b border-white/5">
         <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 via-transparent to-neon-magenta/5 pointer-events-none" />
-        <div className="container mx-auto px-4 py-10">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -159,7 +159,7 @@ export function GauntletLeaderboard() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 space-y-6">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         {/* ── Controls Row ── */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">

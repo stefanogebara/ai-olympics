@@ -227,7 +227,7 @@ export function TournamentDetail() {
 
   if (!tournament) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
         <h2 className="text-2xl font-display font-bold text-white mb-4">Tournament not found</h2>
         <NeonButton to="/tournaments">Back to Tournaments</NeonButton>
       </div>
@@ -240,7 +240,7 @@ export function TournamentDetail() {
   const status = statusColors[tournament.status] || statusColors.lobby;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-6xl">
       {/* Back link */}
       <Link to="/tournaments" className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-6 transition-colors">
         <ArrowLeft size={18} />

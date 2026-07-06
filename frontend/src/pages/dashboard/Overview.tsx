@@ -90,19 +90,22 @@ export function DashboardOverview() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div>
-          <Skeleton className="h-8 w-72 mb-2" />
-          <Skeleton className="h-5 w-96" />
+        <div className="glass-card p-6 flex items-center gap-4">
+          <Skeleton className="w-12 h-12 rounded-xl" />
+          <div className="flex-1">
+            <Skeleton className="h-7 w-64 mb-2" />
+            <Skeleton className="h-4 w-80" />
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <Skeleton className="w-10 h-10 rounded-lg" />
+            <div key={i} className="glass-card p-5">
+              <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <Skeleton className="h-4 w-16 mb-1" />
-                  <Skeleton className="h-7 w-12" />
+                  <Skeleton className="h-3 w-16 mb-2" />
+                  <Skeleton className="h-8 w-14" />
                 </div>
+                <Skeleton className="w-10 h-10 rounded-lg" />
               </div>
             </div>
           ))}
@@ -127,15 +130,26 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      {/* Welcome */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold mb-1">
-            Welcome back, <NeonText variant="cyan" glow>{profile?.display_name || profile?.username}</NeonText>
-          </h1>
-          <p className="text-white/60">Here's an overview of your AI Olympics activity</p>
+      {/* Welcome header */}
+      <GlassCard className="relative overflow-hidden p-6">
+        <div className="pointer-events-none absolute -top-16 -right-10 w-56 h-56 bg-neon-cyan/10 blur-3xl rounded-full" aria-hidden="true" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-neon-cyan to-neon-magenta flex items-center justify-center text-black font-display font-black text-lg shrink-0 shadow-[0_0_18px_rgba(0,245,255,0.35)]">
+              {(profile?.display_name || profile?.username || 'A').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-display font-bold leading-tight truncate">
+                Welcome back, <NeonText variant="cyan" glow>{profile?.display_name || profile?.username}</NeonText>
+              </h1>
+              <p className="text-white/55 text-sm">Here's an overview of your AI Olympics activity</p>
+            </div>
+          </div>
+          <NeonButton to="/dashboard/agents/create" icon={<Plus size={18} />} className="shrink-0">
+            New Agent
+          </NeonButton>
         </div>
-      </div>
+      </GlassCard>
 
       {/* Onboarding checklist — hidden once dismissed */}
       {profile?.id && (
@@ -148,7 +162,7 @@ export function DashboardOverview() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { icon: Bot, label: 'Agents', value: stats.totalAgents, color: '#00F5FF' },
           { icon: Trophy, label: 'Competitions', value: stats.totalCompetitions, color: '#FF00FF' },
@@ -161,19 +175,25 @@ export function DashboardOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <GlassCard className="p-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: `${stat.color}20` }}
-                >
-                  <stat.icon size={20} style={{ color: stat.color }} />
-                </div>
-                <div>
-                  <p className="text-sm text-white/60">{stat.label}</p>
-                  <p className="text-2xl font-mono font-bold" style={{ color: stat.color }}>
+            <GlassCard hover padding="none" className="relative overflow-hidden p-5 h-full">
+              {/* Color accent bar */}
+              <span
+                className="absolute inset-x-0 top-0 h-0.5"
+                style={{ background: `linear-gradient(90deg, ${stat.color}, transparent)` }}
+                aria-hidden="true"
+              />
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-wide text-white/45 mb-1.5">{stat.label}</p>
+                  <p className="text-3xl font-mono font-bold tabular-nums leading-none" style={{ color: stat.color }}>
                     {stat.value}
                   </p>
+                </div>
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${stat.color}18` }}
+                >
+                  <stat.icon size={20} style={{ color: stat.color }} />
                 </div>
               </div>
             </GlassCard>
@@ -289,46 +309,32 @@ export function DashboardOverview() {
       </div>
 
       {/* Quick Actions */}
-      <GlassCard className="p-6">
+      <div>
         <h2 className="text-lg font-display font-bold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link to="/dashboard/agents/create">
-            <div className="flex items-center gap-4 p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-              <div className="w-12 h-12 rounded-lg bg-neon-cyan/20 flex items-center justify-center">
-                <Plus size={24} className="text-neon-cyan" />
-              </div>
-              <div>
-                <p className="font-semibold">Create Agent</p>
-                <p className="text-sm text-white/50">Register a new AI agent</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link to="/competitions?status=lobby">
-            <div className="flex items-center gap-4 p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-              <div className="w-12 h-12 rounded-lg bg-neon-magenta/20 flex items-center justify-center">
-                <Trophy size={24} className="text-neon-magenta" />
-              </div>
-              <div>
-                <p className="font-semibold">Join Competition</p>
-                <p className="text-sm text-white/50">Enter an open lobby</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link to="/leaderboards">
-            <div className="flex items-center gap-4 p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-              <div className="w-12 h-12 rounded-lg bg-neon-green/20 flex items-center justify-center">
-                <TrendingUp size={24} className="text-neon-green" />
-              </div>
-              <div>
-                <p className="font-semibold">Leaderboards</p>
-                <p className="text-sm text-white/50">See global rankings</p>
-              </div>
-            </div>
-          </Link>
+          {[
+            { to: '/dashboard/agents/create', icon: Plus, color: '#00F5FF', title: 'Create Agent', desc: 'Register a new AI agent' },
+            { to: '/competitions?status=lobby', icon: Trophy, color: '#FF00FF', title: 'Join Competition', desc: 'Enter an open lobby' },
+            { to: '/leaderboards', icon: TrendingUp, color: '#00FF88', title: 'Leaderboards', desc: 'See global rankings' },
+          ].map((action) => (
+            <Link key={action.to} to={action.to} className="group">
+              <GlassCard hover padding="none" className="flex items-center gap-4 p-4">
+                <div
+                  className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${action.color}20` }}
+                >
+                  <action.icon size={24} style={{ color: action.color }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">{action.title}</p>
+                  <p className="text-sm text-white/50">{action.desc}</p>
+                </div>
+                <ChevronRight size={18} className="text-white/30 group-hover:text-neon-cyan group-hover:translate-x-0.5 transition-all shrink-0" />
+              </GlassCard>
+            </Link>
+          ))}
         </div>
-      </GlassCard>
+      </div>
     </div>
   );
 }
