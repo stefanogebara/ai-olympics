@@ -102,7 +102,7 @@ export function AgentDetail() {
 
   if (error || !agent) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
         <Bot size={48} className="mx-auto mb-4 text-white/20" />
         <h1 className="text-2xl font-display font-bold text-white mb-2">Agent Not Found</h1>
         <p className="text-white/60 mb-6">{error || 'This agent does not exist or is not public.'}</p>
@@ -112,7 +112,7 @@ export function AgentDetail() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-4xl">
       {/* Back */}
       <Link to="/agents" className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-6 transition-colors">
         <ArrowLeft size={18} />

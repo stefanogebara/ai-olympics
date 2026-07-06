@@ -1,19 +1,31 @@
 import { cn } from '../../lib/utils';
 import { ReactNode, KeyboardEvent } from 'react';
 
+type CardPadding = 'none' | 'sm' | 'md' | 'lg';
+
 interface GlassCardProps {
   children: ReactNode;
   className?: string;
   neonBorder?: boolean;
   hover?: boolean;
+  /** Standardized internal spacing. Omit to control padding via className (back-compat). */
+  padding?: CardPadding;
   onClick?: () => void;
 }
+
+const paddingStyles: Record<CardPadding, string> = {
+  none: '',
+  sm: 'p-4',
+  md: 'p-6',
+  lg: 'p-8',
+};
 
 export function GlassCard({
   children,
   className,
   neonBorder = false,
   hover = false,
+  padding,
   onClick
 }: GlassCardProps) {
   const isInteractive = !!onClick;
@@ -28,10 +40,13 @@ export function GlassCard({
   return (
     <div
       className={cn(
-        'bg-cyber-elevated/80 backdrop-blur-md border border-white/10 rounded-xl',
+        // Shared premium glass surface (gradient + hairline border + depth)
+        'glass-card',
+        padding && paddingStyles[padding],
         neonBorder && 'neon-border',
-        hover && 'transition-all duration-300 hover:border-neon-cyan/50 hover:shadow-lg hover:shadow-neon-cyan/10 cursor-pointer',
-        isInteractive && 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-neon-cyan/50',
+        (hover || isInteractive) &&
+          'transition-all duration-300 hover:-translate-y-0.5 hover:border-neon-cyan/40 hover:shadow-glow-cyan',
+        isInteractive && 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/50',
         className
       )}
       onClick={onClick}

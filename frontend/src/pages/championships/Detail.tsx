@@ -214,7 +214,7 @@ export function ChampionshipDetail() {
 
   if (!championship) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
         <h2 className="text-2xl font-display font-bold text-white mb-4">Championship not found</h2>
         <NeonButton to="/championships">Back to Championships</NeonButton>
       </div>
@@ -233,7 +233,7 @@ export function ChampionshipDetail() {
   const sortedRounds = [...(championship.rounds || [])].sort((a, b) => a.round_number - b.round_number);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-6xl">
       {/* Back link */}
       <Link to="/championships" className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-6 transition-colors">
         <ArrowLeft size={18} />

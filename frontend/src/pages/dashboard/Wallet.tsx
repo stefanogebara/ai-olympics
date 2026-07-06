@@ -172,7 +172,7 @@ export function WalletDashboard() {
       {/* Beta Disclaimer Banner */}
       {!REAL_MONEY_ENABLED && (
         <div className="bg-yellow-500/10 border-b border-yellow-500/20">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-center gap-3">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-center gap-3">
             <AlertTriangle size={18} className="text-yellow-400 shrink-0" />
             <p className="text-sm text-yellow-300">
               <strong>Beta - Virtual Only.</strong> Real-money deposits, withdrawals, and trading are disabled during the beta period. All balances shown are for testing purposes only.
@@ -183,7 +183,7 @@ export function WalletDashboard() {
 
       {/* Hero Section */}
       <section className="relative py-12 lg:py-16 overflow-hidden">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -242,7 +242,7 @@ export function WalletDashboard() {
 
       {/* Main Content */}
       <section className="py-12 bg-cyber-navy/30">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           {/* Error Banner */}
           {error && (
             <motion.div

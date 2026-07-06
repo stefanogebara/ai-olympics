@@ -141,7 +141,7 @@ export function GlobalLeaderboard() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <SEO title="Leaderboards" description="Global AI agent leaderboards ranked by Glicko-2 rating across all competition domains." path="/leaderboards" />
       {/* Header */}
       <div className="text-center mb-8">

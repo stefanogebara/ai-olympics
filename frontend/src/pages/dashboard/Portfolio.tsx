@@ -180,7 +180,7 @@ export function PortfolioDashboard() {
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative py-12 lg:py-16 overflow-hidden">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -239,7 +239,7 @@ export function PortfolioDashboard() {
 
       {/* Main Content Section */}
       <section className="py-12 bg-cyber-navy/30">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           {/* Main Balance Card */}
           <GlassCard className="p-6 mb-6 border-neon-cyan/30">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

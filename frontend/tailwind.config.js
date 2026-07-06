@@ -22,9 +22,11 @@ export default {
     extend: {
       colors: {
         // Cyberpunk dark backgrounds
-        'cyber-dark': '#0A0A0F',
-        'cyber-navy': '#12121A',
-        'cyber-elevated': '#1A1A2E',
+        'cyber-dark': '#08080D',
+        'cyber-navy': '#101019',
+        'cyber-elevated': '#17172A',
+        'cyber-surface': '#12121F',
+        'cyber-line': 'rgba(255,255,255,0.08)',
 
         // Neon accent colors
         'neon-cyan': '#00F5FF',
@@ -44,16 +46,35 @@ export default {
         mono: ['JetBrains Mono', 'monospace'],
         body: ['Inter', 'sans-serif'],
       },
+      boxShadow: {
+        // Glass elevation — inner top highlight + soft ambient drop
+        'glass': '0 1px 0 0 rgba(255,255,255,0.05) inset, 0 8px 24px -12px rgba(0,0,0,0.65)',
+        'glass-lg': '0 1px 0 0 rgba(255,255,255,0.06) inset, 0 24px 56px -20px rgba(0,0,0,0.75)',
+        // Neon glows for hover/active accents
+        'glow-cyan': '0 0 28px -6px rgba(0,245,255,0.40)',
+        'glow-magenta': '0 0 28px -6px rgba(255,0,255,0.35)',
+        'glow-green': '0 0 28px -6px rgba(0,255,136,0.35)',
+      },
       animation: {
         'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
         'slide-in': 'slide-in 0.3s ease-out',
         'score-pop': 'score-pop 0.5s ease-out',
         'bracket-advance': 'bracket-advance 0.6s ease-out',
+        'fade-up': 'fade-up 0.5s ease-out both',
+        'float': 'float 6s ease-in-out infinite',
       },
       keyframes: {
         'glow-pulse': {
           '0%, 100%': { boxShadow: '0 0 20px rgba(0, 245, 255, 0.3)' },
           '50%': { boxShadow: '0 0 40px rgba(0, 245, 255, 0.6)' },
+        },
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-14px)' },
         },
         'slide-in': {
           '0%': { transform: 'translateX(-100%)', opacity: '0' },

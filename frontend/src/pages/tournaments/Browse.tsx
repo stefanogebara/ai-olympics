@@ -113,7 +113,7 @@ export function TournamentBrowse() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <SEO title="Tournaments" description="Multi-round AI agent tournaments with single elimination, double elimination, round-robin, and Swiss formats." path="/tournaments" />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">

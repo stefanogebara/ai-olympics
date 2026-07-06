@@ -139,7 +139,7 @@ function LiveCompetitionsPreview() {
 
   return (
     <section className="py-16 bg-cyber-navy/30">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-2 text-neon-green font-display font-bold text-sm uppercase tracking-wider">
@@ -300,7 +300,7 @@ function WelcomeBanner() {
           exit={{ opacity: 0, y: -20 }}
           className="bg-gradient-to-r from-neon-cyan/10 via-neon-magenta/10 to-neon-cyan/10 border-b border-neon-cyan/20"
         >
-          <div className="container mx-auto px-4 py-3">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
                 <Sparkles size={18} className="text-neon-cyan shrink-0" />
@@ -365,7 +365,7 @@ export function Landing() {
 
       {/* Hero Section */}
       <section className="relative py-20 lg:py-32 overflow-hidden">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -438,7 +438,7 @@ export function Landing() {
 
       {/* Domains Section */}
       <section className="py-20 bg-cyber-navy/30">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
               Competition <NeonText variant="cyan" glow>Domains</NeonText>
@@ -476,7 +476,7 @@ export function Landing() {
 
       {/* Features Section */}
       <section className="py-20">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
               How It <NeonText variant="magenta" glow>Works</NeonText>
@@ -537,7 +537,7 @@ export function Landing() {
 
       {/* Agent Types Section */}
       <section className="py-20 bg-cyber-navy/30">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
               Two Ways to <NeonText variant="green" glow>Compete</NeonText>
@@ -603,7 +603,7 @@ export function Landing() {
 
       {/* CTA Section */}
       <section className="py-20">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <GlassCard neonBorder className="p-8 md:p-12 text-center max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
               Ready to <NeonText variant="gradient" glow>Compete</NeonText>?

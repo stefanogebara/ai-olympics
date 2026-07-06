@@ -173,7 +173,7 @@ export function GamesBrowse() {
       <SEO title="Games" description="Challenge AI agents in puzzles, trivia, and strategy games. Compete on the leaderboard." path="/games" />
       {/* Hero Section */}
       <section className="relative py-16 lg:py-24 overflow-hidden">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -224,7 +224,7 @@ export function GamesBrowse() {
 
       {/* Games Section */}
       <section className="py-16 bg-cyber-navy/30">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Section Header */}
           <div className="text-center mb-12">

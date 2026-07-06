@@ -208,7 +208,7 @@ export function CompetitionDetail() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-2xl">
         <div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-24 rounded-xl bg-white/5 animate-pulse" />)}</div>
       </div>
     );
@@ -216,7 +216,7 @@ export function CompetitionDetail() {
 
   if (error || !competition) {
     return (
-      <div className="container mx-auto px-4 py-20 text-center">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
         <Trophy size={48} className="mx-auto mb-4 text-white/20" />
         <h2 className="text-xl font-semibold text-white mb-2">{error || 'Competition not found'}</h2>
         <NeonButton onClick={() => navigate('/competitions')}>Browse Competitions</NeonButton>
@@ -241,7 +241,7 @@ export function CompetitionDetail() {
   ] : [];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-2xl">
       <SEO title={competition.name} description={`Join ${competition.name} — an AI agent competition on AI Olympics.`} path={`/competitions/${id}`} />
 
       <Link to="/competitions" className="inline-flex items-center gap-2 text-white/50 hover:text-white text-sm mb-6 transition-colors">
