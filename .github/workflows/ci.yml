@@ -37,12 +37,32 @@ jobs:
         working-directory: frontend
         run: npm ci --legacy-peer-deps
 
+      - name: Lint (backend + e2e + scripts)
+        run: npm run lint
+
       - name: Type check (backend)
         run: npx tsc --noEmit
 
       - name: Type check (frontend)
         working-directory: frontend
         run: npx tsc --noEmit
+
+  # ===========================================================================
+  # Job 1b: Secret scan (gitleaks) — prevents committed credentials
+  # ===========================================================================
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ===========================================================================
   # Job 2: Unit Tests (parallel)
@@ -128,16 +148,92 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Audit root dependencies
+      # Hard gate: any CRITICAL advisory in a PRODUCTION dependency fails CI.
+      # (Dev-only tooling advisories — ReDoS/DoS in test runners, etc. — are
+      # reported below but do not block, to avoid churn on transitive dev deps.)
+      - name: Audit production dependencies (gate on critical)
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Audit all root dependencies (informational)
         run: npm audit --audit-level=high
         continue-on-error: true
 
-      - name: Audit frontend dependencies
+      - name: Audit frontend dependencies (informational)
         working-directory: frontend
         continue-on-error: true
         run: |
           npm ci --legacy-peer-deps
           npm audit --audit-level=high
+
+  # ===========================================================================
+  # Job 4b: End-to-end (Playwright). Boots API + frontend via the config's
+  # webServer. Activates automatically once E2E secrets are configured; until
+  # then it self-skips (so it never red-walls PRs before secrets exist).
+  # To activate: set repo secrets E2E_SUPABASE_URL, E2E_SUPABASE_ANON_KEY,
+  # SUPABASE_SERVICE_KEY, E2E_TEST_EMAIL, E2E_TEST_PASSWORD, E2E_TEST_USER_ID.
+  # ===========================================================================
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+      SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      VITE_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      E2E_TEST_USER_ID: ${{ secrets.E2E_TEST_USER_ID }}
+      API_KEY_ENCRYPTION_KEY: ci-test-encryption-key-placeholder!
+    steps:
+      - name: Check for E2E secrets
+        id: gate
+        run: |
+          if [ -z "${{ secrets.E2E_TEST_PASSWORD }}" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::E2E secrets not configured — skipping e2e job. See ci.yml e2e job header to activate."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout code
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: npm ci --legacy-peer-deps
+
+      - name: Install frontend dependencies
+        if: steps.gate.outputs.run == 'true'
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        if: steps.gate.outputs.run == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright e2e
+        if: steps.gate.outputs.run == 'true'
+        run: npx playwright test
+
+      - name: Upload report
+        if: steps.gate.outputs.run == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
 
   # ===========================================================================
   # Job 5: Deploy to Fly.io (only on push to main, after CI passes)
