@@ -17,6 +17,7 @@ import { serviceClient as supabase } from '../shared/utils/supabase.js';
 import { createLogger } from '../shared/utils/logger.js';
 import { eloService } from '../services/elo-service.js';
 import { orderManager } from '../services/order-manager.js';
+import { walletService } from '../services/wallet-service.js';
 import type { AgentConfig, AgentProvider, TaskDefinition } from '../shared/types/index.js';
 import type { ExtendedAgentConfig } from '../agents/adapters/index.js';
 
@@ -413,6 +414,133 @@ class CompetitionManager {
   }
 
   // ---------------------------------------------------------------------------
+  // Orphan reaper
+  // ---------------------------------------------------------------------------
+
+  /**
+   * How long a competition may sit in 'running' before it is considered orphaned.
+   * Deliberately generous (default 2h) so a legitimately long competition is
+   * never reaped; real competitions complete in minutes, and any competition
+   * live in THIS process is excluded via the activeCompetitions guard regardless
+   * of age. Configurable via COMPETITION_STALE_MINUTES.
+   */
+  private readonly staleMs =
+    parseInt(process.env.COMPETITION_STALE_MINUTES || '120', 10) * 60_000;
+
+  /**
+   * Cancel competitions stuck in 'running' that no live runner is driving.
+   *
+   * A row is orphaned when it is 'running' but (a) not tracked in this process's
+   * activeCompetitions map AND (b) has no started_at (malformed) or started
+   * longer ago than the stale threshold. This is the safety net for the two ways
+   * rows get stranded: the legacy no-op start bug, and any crash/restart where
+   * the snapshot-based crash recovery had no Redis snapshot to act on (Redis is
+   * optional). Orphaned 'running' rows otherwise show a permanent "waiting" live
+   * view forever and pollute the browse/leaderboard surfaces.
+   *
+   * Real-money competitions have every participant's entry fee refunded
+   * (idempotently) BEFORE the row is cancelled, so no funds are stranded; if a
+   * refund fails the row is left 'running' for the next pass rather than
+   * cancelled without a refund.
+   *
+   * @returns number of competitions reaped
+   */
+  async reapOrphanedCompetitions(): Promise<number> {
+    const cutoffMs = Date.now() - this.staleMs;
+
+    const { data, error } = await supabase
+      .from('aio_competitions')
+      .select('id, name, stake_mode, entry_fee, started_at')
+      .eq('status', 'running')
+      .limit(200);
+
+    if (error) {
+      log.error('Reaper: failed to query running competitions', { error: error.message });
+      return 0;
+    }
+
+    const orphans = (data ?? []).filter(
+      (c: { id: string; started_at: string | null }) => {
+        if (this.activeCompetitions.has(c.id)) return false; // live in this process
+        if (!c.started_at) return true; // malformed running row
+        return new Date(c.started_at).getTime() < cutoffMs; // stale
+      },
+    ) as Array<{ id: string; name: string; stake_mode: string | null; entry_fee: number | null }>;
+
+    if (orphans.length === 0) return 0;
+
+    log.warn('Reaper: cancelling orphaned running competitions', {
+      count: orphans.length,
+      ids: orphans.map((c) => c.id),
+    });
+
+    let reaped = 0;
+    for (const c of orphans) {
+      try {
+        // Refund real-money participants first; only cancel once funds are safe.
+        if (c.stake_mode === 'real' && (c.entry_fee ?? 0) > 0) {
+          await this.refundOrphanParticipants(c.id, c.entry_fee ?? 0);
+        }
+
+        // Atomic guard: only flip rows still 'running' (never clobber a real start).
+        const { error: updErr } = await supabase
+          .from('aio_competitions')
+          .update({ status: 'cancelled', ended_at: new Date().toISOString() })
+          .eq('id', c.id)
+          .eq('status', 'running');
+
+        if (updErr) {
+          log.error('Reaper: failed to cancel competition', {
+            competitionId: c.id,
+            error: updErr.message,
+          });
+          continue;
+        }
+        reaped++;
+      } catch (err) {
+        // Leave the row 'running' so the next pass retries (refunds are idempotent).
+        log.error('Reaper: error while reaping competition — leaving for next pass', {
+          competitionId: c.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    if (reaped > 0) {
+      log.info('Reaper: finished', { reaped, examined: orphans.length });
+    }
+    return reaped;
+  }
+
+  /**
+   * Idempotently refund every real-user participant's entry fee for a
+   * competition being reaped. House/bot participants (user_id null) are skipped.
+   */
+  private async refundOrphanParticipants(
+    competitionId: string,
+    entryFeeCents: number,
+  ): Promise<void> {
+    const { data: participants, error } = await supabase
+      .from('aio_competition_participants')
+      .select('user_id')
+      .eq('competition_id', competitionId);
+
+    if (error) {
+      throw new Error(`Reaper: failed to fetch participants for refund: ${error.message}`);
+    }
+
+    for (const p of (participants ?? []) as Array<{ user_id: string | null }>) {
+      if (!p.user_id) continue; // house/bot agents have no wallet
+      await walletService.refundEntryFee(
+        p.user_id,
+        competitionId,
+        entryFeeCents,
+        `refund_reap_${competitionId}_${p.user_id}`,
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Scheduler
   // ---------------------------------------------------------------------------
 
@@ -429,6 +557,13 @@ class CompetitionManager {
     }
 
     const poll = async () => {
+      // Continuously reap orphaned 'running' rows (crash/restart leftovers).
+      await this.reapOrphanedCompetitions().catch((err) => {
+        log.error('Scheduler: reaper pass threw', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+
       const MAX_CONCURRENT = 10;
       if (this.activeCount >= MAX_CONCURRENT) {
         log.info('Scheduler skipping poll — at max concurrent competitions', {

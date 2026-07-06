@@ -17,6 +17,7 @@ const {
   mockGetTask,
   mockDecrypt,
   mockUpdateRatings,
+  mockRefundEntryFee,
   mockCreateCompetition,
   mockStartCompetition,
   mockCancelController,
@@ -50,6 +51,7 @@ const {
     mockGetTask: vi.fn(),
     mockDecrypt: vi.fn().mockReturnValue('decrypted-key'),
     mockUpdateRatings: vi.fn().mockResolvedValue(undefined),
+    mockRefundEntryFee: vi.fn().mockResolvedValue(undefined),
     mockCreateCompetition,
     mockStartCompetition,
     mockCancelController,
@@ -76,6 +78,9 @@ vi.mock('../shared/utils/logger.js', () => ({
 }));
 vi.mock('../services/elo-service.js', () => ({
   eloService: { updateRatingsAfterCompetition: mockUpdateRatings },
+}));
+vi.mock('../services/wallet-service.js', () => ({
+  walletService: { refundEntryFee: mockRefundEntryFee },
 }));
 
 import { competitionManager } from './competition-manager.js';
@@ -199,6 +204,7 @@ beforeEach(() => {
   mockGetCompetition.mockReturnValue(null);
   mockDecrypt.mockReturnValue('decrypted-key');
   mockUpdateRatings.mockResolvedValue(undefined);
+  mockRefundEntryFee.mockResolvedValue(undefined);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (competitionManager as any).activeCompetitions.clear();
@@ -865,5 +871,113 @@ describe('CompetitionManager.activeCount', () => {
     map.set('c1', {});
     map.set('c2', {});
     expect(competitionManager.activeCount).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reapOrphanedCompetitions — orphaned 'running' cleanup
+// ---------------------------------------------------------------------------
+
+describe('reapOrphanedCompetitions', () => {
+  const HOURS = 60 * 60 * 1000;
+  const oldTs = () => new Date(Date.now() - 6 * HOURS).toISOString();
+  const recentTs = () => new Date(Date.now() - 60 * 1000).toISOString();
+
+  it('cancels a stale running competition not tracked in this process', async () => {
+    mockFrom
+      .mockReturnValueOnce(
+        chain({ data: [{ id: 'zombie-1', name: 'X', stake_mode: 'sandbox', entry_fee: 0, started_at: oldTs() }], error: null }),
+      ) // query running
+      .mockReturnValueOnce(chain({ error: null })); // update -> cancelled
+
+    const reaped = await competitionManager.reapOrphanedCompetitions();
+
+    expect(reaped).toBe(1);
+    // second call is the cancel update
+    const updateChain = mockFrom.mock.results[1].value;
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'cancelled' }),
+    );
+    // atomic guard: only flips rows still 'running'
+    expect(updateChain.eq).toHaveBeenCalledWith('status', 'running');
+    expect(mockRefundEntryFee).not.toHaveBeenCalled();
+  });
+
+  it('does NOT cancel a running competition active in this process', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (competitionManager as any).activeCompetitions.set('live-1', {});
+    mockFrom.mockReturnValueOnce(
+      chain({ data: [{ id: 'live-1', name: 'Live', stake_mode: 'sandbox', entry_fee: 0, started_at: oldTs() }], error: null }),
+    );
+
+    const reaped = await competitionManager.reapOrphanedCompetitions();
+
+    expect(reaped).toBe(0);
+    expect(mockFrom).toHaveBeenCalledTimes(1); // no update issued
+  });
+
+  it('does NOT cancel a recently-started running competition (under the threshold)', async () => {
+    mockFrom.mockReturnValueOnce(
+      chain({ data: [{ id: 'fresh-1', name: 'Fresh', stake_mode: 'sandbox', entry_fee: 0, started_at: recentTs() }], error: null }),
+    );
+
+    const reaped = await competitionManager.reapOrphanedCompetitions();
+
+    expect(reaped).toBe(0);
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a running competition with null started_at as orphaned', async () => {
+    mockFrom
+      .mockReturnValueOnce(
+        chain({ data: [{ id: 'null-ts', name: 'Malformed', stake_mode: 'sandbox', entry_fee: 0, started_at: null }], error: null }),
+      )
+      .mockReturnValueOnce(chain({ error: null }));
+
+    const reaped = await competitionManager.reapOrphanedCompetitions();
+
+    expect(reaped).toBe(1);
+  });
+
+  it('refunds real-money participants before cancelling', async () => {
+    mockFrom
+      .mockReturnValueOnce(
+        chain({ data: [{ id: 'paid-1', name: 'Paid', stake_mode: 'real', entry_fee: 500, started_at: oldTs() }], error: null }),
+      ) // query running
+      .mockReturnValueOnce(
+        chain({ data: [{ user_id: 'user-a' }, { user_id: 'user-b' }, { user_id: null }], error: null }),
+      ) // participants for refund
+      .mockReturnValueOnce(chain({ error: null })); // cancel update
+
+    const reaped = await competitionManager.reapOrphanedCompetitions();
+
+    expect(reaped).toBe(1);
+    // refunds the two real users, skips the null (house/bot) participant
+    expect(mockRefundEntryFee).toHaveBeenCalledTimes(2);
+    expect(mockRefundEntryFee).toHaveBeenCalledWith('user-a', 'paid-1', 500, expect.stringContaining('paid-1'));
+    expect(mockRefundEntryFee).toHaveBeenCalledWith('user-b', 'paid-1', 500, expect.any(String));
+  });
+
+  it('returns 0 and does not throw when the query errors', async () => {
+    mockFrom.mockReturnValueOnce(chain({ data: null, error: { message: 'db down' } }));
+
+    const reaped = await competitionManager.reapOrphanedCompetitions();
+
+    expect(reaped).toBe(0);
+  });
+
+  it('does not cancel when a refund fails (leaves the row for the next pass)', async () => {
+    mockRefundEntryFee.mockRejectedValueOnce(new Error('refund RPC failed'));
+    mockFrom
+      .mockReturnValueOnce(
+        chain({ data: [{ id: 'paid-2', name: 'Paid2', stake_mode: 'real', entry_fee: 500, started_at: oldTs() }], error: null }),
+      )
+      .mockReturnValueOnce(chain({ data: [{ user_id: 'user-c' }], error: null })); // participants
+
+    const reaped = await competitionManager.reapOrphanedCompetitions();
+
+    expect(reaped).toBe(0);
+    // only the query + participants read happened; no cancel update
+    expect(mockFrom).toHaveBeenCalledTimes(2);
   });
 });

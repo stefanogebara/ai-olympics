@@ -1012,6 +1012,22 @@ export function createAPIServer() {
       }
     }
 
+    // Reap orphaned 'running' competitions the snapshot-based recovery above
+    // cannot see: rows with no Redis snapshot (Redis is optional) and legacy
+    // no-op starts. On a fresh process activeCompetitions is empty, so any row
+    // still 'running' past the stale threshold is by definition orphaned. The
+    // scheduler poll repeats this every 30s as a continuous safety net.
+    try {
+      const reaped = await competitionManager.reapOrphanedCompetitions();
+      if (reaped > 0) {
+        log.info(`Reaped ${reaped} orphaned running competition(s) on startup`);
+      }
+    } catch (err) {
+      log.error('Startup orphan reaper failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     return new Promise((resolve) => {
       server.listen(port, () => {
         // Set timeouts to prevent hung connections and proxy resets
