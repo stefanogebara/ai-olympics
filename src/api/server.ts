@@ -623,12 +623,12 @@ export function createAPIServer() {
       socket.emit('competition:state', currentCompetition);
     }
 
-    // Subscribe to competition updates (public - spectating is allowed without auth)
-    const handleEvent = (event: StreamEvent) => {
-      socket.emit(event.type, event);
-    };
-
-    eventBus.on('*', handleEvent);
+    // NOTE: live events are delivered to every socket by the single global
+    // eventBus->io.emit forwarder registered below (see "Forward events from
+    // internal bus to socket.io"). A previous per-socket `eventBus.on('*', …)`
+    // listener here delivered every event a SECOND time (duplicated actions and
+    // doubled counts in the spectator feed) and added an O(connections) fan-out;
+    // it has been removed so each event is delivered exactly once.
 
     // Reconnect catchup: client sends lastEventTimestamp, server replays missed events
     // Allows seamless reconnection without missing events during brief disconnects
@@ -817,7 +817,13 @@ export function createAPIServer() {
           return;
         }
 
-        const { error } = await wsSupabase
+        // Use the SERVICE client for the insert. The anon (wsSupabase) client has
+        // no auth.uid(), so the RLS policy `WITH CHECK (auth.uid() = user_id)`
+        // rejected every vote (voting was 100% broken). The server has already
+        // authenticated the user from the socket token (userId) and verified the
+        // agent is a running participant, so writing with the explicit, trusted
+        // user_id via the service client is the correct authority here.
+        const { error } = await supabase
           .from('aio_spectator_votes')
           .insert({
             competition_id,
@@ -882,7 +888,6 @@ export function createAPIServer() {
 
     socket.on('disconnect', () => {
       log.info(`Client disconnected: ${socket.id}`);
-      eventBus.off('*', handleEvent);
 
       // Clean up subscriptions
       socketMarketSubscriptions.delete(socket.id);
@@ -967,16 +972,25 @@ export function createAPIServer() {
         competitions: interrupted.map(c => ({ id: c.competitionId, name: c.name, status: c.status })),
       });
 
-      // Mark interrupted competitions as cancelled in DB and clean up Redis
+      // Mark interrupted competitions as cancelled in DB and clean up Redis.
+      // Use the SERVICE client: the anon (wsSupabase) client matches no UPDATE
+      // RLS policy on aio_competitions, so this affected 0 rows while returning
+      // no error — crash "recovery" silently did nothing yet logged success and
+      // then destroyed the Redis snapshot. .select() lets us verify a row was
+      // actually updated before claiming success.
       for (const snapshot of interrupted) {
         try {
-          const { error } = await wsSupabase
+          const { data: updated, error } = await supabase
             .from('aio_competitions')
             .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-            .eq('id', snapshot.competitionId);
+            .eq('id', snapshot.competitionId)
+            .select('id');
 
           if (error) {
             log.error(`Failed to cancel interrupted competition ${snapshot.competitionId}`, { error: error.message });
+          } else if (!updated || updated.length === 0) {
+            log.error(`Interrupted competition ${snapshot.competitionId} not updated (0 rows) — leaving snapshot for retry`);
+            continue; // keep the Redis snapshot so a later run can retry
           } else {
             log.info(`Marked interrupted competition as cancelled: ${snapshot.competitionId} (${snapshot.name})`);
           }
