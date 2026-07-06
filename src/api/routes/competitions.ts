@@ -441,9 +441,12 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
 
     log.info('Competition started', { competitionId: id, userId: user.id });
 
-    // Fire-and-forget: trigger the competition orchestrator in the background
+    // Fire-and-forget: trigger the competition orchestrator in the background.
+    // We already atomically claimed lobby->running above, so tell the manager
+    // NOT to re-claim (re-claiming would find the row already 'running', match
+    // zero rows, and silently no-op — the bug that made starts do nothing).
     const competitionId = String(id);
-    competitionManager.startCompetition(competitionId, { taskIds: data.task_ids }).catch(async (err) => {
+    competitionManager.startCompetition(competitionId, { taskIds: data.task_ids, alreadyClaimed: true }).catch(async (err) => {
       log.error('Competition orchestrator failed', {
         competitionId: id,
         error: err instanceof Error ? err.message : String(err),

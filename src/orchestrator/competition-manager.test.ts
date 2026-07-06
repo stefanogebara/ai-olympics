@@ -458,6 +458,48 @@ describe('CompetitionManager.startCompetition — task resolution', () => {
 });
 
 // ---------------------------------------------------------------------------
+// startCompetition — alreadyClaimed (route pre-claim). Regression guard for the
+// CRITICAL bug where the REST /start route transitioned lobby->running and then
+// the manager's own claim matched 0 rows and silently no-op'd, so no agents ran.
+// ---------------------------------------------------------------------------
+
+describe('CompetitionManager.startCompetition — alreadyClaimed (route pre-claim no-op fix)', () => {
+  beforeEach(() => {
+    mockGetTask.mockReturnValue(makeTask());
+  });
+
+  it('skips the DB claim and actually runs the competition when alreadyClaimed=true', async () => {
+    // No claim chain queued: the FIRST DB call must be the competition read,
+    // proving the manager did not attempt to re-claim lobby->running (which,
+    // with the row already 'running', would have matched 0 rows and bailed).
+    mockFrom
+      .mockReturnValueOnce(chain({ data: makeCompetition(), error: null }))   // read competition
+      .mockReturnValueOnce(
+        chain({ data: [makeParticipant('p1', 'a1'), makeParticipant('p2', 'a2')], error: null })
+      )                                                                        // participants
+      .mockReturnValueOnce(chain({ error: null }))                            // persist: comp status
+      .mockReturnValueOnce(chain({ error: null }))                            // spare
+      .mockReturnValueOnce(chain({ error: null }));                           // spare
+
+    await competitionManager.startCompetition('comp-1', { alreadyClaimed: true });
+
+    // The controller actually ran the competition — the whole point of the fix.
+    expect(mockStartCompetition).toHaveBeenCalled();
+  });
+
+  it('still enforces the atomic claim (bails on conflict) when alreadyClaimed is not set', async () => {
+    // Scheduler path: claim matches 0 rows (row not in lobby) -> manager must
+    // bail WITHOUT running, so two racing schedulers never double-run a match.
+    mockFrom.mockReturnValueOnce(chain({ data: [], error: null })); // claim: 0 rows
+
+    await competitionManager.startCompetition('comp-1');
+
+    expect(mockStartCompetition).not.toHaveBeenCalled();
+    expect(mockFrom).toHaveBeenCalledTimes(1); // only the claim ran, then early return
+  });
+});
+
+// ---------------------------------------------------------------------------
 // startCompetition — happy path lifecycle
 // ---------------------------------------------------------------------------
 
