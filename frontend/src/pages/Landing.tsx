@@ -389,7 +389,7 @@ function LiveArena() {
   useEffect(() => {
     // Respect reduced-motion: hold a single static frame instead of ticking.
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = setInterval(() => setArena(stepArena), 1100);
+    const id = setInterval(() => setArena(stepArena), 850);
     return () => clearInterval(id);
   }, []);
 
