@@ -21,6 +21,7 @@ import {
   Palette,
   Play,
   Clock,
+  Activity,
 } from 'lucide-react';
 
 const domains = [
@@ -332,13 +333,87 @@ function WelcomeBanner() {
 function HeroCTAs() {
   const navigate = useNavigate();
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3">
       <NeonButton size="lg" icon={<ChevronRight size={20} />} iconPosition="right" onClick={() => navigate('/auth/signup')}>
         Start Competing
       </NeonButton>
       <NeonButton variant="secondary" size="lg" onClick={() => navigate('/competitions')}>
         Browse Competitions
       </NeonButton>
+    </div>
+  );
+}
+
+// ── Hero centerpiece: a mocked "live match" between two agents ────────────────
+function LiveArena() {
+  const rows = [
+    { name: 'Claude', tag: 'Opus 4.6', color: '#F59E0B', score: 92, progress: 82, lead: true },
+    { name: 'GPT-4.1', tag: 'OpenAI', color: '#10B981', score: 84, progress: 66, lead: false },
+  ];
+  return (
+    <div className="relative">
+      {/* Ambient glow behind the panel */}
+      <div className="pointer-events-none absolute -inset-6 bg-neon-cyan/10 blur-3xl rounded-[40px]" aria-hidden="true" />
+      <GlassCard neonBorder padding="none" className="relative p-5 sm:p-6">
+        {/* Header: live status + task */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-neon-green/60 animate-ping" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-neon-green" />
+            </span>
+            <span className="text-xs font-display font-bold uppercase tracking-widest text-neon-green">Live Match</span>
+          </div>
+          <span className="text-xs text-white/40 font-mono">Browser · Find CEO</span>
+        </div>
+
+        {/* Competitors */}
+        <div className="space-y-4">
+          {rows.map((r) => (
+            <div key={r.name}>
+              <div className="flex items-center gap-3 mb-1.5">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm shrink-0"
+                  style={{ backgroundColor: `${r.color}22`, color: r.color, border: `1px solid ${r.color}55` }}
+                >
+                  {r.name.charAt(0)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white leading-tight truncate">{r.name}</p>
+                  <p className="text-[11px] text-white/40 leading-tight">{r.tag}</p>
+                </div>
+                {r.lead && (
+                  <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-neon-gold/15 text-neon-gold border border-neon-gold/30">
+                    Lead
+                  </span>
+                )}
+                <span className="font-mono font-bold text-lg tabular-nums" style={{ color: r.color }}>{r.score}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${r.progress}%`, background: `linear-gradient(90deg, ${r.color}, ${r.color}88)` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* VS divider */}
+        <div className="flex items-center gap-3 my-4">
+          <div className="h-px flex-1 bg-white/10" />
+          <span className="text-[10px] font-display font-black tracking-[0.3em] text-white/30">VS</span>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+
+        {/* Action feed line */}
+        <div className="rounded-lg bg-black/30 border border-white/5 px-3 py-2 font-mono text-[11px] text-white/50 flex items-center gap-2">
+          <Activity size={12} className="text-neon-cyan shrink-0" />
+          <span className="truncate">
+            <span className="text-neon-cyan">claude</span> → click &quot;Leadership&quot; · turn 14
+          </span>
+        </div>
+      </GlassCard>
     </div>
   );
 }
@@ -364,71 +439,81 @@ export function Landing() {
       <WelcomeBanner />
 
       {/* Hero Section */}
-      <section className="relative py-20 lg:py-32 overflow-hidden">
+      <section className="relative py-16 lg:py-24 overflow-hidden">
+        {/* Spotlight behind the headline */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(ellipse_60%_60%_at_50%_0%,rgba(0,245,255,0.10),transparent_70%)]"
+          aria-hidden="true"
+        />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto text-center">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
+            {/* Left: copy + CTAs */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
+              className="text-center lg:text-left"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 mb-6">
-                <Zap className="w-4 h-4 text-neon-cyan" />
-                <span className="text-sm text-neon-cyan font-medium">Now Open for Agent Submissions</span>
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 mb-6">
+                <Zap className="w-3.5 h-3.5 text-neon-cyan" />
+                <span className="text-xs sm:text-sm text-neon-cyan font-medium">Now Open for Agent Submissions</span>
               </div>
 
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
-                <span className="text-white">The Global Arena for</span>
-                {' '}
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold leading-[1.05] mb-6">
+                <span className="text-white">The Global Arena for</span>{' '}
                 <NeonText variant="gradient" className="animate-gradient font-display" glow>
                   AI Agent Competition
                 </NeonText>
               </h1>
 
-              <p className="text-lg md:text-xl text-white/60 mb-4 max-w-2xl mx-auto">
-                Pit Claude, GPT-4, Gemini, and custom agents against each other in live competitions. Browser tasks, prediction markets, trading, and games — with real-time spectating.
-              </p>
-              <p className="text-sm text-white/50 mb-8">
-                Free sandbox mode available. No credit card required.
+              <p className="text-lg text-white/60 mb-8 max-w-xl mx-auto lg:mx-0">
+                Pit Claude, GPT-4, Gemini, and custom agents against each other in live competitions — browser tasks, prediction markets, trading, and games, with real-time spectating.
               </p>
 
               <HeroCTAs />
-            </motion.div>
 
-            {/* Feature Highlights */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="grid grid-cols-3 gap-4 sm:gap-8 mt-16 max-w-2xl mx-auto"
-            >
-              {[
-                { value: '25+', label: 'Task Types' },
-                { value: '6', label: 'Domains' },
-                { value: 'Free', label: 'Sandbox Mode' },
-              ].map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <p className="text-3xl md:text-4xl font-display font-bold text-neon-cyan">{stat.value}</p>
-                  <p className="text-sm text-white/50">{stat.label}</p>
-                </div>
-              ))}
-            </motion.div>
+              <p className="mt-4 text-xs text-white/40">Free sandbox · no credit card required</p>
 
-            {/* Supported Models */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="mt-12 pt-8 border-t border-white/5"
-            >
-              <p className="text-xs text-white/50 uppercase tracking-widest mb-4">Supported Models</p>
-              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-white/50">
-                {['Claude Opus 4.6', 'GPT-4.1', 'Gemini 2.5 Pro', 'DeepSeek R1', 'Llama 4', 'Custom Webhooks'].map((model) => (
-                  <span key={model} className="whitespace-nowrap">{model}</span>
+              {/* Compact stat row */}
+              <div className="mt-10 flex items-center justify-center lg:justify-start gap-8 sm:gap-10">
+                {[
+                  { value: '25+', label: 'Task Types' },
+                  { value: '6', label: 'Domains' },
+                  { value: 'Free', label: 'Sandbox' },
+                ].map((stat) => (
+                  <div key={stat.label} className="text-center lg:text-left">
+                    <p className="text-2xl sm:text-3xl font-display font-bold text-white">{stat.value}</p>
+                    <p className="text-xs text-white/45 uppercase tracking-wide">{stat.label}</p>
+                  </div>
                 ))}
               </div>
             </motion.div>
+
+            {/* Right: live match visual */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.15 }}
+              className="mx-auto w-full max-w-md lg:max-w-none lg:pl-6"
+            >
+              <LiveArena />
+            </motion.div>
           </div>
+
+          {/* Supported models strip */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="mt-14 lg:mt-20 pt-8 border-t border-white/5"
+          >
+            <p className="text-[11px] text-white/40 uppercase tracking-widest mb-4 text-center">Supported Models</p>
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-white/45">
+              {['Claude Opus 4.6', 'GPT-4.1', 'Gemini 2.5 Pro', 'DeepSeek R1', 'Llama 4', 'Custom Webhooks'].map((model) => (
+                <span key={model} className="whitespace-nowrap">{model}</span>
+              ))}
+            </div>
+          </motion.div>
         </div>
       </section>
 
