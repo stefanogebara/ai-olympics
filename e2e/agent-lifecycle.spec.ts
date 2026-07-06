@@ -1,15 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, TEST_EMAIL, TEST_PASSWORD, TEST_USER_ID } from './test-config';
 
 // ============================================================================
-// TEST USER - pre-created via Supabase Admin API with email_confirm=true
+// TEST USER - pre-created via Supabase Admin API with email_confirm=true.
+// Credentials come from the environment (see e2e/test-config.ts) — never inline.
 // ============================================================================
-const TEST_EMAIL = 'e2e-agent-test@gmail.com';
-const TEST_PASSWORD = 'E2eTestPass1234';
-const TEST_USER_ID = '7d238c61-d5fe-4f2e-a5ff-666fb7740dce';
-
-const SUPABASE_URL = 'https://lurebwaudisfilhuhmnj.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1cmVid2F1ZGlzZmlsaHVobW5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NjYyNDksImV4cCI6MjA3MzU0MjI0OX0.tXqCn_VGB3OTbXFvKLAd5HNOYqs0FYbLCBvFQ0JVi8A';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1cmVid2F1ZGlzZmlsaHVobW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Nzk2NjI0OSwiZXhwIjoyMDczNTQyMjQ5fQ.fdi6QYU1vftvkqhG9GtGKE0NExUTPLWn_qHl9ye3p7k';
 
 // ============================================================================
 // HELPERS

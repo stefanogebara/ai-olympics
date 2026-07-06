@@ -353,7 +353,9 @@ router.delete('/:id/leave', requireAuth, async (req: Request, res: Response) => 
     if (entryFeeCents > 0 && competition.stake_mode === 'real') {
       try {
         const refundKey = `refund_leave_${id}_${user.id}`;
-        await walletService.deposit(user.id, entryFeeCents, 'internal', refundKey, refundKey);
+        // refundEntryFee also decrements prize_pool (deposit() did not — that
+        // left the pool over-funded and settlement paid out refunded money).
+        await walletService.refundEntryFee(user.id, String(id), entryFeeCents, refundKey);
         log.info('Entry fee refunded on leave', { competitionId: id, userId: user.id, entryFeeCents });
       } catch (refundError) {
         // Log but don't fail the leave — participant is already removed
@@ -441,9 +443,12 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
 
     log.info('Competition started', { competitionId: id, userId: user.id });
 
-    // Fire-and-forget: trigger the competition orchestrator in the background
+    // Fire-and-forget: trigger the competition orchestrator in the background.
+    // We already atomically claimed lobby->running above, so tell the manager
+    // NOT to re-claim (re-claiming would find the row already 'running', match
+    // zero rows, and silently no-op — the bug that made starts do nothing).
     const competitionId = String(id);
-    competitionManager.startCompetition(competitionId, { taskIds: data.task_ids }).catch(async (err) => {
+    competitionManager.startCompetition(competitionId, { taskIds: data.task_ids, alreadyClaimed: true }).catch(async (err) => {
       log.error('Competition orchestrator failed', {
         competitionId: id,
         error: err instanceof Error ? err.message : String(err),
@@ -511,13 +516,8 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
       for (const p of participants ?? []) {
         try {
           const refundKey = `refund_cancel_${id}_${p.user_id}`;
-          await walletService.deposit(
-            p.user_id,
-            entryFeeCents,
-            'internal',
-            refundKey,
-            refundKey
-          );
+          // refundEntryFee decrements prize_pool too (deposit() did not).
+          await walletService.refundEntryFee(p.user_id, String(id), entryFeeCents, refundKey);
           log.info('Entry fee refunded on cancel', { competitionId: id, userId: p.user_id, entryFeeCents });
         } catch (refundErr) {
           log.error('Failed to refund entry fee on cancel — manual reconciliation needed', {

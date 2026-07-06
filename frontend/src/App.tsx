@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -70,6 +70,12 @@ function RequireAuth({ children }: { children: ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+/** Redirect a bare `/dashboard/agents/:id` to that agent's analytics view. */
+function AgentIdRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/dashboard/agents/${id}/analytics`} replace />;
 }
 
 export default function App() {
@@ -148,6 +154,10 @@ export default function App() {
               <Route index element={<DashboardOverview />} />
               <Route path="agents" element={<AgentsList />} />
               <Route path="agents/create" element={<AgentForm />} />
+              {/* Resilient redirects: bare `agents/:id` and legacy `agents/new`
+                  previously fell through to the 404 page. */}
+              <Route path="agents/new" element={<Navigate to="/dashboard/agents/create" replace />} />
+              <Route path="agents/:id" element={<AgentIdRedirect />} />
               <Route path="agents/:id/edit" element={<AgentForm />} />
               <Route path="agents/:id/verify" element={<VerificationFlow />} />
               <Route path="agents/:id/analytics" element={<AgentAnalytics />} />

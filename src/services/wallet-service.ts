@@ -158,6 +158,32 @@ class WalletService {
     }
   }
 
+  /**
+   * Compensating credit for a withdrawal whose external transfer FAILED after we
+   * already debited (reserved) the funds. Uses the idempotent credit_wallet RPC,
+   * so a retried reversal never double-credits. This is the reverse leg of the
+   * reserve-before-transfer pattern in the crypto/Stripe withdrawal flows.
+   */
+  async reverseWithdrawal(
+    userId: string,
+    amountCents: number,
+    provider: string,
+    idempotencyKey: string
+  ): Promise<void> {
+    const wallet = await this.getOrCreateWallet(userId);
+    const { error } = await serviceClient.rpc('credit_wallet', {
+      p_wallet_id: wallet.id,
+      p_amount_cents: amountCents,
+      p_provider: `${provider}_reversal`,
+      p_provider_ref: idempotencyKey,
+      p_idempotency_key: idempotencyKey,
+    });
+    if (error) {
+      throw error;
+    }
+    log.info('Withdrawal debit reversed after failed transfer', { userId, amountCents, provider });
+  }
+
   async lockForBet(walletId: string, amountCents: number): Promise<void> {
     try {
       log.info('Locking funds for bet', { walletId, amountCents });
@@ -241,6 +267,41 @@ class WalletService {
       log.info('Entry fee debited', { userId, competitionId, amountCents });
     } catch (error) {
       log.error('Failed to debit entry fee', { userId, competitionId, amountCents, error: String(error) });
+      throw error;
+    }
+  }
+
+  /**
+   * Refund an entry fee: credits the wallet, decrements the competition prize
+   * pool by the same amount, and neutralizes the original entry_fee ledger row
+   * so re-joining is charged again. All atomic + idempotent (refund_entry_fee
+   * RPC). Replaces the previous plain deposit() refund, which left prize_pool
+   * over-funded (settlement then paid out already-refunded money).
+   */
+  async refundEntryFee(
+    userId: string,
+    competitionId: string,
+    amountCents: number,
+    refundKey: string
+  ): Promise<void> {
+    try {
+      // Must match the key debitEntryFee used, so the original charge is neutralized.
+      const entryFeeKey = `entry_fee_${userId}_${competitionId}`;
+      const { error } = await serviceClient.rpc('refund_entry_fee', {
+        p_user_id: userId,
+        p_competition_id: competitionId,
+        p_amount_cents: amountCents,
+        p_refund_key: refundKey,
+        p_entry_fee_key: entryFeeKey,
+      });
+      if (error) {
+        throw error;
+      }
+      log.info('Entry fee refunded (wallet credited, prize pool decremented)', {
+        userId, competitionId, amountCents,
+      });
+    } catch (error) {
+      log.error('Failed to refund entry fee', { userId, competitionId, amountCents, error: String(error) });
       throw error;
     }
   }

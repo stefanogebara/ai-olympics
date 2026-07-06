@@ -138,8 +138,22 @@ export class CompetitionController {
 
     // Run events sequentially
     for (let i = 0; i < this.competition.events.length; i++) {
+      // Stop if the competition was cancelled/paused out from under us (e.g.
+      // cancelCompetition or a graceful shutdown). Without this the loop ran to
+      // the end over an emptied agents map and then marked the row 'completed'
+      // with garbage rankings + permanent ELO changes, overwriting 'cancelled'.
+      if (this.competition.status !== 'running') {
+        log.info(`Competition ${this.competition.id} is ${this.competition.status}; halting event loop`);
+        return;
+      }
       this.competition.currentEventIndex = i;
       await this.runEvent(this.competition.events[i]);
+    }
+
+    // If we were cancelled during the final event, do NOT finalize as completed.
+    if (this.competition.status !== 'running') {
+      log.info(`Competition ${this.competition.id} ended as ${this.competition.status}; not marking completed`);
+      return;
     }
 
     // Competition complete

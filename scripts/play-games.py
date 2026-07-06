@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
-"""Play all game types with all 3 test agents using smart puzzle solving."""
+"""Play all game types with all 3 test agents using smart puzzle solving.
 
-import requests, json, time, re, subprocess, math, ast
+Credentials come from environment variables (never hardcoded):
+  API_URL, SUPABASE_URL, SUPABASE_ANON_KEY, GAME_TEST_EMAIL, GAME_TEST_PASSWORD
+"""
 
-API = "https://ai-olympics-api.fly.dev"
+import requests, json, time, re, subprocess, math, ast, os, sys
+
+API = os.environ.get("API_URL", "https://ai-olympics-api.fly.dev")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+EMAIL = os.environ.get("GAME_TEST_EMAIL", "")
+PASSWORD = os.environ.get("GAME_TEST_PASSWORD", "")
+
+if not all([SUPABASE_URL, ANON_KEY, EMAIL, PASSWORD]):
+    sys.exit("Missing env: set SUPABASE_URL, SUPABASE_ANON_KEY, GAME_TEST_EMAIL, GAME_TEST_PASSWORD")
 
 # Get token
 result = subprocess.run(['curl', '-s', '-X', 'POST',
-    'https://lurebwaudisfilhuhmnj.supabase.co/auth/v1/token?grant_type=password',
-    '-H', 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1cmVid2F1ZGlzZmlsaHVobW5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NjYyNDksImV4cCI6MjA3MzU0MjI0OX0.tXqCn_VGB3OTbXFvKLAd5HNOYqs0FYbLCBvFQ0JVi8A',
+    f'{SUPABASE_URL}/auth/v1/token?grant_type=password',
+    '-H', f'apikey: {ANON_KEY}',
     '-H', 'Content-Type: application/json',
-    '-d', '{"email":"test-pilot@ai-olympics.com","password":"TestPilot2026x"}'],
+    '-d', json.dumps({"email": EMAIL, "password": PASSWORD})],
     capture_output=True, text=True)
 TOKEN = json.loads(result.stdout)['access_token']
 

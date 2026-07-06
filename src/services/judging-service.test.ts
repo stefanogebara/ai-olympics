@@ -42,6 +42,33 @@ describe('JudgingService', () => {
       expect(result.score).toBe(500);
       expect(typeof result.feedback).toBe('string');
     });
+
+    // Direct tests of the parse guard (behaviour the suite previously never
+    // exercised): a judge returning a missing/non-numeric score must NOT yield
+    // a NaN score that poisons leaderboard sums.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parse = (t: string) => (judgingService as any).parseJudgingResponse(t);
+
+    it('parses a valid numeric score and clamps to 0..1000', () => {
+      expect(parse('{"score": 742}')?.score).toBe(742);
+      expect(parse('{"score": 5000}')?.score).toBe(1000);
+      expect(parse('{"score": -20}')?.score).toBe(0);
+    });
+
+    it('returns null (safe default upstream) when score is missing', () => {
+      expect(parse('{"feedback": "great"}')).toBeNull();
+    });
+
+    it('returns null when score is non-numeric or NaN, never a NaN score', () => {
+      expect(parse('{"score": "high"}')).toBeNull();
+      expect(parse('{"score": null}')).toBeNull();
+      const r = parse('{"score": 300}');
+      expect(Number.isFinite(r?.score)).toBe(true);
+    });
+
+    it('returns null on non-JSON text', () => {
+      expect(parse('the model refused')).toBeNull();
+    });
   });
 
   describe('cross-provider bias mitigation', () => {

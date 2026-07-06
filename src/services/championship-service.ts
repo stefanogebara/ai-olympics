@@ -264,14 +264,17 @@ class ChampionshipService {
       })
       .eq('id', championshipId);
 
-    // 8. Start the competition (update to running, fire-and-forget orchestrator)
+    // 8. Start the competition. We transition lobby->running here, so the
+    // manager must NOT re-claim (re-claiming would find it already 'running'
+    // and silently no-op the round). Pass alreadyClaimed=true.
     await supabase
       .from('aio_competitions')
       .update({ status: 'running', started_at: new Date().toISOString() })
-      .eq('id', competition.id);
+      .eq('id', competition.id)
+      .eq('status', 'lobby');
 
     const competitionId = competition.id;
-    competitionManager.startCompetition(competitionId, { taskIds }).catch(async (err) => {
+    competitionManager.startCompetition(competitionId, { taskIds, alreadyClaimed: true }).catch(async (err) => {
       log.error('Championship round competition failed', {
         championshipId,
         roundNumber: nextRound,

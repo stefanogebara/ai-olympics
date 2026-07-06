@@ -17,6 +17,7 @@ const {
   mockConstructEvent,
   mockDeposit,
   mockWithdraw,
+  mockReverseWithdrawal,
   mockTransfersCreate,
   MockStripe,
 } = vi.hoisted(() => {
@@ -25,6 +26,7 @@ const {
   const mockConstructEvent = vi.fn();
   const mockDeposit = vi.fn();
   const mockWithdraw = vi.fn();
+  const mockReverseWithdrawal = vi.fn();
   const mockTransfersCreate = vi.fn();
   // Class mock so `new Stripe()` works in Vitest 4.x ESM
   class MockStripe {
@@ -40,6 +42,7 @@ const {
     mockConstructEvent,
     mockDeposit,
     mockWithdraw,
+    mockReverseWithdrawal,
     mockTransfersCreate,
     MockStripe,
   };
@@ -59,7 +62,7 @@ vi.mock('../shared/utils/supabase.js', () => ({
 }));
 
 vi.mock('./wallet-service.js', () => ({
-  walletService: { deposit: mockDeposit, withdraw: mockWithdraw },
+  walletService: { deposit: mockDeposit, withdraw: mockWithdraw, reverseWithdrawal: mockReverseWithdrawal },
 }));
 
 vi.mock('../shared/utils/logger.js', () => ({
@@ -344,24 +347,45 @@ describe('createPayout', () => {
     expect(mockTransfersCreate).not.toHaveBeenCalled();
   });
 
-  it('transfers funds and debits wallet when payouts are enabled', async () => {
-    mockFrom.mockReturnValueOnce(
-      chain({ data: { stripe_account_id: 'acct_1', payouts_enabled: true }, error: null })
-    );
+  it('reserves the wallet BEFORE transferring, then annotates with the transfer id', async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { stripe_account_id: 'acct_1', payouts_enabled: true }, error: null })) // connect account
+      .mockReturnValueOnce(chain({ data: null, error: null })); // provider_ref annotation update
     mockTransfersCreate.mockResolvedValueOnce({ id: 'tr_test_123' });
     mockWithdraw.mockResolvedValueOnce(undefined);
 
     const result = await stripeService.createPayout('user-1', 5000);
 
     expect(result).toEqual({ status: 'success' });
-    expect(mockTransfersCreate).toHaveBeenCalledWith({
-      amount: 5000,
-      currency: 'usd',
-      destination: 'acct_1',
-      metadata: { userId: 'user-1' },
-    });
+    // Debit (reserve) happened BEFORE the transfer — the whole point of the fix.
+    expect(mockWithdraw.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTransfersCreate.mock.invocationCallOrder[0]
+    );
+    // Reserved with a 'pending' ref and a stripe_payout_ idempotency key.
     expect(mockWithdraw).toHaveBeenCalledWith(
-      'user-1', 5000, 'stripe_connect', 'tr_test_123', 'stripe_payout_tr_test_123'
+      'user-1', 5000, 'stripe_connect', 'pending', expect.stringMatching(/^stripe_payout_/)
+    );
+    // Transfer carries a Stripe-level idempotency key.
+    expect(mockTransfersCreate).toHaveBeenCalledWith(
+      { amount: 5000, currency: 'usd', destination: 'acct_1', metadata: { userId: 'user-1' } },
+      { idempotencyKey: expect.stringMatching(/^stripe_payout_/) }
+    );
+    expect(mockReverseWithdrawal).not.toHaveBeenCalled();
+  });
+
+  it('reverses the reservation when the Stripe transfer fails', async () => {
+    mockFrom.mockReturnValueOnce(
+      chain({ data: { stripe_account_id: 'acct_1', payouts_enabled: true }, error: null })
+    );
+    mockWithdraw.mockResolvedValueOnce(undefined);
+    mockTransfersCreate.mockRejectedValueOnce(new Error('card_declined'));
+
+    await expect(stripeService.createPayout('user-1', 5000)).rejects.toThrow('card_declined');
+
+    // Funds were reserved, then reversed — user keeps their balance.
+    expect(mockWithdraw).toHaveBeenCalledOnce();
+    expect(mockReverseWithdrawal).toHaveBeenCalledWith(
+      'user-1', 5000, 'stripe_connect', expect.stringMatching(/^stripe_payout_.*_reversal$/)
     );
   });
 });

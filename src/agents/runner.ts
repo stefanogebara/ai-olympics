@@ -416,6 +416,20 @@ export class AgentRunner {
 
     } catch (error) {
       log.error(`Failed to initialize browser for ${this.id}`, { error });
+      // Close the browser if it launched but context/page creation failed —
+      // otherwise a 300-500MB Chromium is orphaned for the process lifetime
+      // (the runner isn't added to the controller's agents map until initialize
+      // succeeds, so controller.cleanup() would never reach it). Compounds into
+      // VM memory exhaustion across repeated failed starts.
+      if (this.browser) {
+        try {
+          await this.browser.close();
+        } catch (closeErr) {
+          log.warn(`Failed to close browser after init error for ${this.id}`, { error: String(closeErr) });
+        }
+        this.browser = null;
+        this.page = null;
+      }
       throw error;
     }
   }
@@ -459,9 +473,21 @@ export class AgentRunner {
     let error: string | undefined;
 
     try {
-      while (turnCount < this.runnerConfig.maxTurns && !taskComplete) {
+      // The loop also stops as soon as `error` is set. Previously the
+      // task-timeout `break` (below) only exited the inner tool loop while the
+      // outer while re-entered and kept calling the paid LLM adapter until
+      // maxTurns/budget — an agent that hit its 120s limit could burn ~100 more
+      // turns of API spend and hold the whole event hostage via Promise.all.
+      while (turnCount < this.runnerConfig.maxTurns && !taskComplete && !error) {
         turnCount++;
         log.agent(this.id, `Turn ${turnCount}`);
+
+        // Stop BEFORE the next LLM call once the task time limit is reached.
+        if (this.timer.elapsedSeconds() > task.timeLimit) {
+          this.state.status = 'timeout';
+          error = 'Task time limit exceeded';
+          break;
+        }
 
         // Check if page is still valid
         if (!this.isPageValid()) {

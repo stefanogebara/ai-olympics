@@ -1,13 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
-
-const API_BASE = 'http://localhost:3003';
+import { TEST_EMAIL, TEST_PASSWORD, API_URL as API_BASE } from './test-config';
 
 // ============================================================================
-// TEST CREDENTIALS & HELPERS
+// TEST CREDENTIALS & HELPERS (sourced from env — see e2e/test-config.ts)
 // ============================================================================
-
-const TEST_EMAIL = 'e2e-agent-test@gmail.com';
-const TEST_PASSWORD = 'E2eTestPass1234';
 
 async function loginViaUI(page: Page) {
   await page.goto('/auth/login');

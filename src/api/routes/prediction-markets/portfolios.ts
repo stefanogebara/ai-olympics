@@ -4,11 +4,45 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireAuth, type AuthenticatedRequest } from '../../middleware/auth.js';
 import { marketService } from '../../../services/market-service.js';
 import { virtualPortfolioManager } from '../../../services/virtual-portfolio.js';
 import { createLogger } from '../../../shared/utils/logger.js';
-import { requireAuthOrAgent } from './types.js';
+import { requireAuthOrAgent, type AgentAuthedRequest } from './types.js';
+
+/**
+ * Resolve the agentId the caller is allowed to act as, or return an error string.
+ * - Agent-header path: can only act as its own verified agent, in its own competition.
+ * - User-token path: must own the requested agent (RLS-scoped ownership check).
+ */
+async function resolveActingAgentId(
+  req: Request,
+  competitionId: string,
+  requestedAgentId: string | undefined
+): Promise<{ agentId: string } | { error: string; status: number }> {
+  const agentAuth = (req as AgentAuthedRequest).agentAuth;
+  if (agentAuth) {
+    if (agentAuth.competitionId !== competitionId) {
+      return { error: 'Agent is not authorized for this competition', status: 403 };
+    }
+    return { agentId: agentAuth.agentId };
+  }
+
+  const { user, userClient } = req as AuthenticatedRequest;
+  if (!user || !requestedAgentId) {
+    return { error: 'agentId is required', status: 400 };
+  }
+  const { data: owned } = await userClient
+    .from('aio_agents')
+    .select('id')
+    .eq('id', requestedAgentId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!owned) {
+    return { error: 'You do not own this agent', status: 403 };
+  }
+  return { agentId: requestedAgentId };
+}
 
 const router = Router();
 const log = createLogger('PredictionMarketsAPI');
@@ -28,9 +62,10 @@ router.get('/:competitionId', async (req: Request, res: Response) => {
 
     const portfolioId = await virtualPortfolioManager.getPortfolioId(agentId, competitionId);
     if (!portfolioId) {
-      // Create new portfolio if it doesn't exist
-      const portfolio = await virtualPortfolioManager.createPortfolio(agentId, competitionId);
-      return res.json(portfolio);
+      // Read-only endpoint: do NOT create a portfolio as a side effect (that let
+      // any caller force-create arbitrary agents' portfolios). Portfolios are
+      // created when the owning agent first places a bet.
+      return res.status(404).json({ error: 'Portfolio not found' });
     }
 
     const portfolio = await virtualPortfolioManager.getPortfolio(portfolioId);
@@ -52,13 +87,21 @@ router.get('/:competitionId', async (req: Request, res: Response) => {
 router.post('/:competitionId/bets', requireAuthOrAgent, async (req: Request, res: Response) => {
   try {
     const competitionId = String(req.params.competitionId);
-    const { agentId, marketId, outcome, amount } = req.body;
+    const { marketId, outcome, amount } = req.body;
+
+    // Bind the acting agent to the authenticated identity — the caller cannot
+    // place bets on an agent it does not own / is not (closes the IDOR).
+    const resolved = await resolveActingAgentId(req, competitionId, req.body.agentId);
+    if ('error' in resolved) {
+      return res.status(resolved.status).json({ success: false, error: resolved.error });
+    }
+    const agentId = resolved.agentId;
 
     // Validate required fields
-    if (!agentId || !marketId || !outcome || amount === undefined) {
+    if (!marketId || !outcome || amount === undefined) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: agentId, marketId, outcome, amount',
+        error: 'Missing required fields: marketId, outcome, amount',
       });
     }
 
@@ -180,11 +223,15 @@ router.get('/:competitionId/summary', async (req: Request, res: Response) => {
 router.delete('/:competitionId', requireAuth, async (req: Request, res: Response) => {
   try {
     const competitionId = String(req.params.competitionId);
-    const agentId = (Array.isArray(req.query.agentId) ? req.query.agentId[0] : req.query.agentId) as string | undefined;
+    const requestedAgentId = (Array.isArray(req.query.agentId) ? req.query.agentId[0] : req.query.agentId) as string | undefined;
 
-    if (!agentId) {
-      return res.status(400).json({ error: 'agentId query parameter is required' });
+    // Only the agent's owner may clear its portfolio (closes the IDOR where any
+    // authenticated user could wipe a competitor's portfolio by passing its id).
+    const resolved = await resolveActingAgentId(req, competitionId, requestedAgentId);
+    if ('error' in resolved) {
+      return res.status(resolved.status).json({ error: resolved.error });
     }
+    const agentId = resolved.agentId;
 
     const portfolioId = await virtualPortfolioManager.getPortfolioId(agentId, competitionId);
     if (portfolioId) {

@@ -62,7 +62,7 @@ export function GlobalLeaderboard() {
         // Use domain-specific ratings from aio_agent_domain_ratings
         const domain = domains.find(d => d.slug === selectedDomain);
         if (domain) {
-          const { data: domainRatings } = await supabase
+          const { data: domainRatings, error: domainErr } = await supabase
             .from('aio_agent_domain_ratings')
             .select(`
               elo_rating,
@@ -74,6 +74,10 @@ export function GlobalLeaderboard() {
             .eq('domain_id', domain.id)
             .order('elo_rating', { ascending: false })
             .limit(100);
+
+          // supabase-js returns errors in `error` rather than throwing, so this
+          // must be checked explicitly or the catch/ErrorBanner is dead code.
+          if (domainErr) throw domainErr;
 
           if (domainRatings) {
             const mapped: LeaderboardAgent[] = domainRatings
@@ -101,7 +105,7 @@ export function GlobalLeaderboard() {
       }
 
       // Default: global ratings from aio_agents
-      const { data } = await supabase
+      const { data, error: dataErr } = await supabase
         .from('aio_agents')
         .select(`
           *,
@@ -112,13 +116,15 @@ export function GlobalLeaderboard() {
         .order('elo_rating', { ascending: false })
         .limit(100);
 
-      if (data) {
-        setAgents(data.map((a, i) => ({
-          ...a,
-          rank: i + 1,
-          rankChange: 0,
-        })));
-      }
+      if (dataErr) throw dataErr;
+
+      // Always set (even to []) so a genuinely empty leaderboard renders its
+      // empty state instead of leaving stale rows.
+      setAgents((data ?? []).map((a, i) => ({
+        ...a,
+        rank: i + 1,
+        rankChange: 0,
+      })));
     } catch (err) {
       if (import.meta.env.DEV) console.error('Error loading leaderboard:', err);
       setError('Failed to load leaderboard. Please try again.');

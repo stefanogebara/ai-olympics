@@ -339,20 +339,25 @@ describe('ManifoldClient.getMarketBets', () => {
 // ---------------------------------------------------------------------------
 
 describe('calculateShares', () => {
-  it('calculates YES shares using CPMM formula', () => {
-    // pool YES=100, NO=150, amount=50
-    // k = 100 * 150 = 15000
-    // shares = 100 - 15000 / (150 + 50) = 100 - 75 = 25
+  it('calculates YES shares using Manifold CPMM-1 (bet added to both sides)', () => {
+    // pool YES=100, NO=150, amount=50; k = 15000
+    // shares = (YES + amount) - k/(NO + amount) = 150 - 15000/200 = 150 - 75 = 75
     const shares = calculateShares({ YES: 100, NO: 150 }, 50, 'YES');
-    expect(shares).toBeCloseTo(25, 5);
+    expect(shares).toBeCloseTo(75, 5);
   });
 
-  it('calculates NO shares using CPMM formula', () => {
-    // pool YES=100, NO=150, amount=50
-    // k = 100 * 150 = 15000
-    // shares = 150 - 15000 / (100 + 50) = 150 - 100 = 50
+  it('calculates NO shares using Manifold CPMM-1 (bet added to both sides)', () => {
+    // pool YES=100, NO=150, amount=50; k = 15000
+    // shares = (NO + amount) - k/(YES + amount) = 200 - 15000/150 = 200 - 100 = 100
     const shares = calculateShares({ YES: 100, NO: 150 }, 50, 'NO');
-    expect(shares).toBeCloseTo(50, 5);
+    expect(shares).toBeCloseTo(100, 5);
+  });
+
+  it('matches the documented 50/50-pool case (10 on YES -> 18.33 shares)', () => {
+    // Regression guard for the twin-formula divergence: human and agent paths
+    // now agree on this value (previously the agent path returned 8.33).
+    const shares = calculateShares({ YES: 50, NO: 50 }, 10, 'YES');
+    expect(shares).toBeCloseTo(18.333, 2);
   });
 
   it('returns amount as fallback when YES pool is zero', () => {

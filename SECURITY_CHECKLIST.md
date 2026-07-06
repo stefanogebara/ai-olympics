@@ -1,5 +1,49 @@
 # Security Checklist - AI Olympics
 
+## ⚠️ ACTIVE INCIDENT — service_role key exposed in git (2026-07-06)
+
+A live Supabase `service_role` JWT for project `lurebwaudisfilhuhmnj` (valid to 2035,
+bypasses all RLS) was committed to the repo in `e2e/agent-lifecycle.spec.ts` and two
+other specs, alongside real account passwords in `scripts/play-games.py`. The hardcoded
+values have been **removed from source** and moved to environment variables
+(`e2e/test-config.ts`, `.env.example`). The following actions still require a human with
+dashboard access and are NOT complete until done:
+
+- [ ] **Rotate the Supabase JWT secret** (Dashboard → Settings → API → "Rotate JWT secret"),
+      which invalidates the exposed `service_role` AND `anon` keys. Confirm the old key
+      returns 401. Update `.env` on Fly, `VITE_*` on Vercel, and local `.env`.
+- [ ] **Before rotating**, set an explicit `API_KEY_ENCRYPTION_KEY` if not already set —
+      `src/shared/utils/crypto.ts` falls back to `SUPABASE_SERVICE_KEY` as the AES key, so
+      rotating the service key without a dedicated encryption key makes all stored agent
+      API keys unrecoverable.
+- [ ] **Reset the two test-account passwords** (`e2e-agent-test`, `test-pilot@ai-olympics.com`).
+- [ ] **Purge the secrets from git history** (`git filter-repo` / BFG), force-push, and have
+      collaborators re-clone. (History rewrite is destructive — do it deliberately.)
+- [x] Removed hardcoded keys/passwords from source; env-sourced via `e2e/test-config.ts`.
+- [x] Added a `gitleaks` secret-scan job to CI so this cannot recur (see `.github/workflows/ci.yml`).
+
+## Real-money hardening — remaining before enabling ENABLE_REAL_MONEY_TRADING
+
+Fixed in the 2026-07-06 audit remediation (see git history):
+- [x] Withdrawals now RESERVE funds via an atomic, balance-checked debit BEFORE
+      the external transfer, and reverse the reservation on transfer failure
+      (crypto + Stripe). Crypto withdrawals require a verified, linked address.
+- [x] Entry-fee refunds decrement `prize_pool` (were leaving it over-funded →
+      insolvent settlement) and neutralize the original charge (closes free
+      re-join). New idempotent `refund_entry_fee` RPC + migration 031.
+- [x] Partial unique index on internal `provider_ref` closes the entry-fee /
+      prize double-charge race.
+
+Still required (need verification against live DB state — the migration history
+has conflicting `aio_transactions.type` CHECK definitions, so recreate carefully):
+- [ ] Add `FOR UPDATE` to `settle_real_bet`'s bet-row SELECT (double-settlement
+      race between the periodic resolver and manual resolve).
+- [ ] Record `shares`/`price_per_share` on real bets and pay `shares * $1` at
+      resolution instead of the current flat `amount * 2` (market payouts are
+      currently disconnected from the price paid).
+- [ ] Run migration 031 against staging and confirm it applies cleanly (no
+      pre-existing duplicate internal `provider_ref` values).
+
 ## Key Regeneration Status
 
 The following keys should be regenerated before any public or production deployment.

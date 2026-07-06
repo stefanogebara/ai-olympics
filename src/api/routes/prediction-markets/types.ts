@@ -4,7 +4,16 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
+import { serviceClient } from '../../../shared/utils/supabase.js';
+import { createLogger } from '../../../shared/utils/logger.js';
 import type { UnifiedMarket, MarketCategory, CategoryInfo } from '../../../services/market-service.js';
+
+const authLog = createLogger('PredictionMarketsAuth');
+
+/** Request augmented with a verified agent identity (set by requireAuthOrAgent). */
+export type AgentAuthedRequest = Request & {
+  agentAuth?: { agentId: string; competitionId: string };
+};
 
 // ============================================================================
 // DB Row interfaces
@@ -78,14 +87,52 @@ export type SortOption = typeof VALID_SORTS[number];
 // Middleware
 // ============================================================================
 
-/** Auth middleware that accepts either Supabase user auth OR agent competition headers */
+/**
+ * Auth middleware that accepts EITHER a Supabase user token OR verified agent
+ * competition headers.
+ *
+ * SECURITY: the X-Agent-Id / X-Competition-Id headers are injected by the trusted
+ * agent runner (src/agents/runner.ts) when an agent makes a tool `api_call`, but
+ * they are trivially forgeable by any HTTP client. Presence alone is NOT proof of
+ * identity. We therefore verify against the database that the claimed agent is an
+ * actual participant in the claimed competition AND that the competition is
+ * currently `running` (agents can only act during a live match). This closes the
+ * previous full auth-bypass (any header value was accepted) and, combined with the
+ * agentId binding enforced in the route handlers, the cross-agent IDOR.
+ */
 export async function requireAuthOrAgent(req: Request, res: Response, next: NextFunction) {
-  // Check for agent auth headers first (X-Agent-Id + X-Competition-Id)
-  const agentId = req.headers['x-agent-id'] as string;
-  const competitionId = req.headers['x-competition-id'] as string;
+  const agentId = req.headers['x-agent-id'] as string | undefined;
+  const competitionId = req.headers['x-competition-id'] as string | undefined;
+
   if (agentId && competitionId) {
-    (req as Request & { agentAuth: { agentId: string; competitionId: string } }).agentAuth = { agentId, competitionId };
-    return next();
+    try {
+      const { data: participant } = await serviceClient
+        .from('aio_competition_participants')
+        .select('id')
+        .eq('agent_id', agentId)
+        .eq('competition_id', competitionId)
+        .maybeSingle();
+
+      if (!participant) {
+        return res.status(401).json({ error: 'Agent is not a participant in this competition' });
+      }
+
+      const { data: comp } = await serviceClient
+        .from('aio_competitions')
+        .select('status')
+        .eq('id', competitionId)
+        .maybeSingle();
+
+      if (!comp || comp.status !== 'running') {
+        return res.status(401).json({ error: 'Competition is not currently running' });
+      }
+
+      (req as AgentAuthedRequest).agentAuth = { agentId, competitionId };
+      return next();
+    } catch (err) {
+      authLog.error('Agent auth verification failed', { error: String(err) });
+      return res.status(401).json({ error: 'Agent authentication failed' });
+    }
   }
 
   // Fall back to Supabase Bearer token auth (attaches user + userClient)

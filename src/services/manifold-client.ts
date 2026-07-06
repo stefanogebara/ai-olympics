@@ -246,17 +246,18 @@ export function calculateShares(
     return amount; // Fallback for empty pool
   }
 
-  // Constant product: y * n = k
-  // After buying YES shares: (y - shares) * (n + amount) = k
-  // Solving for shares: shares = y - k / (n + amount)
-
+  // Manifold CPMM-1 (p = 0.5): the bet `amount` is added to BOTH pool sides,
+  // then shares = (side + amount) - k/(otherSide + amount). The previous version
+  // omitted the trailing `+ amount`, so it under-counted shares by exactly the
+  // bet size and disagreed with the human-portfolio path (which had the correct
+  // formula) — the same $10 bet on a 50/50 pool yielded 8.33 vs 18.33 shares.
   const k = y * n;
 
   if (outcome === 'YES') {
-    const shares = y - k / (n + amount);
+    const shares = y + amount - k / (n + amount);
     return Math.max(0, shares);
   } else {
-    const shares = n - k / (y + amount);
+    const shares = n + amount - k / (y + amount);
     return Math.max(0, shares);
   }
 }

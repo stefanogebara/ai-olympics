@@ -119,9 +119,10 @@ const puzzleSubmitLimiter = createLimiter(10, MINUTE, 'Too many puzzle submissio
 
 // Supabase client for WebSocket auth ONLY — uses anon key, used exclusively for
 // auth.getUser(token) to verify a socket's JWT. All server-side DB reads/writes
-// must use the service client (`supabase`), because these core aio_ tables have
-// RLS enabled and the anon client carries no per-request user JWT (auth.uid() is
-// null), so anon writes would silently affect 0 rows and reads would be filtered.
+// must use the service client (`supabase`): the core aio_ tables have RLS enabled
+// (migration 033) and the anon client carries no per-request user JWT
+// (auth.uid() is null), so anon writes would silently affect 0 rows and anon
+// reads without a public SELECT policy would be filtered out.
 const wsSupabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_ANON_KEY || ''
@@ -627,12 +628,12 @@ export function createAPIServer() {
       socket.emit('competition:state', currentCompetition);
     }
 
-    // Subscribe to competition updates (public - spectating is allowed without auth)
-    const handleEvent = (event: StreamEvent) => {
-      socket.emit(event.type, event);
-    };
-
-    eventBus.on('*', handleEvent);
+    // NOTE: live events are delivered to every socket by the single global
+    // eventBus->io.emit forwarder registered below (see "Forward events from
+    // internal bus to socket.io"). A previous per-socket `eventBus.on('*', …)`
+    // listener here delivered every event a SECOND time (duplicated actions and
+    // doubled counts in the spectator feed) and added an O(connections) fan-out;
+    // it has been removed so each event is delivered exactly once.
 
     // Reconnect catchup: client sends lastEventTimestamp, server replays missed events
     // Allows seamless reconnection without missing events during brief disconnects
@@ -793,9 +794,9 @@ export function createAPIServer() {
 
       try {
         // C3: Verify competition exists and is running before allowing votes.
-        // Uses the service client: this is trusted server-side code (socket is
-        // already authenticated and the vote is validated below), and aio_competitions
-        // now has RLS enabled so anon-client reads would be policy-filtered.
+        // Service client: aio_competitions has RLS enabled (migration 033) so an
+        // anon-client read here would be policy-filtered; this is trusted
+        // server-side code (the socket is already authenticated).
         const { data: comp, error: compErr } = await supabase
           .from('aio_competitions')
           .select('id, status')
@@ -811,7 +812,7 @@ export function createAPIServer() {
           return;
         }
 
-        // C3: Verify agent is a participant in this competition
+        // C3: Verify agent is a participant in this competition (service client — RLS enabled)
         const { data: participant } = await supabase
           .from('aio_competition_participants')
           .select('id')
@@ -824,11 +825,12 @@ export function createAPIServer() {
           return;
         }
 
-        // Insert via the service client: user_id is trusted (derived from the
-        // socket's verified JWT above). aio_spectator_votes has RLS enabled with an
-        // insert policy of auth.uid() = user_id, which the anon client cannot satisfy
-        // (no per-request JWT), so this write must bypass RLS. The UNIQUE constraint
-        // still guards against double-voting (23505 handled below).
+        // Use the SERVICE client for the insert. The anon (wsSupabase) client has
+        // no auth.uid(), so the RLS policy `WITH CHECK (auth.uid() = user_id)`
+        // rejected every vote (voting was 100% broken). The server has already
+        // authenticated the user from the socket token (userId) and verified the
+        // agent is a running participant, so writing with the explicit, trusted
+        // user_id via the service client is the correct authority here.
         const { error } = await supabase
           .from('aio_spectator_votes')
           .insert({
@@ -843,7 +845,7 @@ export function createAPIServer() {
           return;
         }
 
-        // H5: Use aggregation with limit instead of fetching all rows
+        // H5: Use aggregation with limit instead of fetching all rows (service client — RLS enabled)
         const { data: votes } = await supabase
           .from('aio_spectator_votes')
           .select('agent_id, vote_type')
@@ -894,7 +896,6 @@ export function createAPIServer() {
 
     socket.on('disconnect', () => {
       log.info(`Client disconnected: ${socket.id}`);
-      eventBus.off('*', handleEvent);
 
       // Clean up subscriptions
       socketMarketSubscriptions.delete(socket.id);
@@ -980,18 +981,24 @@ export function createAPIServer() {
       });
 
       // Mark interrupted competitions as cancelled in DB and clean up Redis.
-      // Uses the service client: this is a trusted server-side recovery task with no
-      // user context. aio_competitions has RLS enabled and only creators/admins can
-      // update, so an anon-client update would silently match 0 rows.
+      // Use the SERVICE client: the anon (wsSupabase) client matches no UPDATE
+      // RLS policy on aio_competitions, so this affected 0 rows while returning
+      // no error — crash "recovery" silently did nothing yet logged success and
+      // then destroyed the Redis snapshot. .select() lets us verify a row was
+      // actually updated before claiming success.
       for (const snapshot of interrupted) {
         try {
-          const { error } = await supabase
+          const { data: updated, error } = await supabase
             .from('aio_competitions')
             .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-            .eq('id', snapshot.competitionId);
+            .eq('id', snapshot.competitionId)
+            .select('id');
 
           if (error) {
             log.error(`Failed to cancel interrupted competition ${snapshot.competitionId}`, { error: error.message });
+          } else if (!updated || updated.length === 0) {
+            log.error(`Interrupted competition ${snapshot.competitionId} not updated (0 rows) — leaving snapshot for retry`);
+            continue; // keep the Redis snapshot so a later run can retry
           } else {
             log.info(`Marked interrupted competition as cancelled: ${snapshot.competitionId} (${snapshot.name})`);
           }

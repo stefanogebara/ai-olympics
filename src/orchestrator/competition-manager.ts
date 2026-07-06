@@ -43,7 +43,7 @@ class CompetitionManager {
    */
   async startCompetition(
     competitionId: string,
-    opts?: { taskIds?: string[] | null }
+    opts?: { taskIds?: string[] | null; alreadyClaimed?: boolean }
   ): Promise<void> {
     // Guard: don't double-start an in-flight competition
     if (this.activeCompetitions.has(competitionId)) {
@@ -54,21 +54,34 @@ class CompetitionManager {
     log.info('Starting competition', { competitionId });
 
     // ---------------------------------------------------------------
-    // 0. Claim competition atomically: only update if still 'lobby'
+    // 0. Claim competition atomically: only update if still 'lobby'.
+    //
+    // The REST /start route atomically transitions lobby->running itself (for
+    // its capacity gate + immediate response) and passes alreadyClaimed=true.
+    // Re-claiming here would find the row already 'running', match zero rows,
+    // and silently return WITHOUT running the competition — the exact bug that
+    // made every user-initiated start a no-op. When the caller has claimed, we
+    // skip our own claim and trust the in-memory activeCompetitions guard (set
+    // below) to prevent same-process double-starts. The auto-start scheduler
+    // path does NOT pre-claim, so it still relies on the atomic claim here.
     // ---------------------------------------------------------------
-    const { data: claimed, error: claimErr } = await supabase
-      .from('aio_competitions')
-      .update({ status: 'running', started_at: new Date().toISOString() })
-      .eq('id', competitionId)
-      .eq('status', 'lobby')
-      .select('id');
+    if (opts?.alreadyClaimed) {
+      log.info('Competition pre-claimed by caller (route) — skipping DB claim', { competitionId });
+    } else {
+      const { data: claimed, error: claimErr } = await supabase
+        .from('aio_competitions')
+        .update({ status: 'running', started_at: new Date().toISOString() })
+        .eq('id', competitionId)
+        .eq('status', 'lobby')
+        .select('id');
 
-    if (claimErr) {
-      throw new Error(`Failed to claim competition: ${claimErr.message}`);
-    }
-    if (!claimed || claimed.length === 0) {
-      log.warn('Competition already claimed by another process (status != lobby)', { competitionId });
-      return;
+      if (claimErr) {
+        throw new Error(`Failed to claim competition: ${claimErr.message}`);
+      }
+      if (!claimed || claimed.length === 0) {
+        log.warn('Competition already claimed by another process (status != lobby)', { competitionId });
+        return;
+      }
     }
 
     // ---------------------------------------------------------------

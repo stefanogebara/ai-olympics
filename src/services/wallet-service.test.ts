@@ -227,6 +227,59 @@ describe('withdraw', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests: reverseWithdrawal (compensating credit for a failed external transfer)
+// ---------------------------------------------------------------------------
+
+describe('reverseWithdrawal', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('credits back via the idempotent credit_wallet RPC', async () => {
+    setupExistingWallet();
+    mockRpc.mockResolvedValue({ error: null });
+
+    await walletService.reverseWithdrawal('user-1', 2500, 'polygon_usdc', 'key_reversal');
+
+    expect(mockRpc).toHaveBeenCalledWith('credit_wallet', {
+      p_wallet_id: 'wallet-1',
+      p_amount_cents: 2500,
+      p_provider: 'polygon_usdc_reversal',
+      p_provider_ref: 'key_reversal',
+      p_idempotency_key: 'key_reversal',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: refundEntryFee (credit + decrement pool, neutralize original charge)
+// ---------------------------------------------------------------------------
+
+describe('refundEntryFee', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('calls refund_entry_fee with the reconstructed original entry_fee key', async () => {
+    mockRpc.mockResolvedValue({ error: null });
+
+    await walletService.refundEntryFee('user-1', 'comp-9', 1000, 'refund_leave_comp-9_user-1');
+
+    expect(mockRpc).toHaveBeenCalledWith('refund_entry_fee', {
+      p_user_id: 'user-1',
+      p_competition_id: 'comp-9',
+      p_amount_cents: 1000,
+      p_refund_key: 'refund_leave_comp-9_user-1',
+      p_entry_fee_key: 'entry_fee_user-1_comp-9',
+    });
+  });
+
+  it('throws when the RPC returns an error', async () => {
+    mockRpc.mockResolvedValue({ error: { message: 'refund failed' } });
+
+    await expect(
+      walletService.refundEntryFee('user-1', 'comp-9', 1000, 'k')
+    ).rejects.toMatchObject({ message: 'refund failed' });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests: lockForBet
 // ---------------------------------------------------------------------------
 

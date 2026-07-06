@@ -657,8 +657,11 @@ export class MarketService {
           image: row.image,
         };
       }
-    } catch {
-      // Not found in DB cache
+    } catch (err) {
+      // Log so a DB outage is distinguishable from a genuine cache miss (a real
+      // 0-row lookup returns { error } rather than throwing, so reaching here is
+      // an actual failure, not "not found").
+      log.warn('getMarket: DB cache lookup failed', { id, error: String(err) });
     }
 
     // Try Polymarket API
@@ -667,18 +670,21 @@ export class MarketService {
       if (market) {
         return polymarketClient.normalizeMarket(market);
       }
-    } catch {
-      // Not found in Polymarket
+    } catch (err) {
+      log.warn('getMarket: Polymarket lookup failed', { id, error: String(err) });
     }
 
     // Try Kalshi API
     try {
       const market = await kalshiClient.getMarket(id);
       return kalshiClient.normalizeMarket(market);
-    } catch {
-      // Not found in Kalshi
+    } catch (err) {
+      log.warn('getMarket: Kalshi lookup failed', { id, error: String(err) });
     }
 
+    // All sources exhausted. Callers surface this as "market not found"; the
+    // warnings above are what tell operators whether it was truly missing or an
+    // upstream outage.
     return null;
   }
 
