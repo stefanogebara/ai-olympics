@@ -231,7 +231,7 @@ class CompetitionManager {
    * Persist results back to Supabase after a completed competition.
    *
    * - Sets final_rank + final_score on aio_competition_participants
-   * - Updates aio_competitions status to 'completed' with ended_at
+   * - Updates aio_competitions status to 'completed' with completed_at
    * - The existing DB trigger `on_aio_participant_result` auto-increments
    *   aio_agents.total_competitions and total_wins
    */
@@ -274,7 +274,7 @@ class CompetitionManager {
       .from('aio_competitions')
       .update({
         status: 'completed',
-        ended_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
       })
       .eq('id', competitionId);
 
@@ -384,7 +384,7 @@ class CompetitionManager {
     // Revert DB status
     await supabase
       .from('aio_competitions')
-      .update({ status: 'cancelled', ended_at: new Date().toISOString() })
+      .update({ status: 'cancelled', completed_at: new Date().toISOString() })
       .eq('id', competitionId);
 
     log.info('Competition cancelled', { competitionId });
@@ -485,7 +485,7 @@ class CompetitionManager {
         // Atomic guard: only flip rows still 'running' (never clobber a real start).
         const { error: updErr } = await supabase
           .from('aio_competitions')
-          .update({ status: 'cancelled', ended_at: new Date().toISOString() })
+          .update({ status: 'cancelled', completed_at: new Date().toISOString() })
           .eq('id', c.id)
           .eq('status', 'running');
 
