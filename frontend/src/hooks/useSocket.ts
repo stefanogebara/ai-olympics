@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { getSocket, disconnectSocket } from '../lib/socket';
 import { useStore } from '../store';
 import { SOCKET_EVENTS } from '../lib/constants';
+import { eventMatchesCompetition, type SocketPayload } from '../lib/eventMatch';
 
 interface AgentStateUpdate {
   agentId: string;
@@ -38,33 +39,9 @@ interface CommentaryEvent {
   priority: 'low' | 'medium' | 'high' | 'critical';
 }
 
-/**
- * Loose record type for socket event payloads.
- * Socket events cross a network boundary with no compile-time guarantees,
- * so we use a permissive index signature and rely on runtime null-checks
- * (which the code already performs) rather than pretending the shape is known.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SocketPayload = Record<string, any>;
-
-/**
- * Whether a StreamEvent belongs to the competition this hook is scoped to.
- *
- * The backend broadcasts every event to every connected socket (a single global
- * `io.emit`, so anonymous spectating works without joining an auth-gated room).
- * Without this filter a spectator of competition A also receives competition B's
- * agent/leaderboard/commentary events — and a `competition:start` for B would call
- * reset() and wipe A's view. Events with no competitionId (timer ticks, legacy
- * flat payloads) are always allowed through, and an unscoped hook sees everything.
- *
- * Exported for unit testing.
- */
-export function eventMatchesCompetition(event: SocketPayload, competitionId?: string): boolean {
-  if (!competitionId) return true;
-  const eid = event?.competitionId;
-  if (!eid) return true;
-  return eid === competitionId;
-}
+// Re-exported from the pure ../lib/eventMatch module (kept dependency-free so it
+// is unit-testable without the socket/store runtime).
+export { eventMatchesCompetition } from '../lib/eventMatch';
 
 export function useSocket(competitionId?: string) {
   const {
