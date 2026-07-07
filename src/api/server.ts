@@ -675,6 +675,17 @@ export function createAPIServer() {
       log.debug(`Socket ${socket.id} joined competition room ${competitionId}`);
     });
 
+    // Leave a competition room (no auth: leaving is always safe, and it lets a
+    // spectator navigating between live views drop the old room so its targeted
+    // chat/vote emits stop arriving on the shared singleton socket).
+    socket.on('leave:competition', (competitionId: string) => {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (typeof competitionId === 'string' && uuidRe.test(competitionId)) {
+        socket.leave(`competition:${competitionId}`);
+        log.debug(`Socket ${socket.id} left competition room ${competitionId}`);
+      }
+    });
+
     // Join a tournament room (public spectating - no auth required)
     socket.on('join:tournament', (tournamentId: string) => {
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
